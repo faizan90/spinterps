@@ -35,7 +35,7 @@ def main():
     out_dir = r'Niedersachsen_temperature_avg_interpolation'
     var_units = 'c'  # u'\u2103'  # 'centigrade'
     var_name = 'avg_temperature'
-    out_krig_net_cdf_file = r'Niedersachsen_avg_temp_kriging_%s_to_%s_1km_all.nc'
+    out_krig_net_cdf_file = r'test_Niedersachsen_avg_temp_kriging_%s_to_%s_1km_all.nc'
 
     freq = 'D'
     strt_date = r'1961-01-01'
@@ -54,7 +54,7 @@ def main():
 
     in_bounds_shp_file = (
         os.path.join(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Niedersachsen\hydmod\raster',
-                     r'taudem_out_nied\watersheds.shp'))
+                     r'taudem_out_nied\watersheds_test_krige.shp'))
 
     align_ras_file = in_drift_rasters_list[0]
 
@@ -74,7 +74,7 @@ def main():
     max_var_val = None
 
     idw_exps = [2, 3, 5]
-    n_cpus = 4
+    n_cpus = 1
     n_cpus_scale = 1
     buffer_dist = 20e3
     sec_buffer_dist = 2e3

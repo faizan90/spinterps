@@ -256,7 +256,8 @@ class KrigingPrepare(KT, KBD, KDT):
     def _initiate_nc(self):
 
         self._nc_hdl = nc.Dataset(
-            str(self._out_dir / self._nc_out), mode=str('w'))
+            str(self._out_dir / (self._nc_out.split('.')[0] + '.nc')),
+            mode='w')
 
         self._nc_hdl.set_auto_mask(False)
         self._nc_hdl.createDimension(self._nc_xlab, self._nc_x_crds.shape[0])
@@ -339,7 +340,7 @@ class KrigingPrepare(KT, KBD, KDT):
 
         self._prepare_crds()
 
-        if self._cell_sel_prms_set and (not self._ifull_grd_flag):
+        if self._cell_sel_prms_set and self._ipoly_flag:
             self._select_nearby_cells()
 
         if self._edk_flag:
@@ -432,7 +433,9 @@ class KrigingPrepare(KT, KBD, KDT):
         self._crds_df = self._crds_df.loc[all_stns]
 
         self._data_df = self._data_df.reindex(self._time_rng)
-        self._vgs_ser = self._vgs_ser.reindex(self._time_rng)
+
+        if not self._vg_ser_set_flag:
+            self._vgs_ser = self._vgs_ser.reindex(self._time_rng)
 
         self._prpd_flag = True
         return

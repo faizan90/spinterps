@@ -30,7 +30,7 @@ class KrigingBoundaryPolygons:
 
         feat_buff_stns = []
 
-        if not self._ifull_grd_flag:
+        if self._ipoly_flag:
             feat_buff_cells = []
 
         for feat in bds_lyr:  # just to get the names of the catchments
@@ -41,14 +41,14 @@ class KrigingBoundaryPolygons:
 
             feat_buff_stns.append(geom.Buffer(self._stn_bdist))
 
-            if not self._ifull_grd_flag:
+            if self._ipoly_flag:
                 feat_buff_cells.append(geom.Buffer(self._cell_bdist))
 
         bds_vec.Destroy()
 
         assert feat_buff_stns
 
-        if not self._ifull_grd_flag:
+        if self._ipoly_flag:
             assert feat_buff_cells
 
         if self._vb:
@@ -80,7 +80,7 @@ class KrigingBoundaryPolygons:
         self._data_df = self._data_df.loc[:, fin_stns]
         self._crds_df = self._crds_df.loc[fin_stns, :]
 
-        if not self._ifull_grd_flag:
+        if self._ipoly_flag:
             self._geom_buff_cells = feat_buff_cells
 
         self._nrst_stns_slctd_flag = True

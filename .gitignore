@@ -1,11 +1,11 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
+*.py[co]
 *$py.class
-*.pyc
 *.html
-/.project
-/.pydevproject
+*.project
+*.pydevproject
+*.settings
 
 
 # C extensions

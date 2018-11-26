@@ -20,6 +20,7 @@ class KrigingSteps:
     def __init__(self, krig_main_cls):
 
         read_labs = [
+            '_vgs_ser',
             '_min_var_thr',
             '_min_var_cut',
             '_max_var_cut',
@@ -49,7 +50,6 @@ class KrigingSteps:
 
         (data_df,
          crds_df,
-         vgs_ser,
          beg_idx,
          end_idx,
          interp_arg) = all_args
@@ -57,7 +57,7 @@ class KrigingSteps:
         interp_type = interp_arg[0]
 
         if interp_type == 'IDW':
-            idw_exp = interp_arg[2]  # TODO: implement for multiple
+            idw_exp = interp_arg[2]
 
             krg_flag = False
 
@@ -78,13 +78,13 @@ class KrigingSteps:
             np.nan,
             dtype=np.float32)
 
-        for i, date in enumerate(fin_date_range):
-            print(date)
-            curr_stns = data_df.loc[date, :].dropna().index
+        for i, interp_time in enumerate(fin_date_range):
+            print(interp_time)
+            curr_stns = data_df.loc[interp_time, :].dropna().index
 
             assert curr_stns.shape == np.unique(curr_stns).shape
 
-            curr_data_vals = data_df.loc[date, curr_stns].values
+            curr_data_vals = data_df.loc[interp_time, curr_stns].values
             curr_x_coords = crds_df.loc[curr_stns, 'X'].values
             curr_y_coords = crds_df.loc[curr_stns, 'Y'].values
 
@@ -92,13 +92,17 @@ class KrigingSteps:
                 curr_drift_vals = (
                     np.atleast_2d(self._stns_drft_df.loc[curr_stns].values.T))
 
-            model = str(vgs_ser.loc[date])
+            if krg_flag:
+                model = str(self._vgs_ser.loc[interp_time])
+
+            else:
+                model = None
 
             interp_vals = None
 
             if (model == 'nan') or (not curr_stns.shape[0]):
 
-                print('No interp on:', date)
+                print('No interp on:', interp_time)
                 continue
 
             # TODO: another ratio for this.
@@ -117,7 +121,8 @@ class KrigingSteps:
                         interp_type)
 
                 except Exception as msg:
-                    print('Error on %s:' % date.strftime('%Y-%m-%d'), msg)
+                    time_str = interp_time.strftime('%Y-%m-%dT%H:%M:%S')
+                    print('Error on %s:' % time_str, msg)
 
             else:
                 interp_vals = get_idw_arr(
@@ -148,7 +153,7 @@ class KrigingSteps:
                     interp_flds[i],
                     curr_x_coords,
                     curr_y_coords,
-                    date,
+                    interp_time,
                     model,
                     interp_type,
                     out_figs_dir)
@@ -160,14 +165,14 @@ class KrigingSteps:
             interp_fld,
             curr_x_coords,
             curr_y_coords,
-            date,
+            interp_time,
             model,
             interp_type,
             out_figs_dir):
 
-        date_str = date.strftime('%Y-%m-%d')
+        time_str = interp_time.strftime('%Y_%m_%d_T_%H_%M')
 
-        out_fig_name = f'{interp_type.lower()}_{date_str}.png'
+        out_fig_name = f'{interp_type.lower()}_{time_str}.png'
 
         fig, ax = plt.subplots()
 
@@ -199,7 +204,7 @@ class KrigingSteps:
         ax.set_xlabel('Easting')
         ax.set_ylabel('Northing')
 
-        title = 'Date: %s\n(vg: %s)\n' % (date_str, model)
+        title = 'Time: %s\n(VG: %s)\n' % (time_str, model)
         ax.set_title(title)
 
         plt.setp(ax.get_xmajorticklabels(), rotation=70)

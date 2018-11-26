@@ -25,6 +25,8 @@ class KrigingMain(KD, KP):
         KD.__init__(self, verbose)
         KP.__init__(self)
 
+        self._vgs_ser = None
+
         self._plot_polys = None
         self._cntn_idxs = None
         self._plots_dir = None
@@ -42,6 +44,14 @@ class KrigingMain(KD, KP):
         self._n_idw_exps = None
 
         self._interp_args = None
+
+        self._n_cpus = 1
+        self._n_cpus_scale = 1
+        self._plot_figs_flag = False
+        self._cell_size = None
+        self._min_var_thr = None
+        self._min_var_cut = None
+        self._max_var_cut = None
 
         self._main_vrfd_flag = False
         return
@@ -91,7 +101,6 @@ class KrigingMain(KD, KP):
             interp_gen = (
                 (self._data_df.iloc[mp_idxs[i]: mp_idxs[i + 1]],
                  self._crds_df,
-                 self._vgs_ser.iloc[mp_idxs[i]: mp_idxs[i + 1]],
                  mp_idxs[i],
                  mp_idxs[i + 1],
                  interp_arg)
@@ -101,7 +110,8 @@ class KrigingMain(KD, KP):
             krg_fld_ress = krg_map(krg_steps_cls.get_interp_flds, interp_gen)
 
             for krd_fld_res in krg_fld_ress:
-                self._nc_hdl[ivar_name][krd_fld_res[1]:krd_fld_res[2], :, :] = krd_fld_res[0]
+                self._nc_hdl[ivar_name][
+                    krd_fld_res[1]:krd_fld_res[2], :, :] = krd_fld_res[0]
 
             self._nc_hdl.sync()
 
