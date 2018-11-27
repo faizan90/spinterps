@@ -17,6 +17,17 @@ class KrigingDrift:
 
     def _assemble_drift_data(self):
 
+        '''
+        Given the drift rasters, check if all of them have similar properties
+        such as cell size, coordinates' minima and maxima and no data values.
+
+        If the alignment raster is specified then the cell size of the
+        drift rasters should match that of the alignment raster.
+
+        Manually specifed cell size is ignored and the cell size of the
+        drift rasters is taken if no alignment raster is specified.
+        '''
+
         self._drft_oarrs = []
 
         check_valss = [
@@ -39,7 +50,7 @@ class KrigingDrift:
             if self._vb:
                 print('Going through:', drift_raster.name)
 
-            assert drift_ds is not None
+            assert drift_ds is not None, 'Could not read drift raster!'
 
             drift_gt = drift_ds.GetGeoTransform()
 
@@ -49,8 +60,13 @@ class KrigingDrift:
             cell_width = drift_gt[1]
             cell_height = abs(drift_gt[5])
 
-            assert np.isclose(cell_width, self._cell_size)
-            assert np.isclose(cell_height, self._cell_size)
+            assert np.isclose(cell_width, self._cell_size), (
+                f'Drift raster\'s cell width {cell_width} unequal to '
+                f'the one used {self._cell_size}!')
+
+            assert np.isclose(cell_height, self._cell_size), (
+                f'Drift raster\'s cell height {cell_height} unequal to '
+                f'the one used {self._cell_size}!')
 
             drift_rows = drift_ds.RasterYSize
             drift_cols = drift_ds.RasterXSize
@@ -65,8 +81,7 @@ class KrigingDrift:
             if self._vb:
                 print('x_min:', drift_x_min)
                 print('y_max:', drift_y_max)
-                print('cell_width:', cell_width)
-                print('cell_height:', cell_height)
+                print('cell_width and height:', cell_width)
                 print('No. rows:', drift_rows)
                 print('No. columns:', drift_cols)
                 print('NDV:', drift_ndv)

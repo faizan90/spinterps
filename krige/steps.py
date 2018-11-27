@@ -79,7 +79,7 @@ class KrigingSteps:
             dtype=np.float32)
 
         for i, interp_time in enumerate(fin_date_range):
-            print(interp_time)
+            print(interp_type, interp_time)
             curr_stns = data_df.loc[interp_time, :].dropna().index
 
             assert curr_stns.shape == np.unique(curr_stns).shape

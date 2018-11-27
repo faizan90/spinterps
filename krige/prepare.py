@@ -31,8 +31,17 @@ class KrigingPrepare(KT, KBD, KDT):
 
     def _cmpt_aligned_coordinates(self):
 
-        assert self._cell_sel_prms_set
-        assert self._algn_ras_set_flag
+        '''
+        Given the alignment raster compute the cell size and bounds of the
+        interpolation grid such that they align completely with the
+        alignment raster.
+        '''
+
+        assert self._cell_sel_prms_set, (
+            'Call set_cell_selection_parameters first!')
+
+        assert self._algn_ras_set_flag, (
+            'Call set_alignment_raster first!')
 
         ((fin_x_min,
           fin_x_max,
@@ -66,6 +75,20 @@ class KrigingPrepare(KT, KBD, KDT):
 
     def _cmpt_corner_coordinates(self):
 
+        '''
+        If alignment raster is unspecified then take the minima and maxima
+        of the station coordinates as the bounds for the interpolation
+        grids.
+
+        If external drift kriging is turned on then use the cell size of
+        the first drift raster.
+
+        Else the  cell size should have been specified manually in
+        the set_misc_settings function.
+
+        Error is raised if cell size is not set.
+        '''
+
         self._x_min = self._crds_df['X'].min()
         self._x_max = self._crds_df['X'].max()
 
@@ -73,9 +96,9 @@ class KrigingPrepare(KT, KBD, KDT):
         self._y_max = self._crds_df['Y'].max()
 
         if self._edk_flag:
-            self._cell_size = get_ras_props(self._drft_rass[0])[6]
+            self._cell_size = get_ras_props(str(self._drft_rass[0]))[6]
 
-        assert self._cell_size is not None
+        assert self._cell_size is not None, 'Cell size unspecified!'
 
         if self._vb:
             print('\n', '#' * 10, sep='')
@@ -91,10 +114,17 @@ class KrigingPrepare(KT, KBD, KDT):
     def _prepare_crds(self):
 
         if self._edk_flag:
-            assert self._x_min > self._drft_x_min
-            assert self._x_max < self._drft_x_max
-            assert self._y_min > self._drft_y_min
-            assert self._y_max < self._drft_y_max
+            assert self._x_min > self._drft_x_min, (
+                'Grid x_min outside of the drift rasters!')
+
+            assert self._x_max < self._drft_x_max, (
+                'Grid x_max outside of drift rtasters!')
+
+            assert self._y_min > self._drft_y_min, (
+                'Grid y_min outside of drift rasters!')
+
+            assert self._y_max < self._drft_y_max, (
+                'Grid y_max outside of drift rasters!')
 
             self._min_col = int(
                 max(0, (self._x_min - self._drft_x_min) / self._cell_size))
@@ -169,7 +199,15 @@ class KrigingPrepare(KT, KBD, KDT):
 
     def _select_nearby_cells(self):
 
+        '''
+        If interp_around_polys_flag is True then interpolate only those
+        cells that are near or inside the polygons.
+
+        This could be multithreaded.
+        '''
+
         if self._vb:
+            print('\n', '#' * 10, sep='')
             print(self._krg_x_crds_msh.shape[0],
                   'cells to interpolate per step before intersection!')
 
@@ -187,8 +225,9 @@ class KrigingPrepare(KT, KBD, KDT):
             print(
                 fin_idxs_sum,
                 'cells to interpolate per step after intersection!')
+            print('#' * 10)
 
-        assert fin_idxs_sum
+        assert fin_idxs_sum, 'No cells selected for interpolation!'
 
         self._krg_x_crds_msh = self._krg_x_crds_msh[fin_cntn_idxs]
         self._krg_y_crds_msh = self._krg_y_crds_msh[fin_cntn_idxs]
@@ -197,6 +236,12 @@ class KrigingPrepare(KT, KBD, KDT):
         return
 
     def _prepare_stns_drift(self):
+
+        '''
+        Bring the drift data to a useable form. Also, for every station,
+        extract the drift values from each drift raster and put them in
+        a seperate dataframe.
+        '''
 
         self._drft_arrs = []
 
@@ -249,11 +294,15 @@ class KrigingPrepare(KT, KBD, KDT):
                     pass
 
         # TODO: check for repeating drift, that can produce singular matrix
-        # TODO: put checks on cell size
         self._stns_drft_df.dropna(inplace=True)
         return
 
     def _initiate_nc(self):
+
+        '''
+        Create the output netCDF4 file. All interpolated grids, cell
+        coordinates and time stamps will be saved in this file.
+        '''
 
         self._nc_hdl = nc.Dataset(
             str(self._out_dir / (self._nc_out.split('.')[0] + '.nc')),
@@ -310,6 +359,8 @@ class KrigingPrepare(KT, KBD, KDT):
         return
 
     def _prepare(self):
+
+        '''Main call for the preparation of required variables.'''
 
         assert any([
             self._ork_flag,
@@ -421,12 +472,17 @@ class KrigingPrepare(KT, KBD, KDT):
         self._initiate_nc()
 
         all_stns = self._data_df.columns.intersection(self._crds_df.index)
-        assert all_stns.shape[0]
+        assert all_stns.shape[0], (
+            'No common stations in data and station coordinates\' '
+            'dataframes!')
 
         if self._edk_flag:
             all_stns = all_stns.intersection(self._stns_drft_df.index)
 
-            assert all_stns.shape[0]
+            assert all_stns.shape[0], (
+                'No common stations in data, station coordinates\' '
+                'and station drifts\' dataframes!')
+
             self._stns_drft_df = self._stns_drft_df.loc[all_stns]
 
         self._data_df = self._data_df.loc[:, all_stns]

@@ -9,6 +9,8 @@ from pathlib import Path
 
 class KrigingTypes:
 
+    '''Specify the types of interpolations to do'''
+
     def __init__(self):
 
         self._ork_flag = False
@@ -68,20 +70,36 @@ class KrigingTypes:
         self._spk_flag = False
         return
 
-    def turn_external_drift_kriging_on(
-            self,
-            drift_rasters):
+    def turn_external_drift_kriging_on(self, drift_rasters):
+
+        '''
+        Signal to do external drift kriging.
+
+        Parameters
+        ----------
+        drift_rasters : iterable of paths
+            An iterable (list or tuple) holding paths to the rasters that
+            should be used as drifts. All rasters should have the same spatial
+            properties and coordinate systems that are compatible with the
+            station coordinates.
+        '''
 
         assert hasattr(drift_rasters, '__iter__')
 
         self._drft_rass = []
 
         for drift_raster in drift_rasters:
-            assert isinstance(drift_raster, (str, Path))
+            assert isinstance(drift_raster, (str, Path)), (
+                'Supplied drift raster path is not a string or a '
+                'pathlib.Path object!')
 
             drift_raster_path = Path(drift_raster).absolute()
-            assert drift_raster_path.exists()
-            assert drift_raster_path.is_file()
+
+            assert drift_raster_path.exists(), (
+                'Supplied drift raster path does not point to a file!')
+
+            assert drift_raster_path.is_file(), (
+                'Supplied drift raster path does not point to a file!')
 
             self._drft_rass.append(drift_raster_path)
 
@@ -89,7 +107,7 @@ class KrigingTypes:
 
         self._n_drft_rass = len(self._drft_rass)
 
-        assert self._n_drft_rass
+        assert self._n_drft_rass, 'Zero drift rasters were supplied!'
 
         if self._vb:
             print('\n', '#' * 10, sep='')
@@ -113,9 +131,7 @@ class KrigingTypes:
         if self._vb:
             print('\n', '#' * 10, sep='')
 
-            print(
-                'Set external_drift kriging flag to False and deleted '
-                'drift_rasters.')
+            print('Set external_drift kriging flag to False.')
 
             print('#' * 10)
 
@@ -125,16 +141,25 @@ class KrigingTypes:
         self._edk_flag = False
         return
 
-    def turn_inverse_distance_weighting_on(
-            self,
-            idw_exps):
+    def turn_inverse_distance_weighting_on(self, idw_exps):
+
+        '''
+        Signal to do inverse distance weighting.
+
+        Parameters
+        ----------
+        idw_exps : iterable of ints or floats
+            The exponents to use in inverse distance weighting.
+            Seperate interpolation grids are computed for each exponent.
+        '''
 
         assert hasattr(idw_exps, '__iter__')
 
         self._idw_exps = []
 
         for idw_exp in idw_exps:
-            assert isinstance(idw_exp, (int, float))
+            assert isinstance(idw_exp, (int, float)), (
+                'IDW exponent not a float or an int!')
 
             self._idw_exps.append(float(idw_exp))
 
@@ -142,7 +167,7 @@ class KrigingTypes:
 
         self._n_idw_exps = len(self._idw_exps)
 
-        assert self._n_idw_exps
+        assert self._n_idw_exps, 'Zero IDW exponents given!'
 
         if self._vb:
             print('\n', '#' * 10, sep='')

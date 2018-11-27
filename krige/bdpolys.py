@@ -19,10 +19,17 @@ class KrigingBoundaryPolygons:
 
     def _select_nearest_stations(self):
 
-        assert self._cell_sel_prms_set
+        '''Given the polygons_shapefile, select stations that have
+        distances less than the station_select_buffer_distance to the
+        nearest polygon.
+        '''
+
+        assert self._cell_sel_prms_set, (
+            'Call set_cell_selection_parameters first!')
 
         bds_vec = ogr.Open(str(self._poly_shp))
-        assert bds_vec is not None
+        assert bds_vec is not None, (
+            'Could not open the polygons_shapefile!')
 
         bds_lyr = bds_vec.GetLayer(0)
 
@@ -33,11 +40,11 @@ class KrigingBoundaryPolygons:
         if self._ipoly_flag:
             feat_buff_cells = []
 
-        for feat in bds_lyr:  # just to get the names of the catchments
+        for feat in bds_lyr:
             geom = feat.GetGeometryRef().Clone()
             assert geom is not None
 
-            assert isinstance(geom, ogr.Geometry)
+            assert geom.GetGeometryType() == 3, 'Geometry not a polygon!'
 
             feat_buff_stns.append(geom.Buffer(self._stn_bdist))
 
@@ -46,10 +53,11 @@ class KrigingBoundaryPolygons:
 
         bds_vec.Destroy()
 
-        assert feat_buff_stns
+        assert feat_buff_stns, 'Zero polygons in the polygons_shapefile!'
 
         if self._ipoly_flag:
-            assert feat_buff_cells
+            assert feat_buff_cells, (
+                'Zero polygons in the polygons_shapefile!')
 
         if self._vb:
             print('\n', '#' * 10, sep='')
@@ -67,7 +75,8 @@ class KrigingBoundaryPolygons:
                 if chk_cntmt(curr_pt, poly):
                     fin_stns.append(stn)
 
-        assert fin_stns
+        assert fin_stns, (
+            'Found zero stations that are close enough to the polygons!')
 
         if self._vb:
             print(

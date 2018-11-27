@@ -15,7 +15,7 @@ from spinterps import KrigingMain
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize_LDs')
+    main_dir = Path(r'Q:\Synchronize_LDs')
     os.chdir(main_dir)
 
     in_data_file = os.path.join(
@@ -39,7 +39,7 @@ def main():
 
     freq = 'D'
     strt_date = r'1961-01-01'
-    end_date = r'1961-06-30'
+    end_date = r'1961-01-30'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
@@ -75,7 +75,6 @@ def main():
 
     idw_exps = [2, 3, 5]
     n_cpus = 1
-    n_cpus_scale = 1
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
@@ -88,15 +87,15 @@ def main():
     idw_flag = True
     plot_figs_flag = True
     verbose = True
-    interp_full_grid_flag = True
+    interp_around_polys_flag = True
 
-#     ord_krige_flag = False
-#     sim_krige_flag = False
-#     edk_krige_flag = False
+    ord_krige_flag = False
+    sim_krige_flag = False
+    edk_krige_flag = False
 #     idw_flag = False
     plot_figs_flag = False
 #     verbose = False
-    interp_full_grid_flag = False
+#     interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,
@@ -136,13 +135,12 @@ def main():
     krige_cls.set_cell_selection_parameters(
         in_bounds_shp_file,
         buffer_dist,
-        sec_buffer_dist,
-        interp_full_grid_flag)
+        interp_around_polys_flag,
+        sec_buffer_dist)
     krige_cls.set_alignment_raster(align_ras_file)
 
     krige_cls.set_misc_settings(
         n_cpus,
-        n_cpus_scale,
         plot_figs_flag,
         None,
         min_ppt_thresh,
