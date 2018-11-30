@@ -11,20 +11,21 @@ import pandas as pd
 import netCDF4 as nc
 import shapefile as shp
 
-from .kgtypes import KrigingTypes as KT
 from .drift import KrigingDrift as KDT
 from .bdpolys import KrigingBoundaryPolygons as KBD
 from ..misc import get_aligned_shp_bds_and_cell_size
 from ..misc import cnvt_to_pt, chk_cntmt, get_ras_props
 
 
-class KrigingPrepare(KT, KBD, KDT):
+class KrigingPrepare(KBD, KDT):
 
     def __init__(self):
 
-        KT.__init__(self)
         KBD.__init__(self)
         KDT.__init__(self)
+
+        self._plot_polys = None
+        self._cntn_idxs = None
 
         self._prpd_flag = False
         return
@@ -235,68 +236,6 @@ class KrigingPrepare(KT, KBD, KDT):
         self._cntn_idxs = fin_cntn_idxs
         return
 
-    def _prepare_stns_drift(self):
-
-        '''
-        Bring the drift data to a useable form. Also, for every station,
-        extract the drift values from each drift raster and put them in
-        a seperate dataframe.
-        '''
-
-        self._drft_arrs = []
-
-        krige_cols = np.arange(self._min_col, self._max_col + 1, dtype=int)
-        krige_rows = np.arange(self._min_row, self._max_row + 1, dtype=int)
-
-        assert self._nc_x_crds.shape[0] == krige_cols.shape[0]
-        assert self._nc_y_crds.shape[0] == krige_rows.shape[0]
-
-        (krige_drift_cols_mesh,
-         krige_drift_rows_mesh) = np.meshgrid(krige_cols, krige_rows)
-
-        krige_drift_cols_mesh = krige_drift_cols_mesh.ravel()
-        krige_drift_rows_mesh = krige_drift_rows_mesh.ravel()
-
-        if self._cell_sel_prms_set:
-            krige_drift_cols_mesh = krige_drift_cols_mesh[self._cntn_idxs]
-            krige_drift_rows_mesh = krige_drift_rows_mesh[self._cntn_idxs]
-
-        for drift_arr in self._drft_oarrs:
-            drift_vals = drift_arr[
-                krige_drift_rows_mesh, krige_drift_cols_mesh]
-
-            self._drft_arrs.append(drift_vals)
-
-        self._drft_arrs = np.array(self._drft_arrs, dtype=float)
-
-        drift_df_cols = np.arange(len(self._drft_oarrs))
-
-        self._stns_drft_df = pd.DataFrame(
-            index=self._crds_df.index,
-            columns=drift_df_cols,
-            dtype=float)
-
-        for stn in self._stns_drft_df.index:
-            stn_x = self._crds_df.loc[stn, 'X']
-            stn_y = self._crds_df.loc[stn, 'Y']
-
-            stn_col = int((stn_x - self._drft_x_min) / self._cell_size)
-            stn_row = int((self._drft_y_max - stn_y) / self._cell_size)
-
-            for col, drft_oarr in zip(drift_df_cols, self._drft_oarrs):
-                try:
-                    drft = drft_oarr[stn_row, stn_col]
-
-                    if not np.isclose(self._drft_ndv, drft):
-                        self._stns_drft_df.loc[stn, col] = drft
-
-                except IndexError:
-                    pass
-
-        # TODO: check for repeating drift, that can produce singular matrix
-        self._stns_drft_df.dropna(inplace=True)
-        return
-
     def _initiate_nc(self):
 
         '''
@@ -335,11 +274,7 @@ class KrigingPrepare(KT, KBD, KDT):
         time_nc.calendar = self._nc_tcldr
 
         for interp_arg in self._interp_args:
-            if interp_arg[0] == 'IDW':
-                ivar_name = interp_arg[3]
-
-            else:
-                ivar_name = interp_arg[0]
+            ivar_name = interp_arg[3]
 
             nc_var = self._nc_hdl.createVariable(
                 ivar_name,
@@ -416,7 +351,7 @@ class KrigingPrepare(KT, KBD, KDT):
 
             if self._idw_flag:
                 for i, idw_exp in enumerate(self._idw_exps):
-                    exp_str = ('%0.6f' % idw_exp).replace('.', '').rstrip('0')
+                    exp_str = ('%0.3f' % idw_exp).replace('.', '').rstrip('0')
                     fig_dirs[f'IDW_{i:03d}'] = 'idw_exp_%s_figs' % exp_str
 
             interp_plot_dirs = {}
@@ -437,7 +372,7 @@ class KrigingPrepare(KT, KBD, KDT):
             else:
                 fig_dir = None
 
-            self._interp_args.append(('OK', fig_dir))
+            self._interp_args.append(('OK', fig_dir, 'OK'))
 
         if self._spk_flag:
             if self._plot_figs_flag:
@@ -446,7 +381,7 @@ class KrigingPrepare(KT, KBD, KDT):
             else:
                 fig_dir = None
 
-            self._interp_args.append(('SK', fig_dir))
+            self._interp_args.append(('SK', fig_dir, 'SK'))
 
         if self._edk_flag:
             if self._plot_figs_flag:
@@ -455,7 +390,7 @@ class KrigingPrepare(KT, KBD, KDT):
             else:
                 fig_dir = None
 
-            self._interp_args.append(('EDK', fig_dir))
+            self._interp_args.append(('EDK', fig_dir, 'EDK'))
 
         if self._idw_flag:
             for i, idw_exp in enumerate(self._idw_exps):
@@ -467,7 +402,7 @@ class KrigingPrepare(KT, KBD, KDT):
                 else:
                     fig_dir = None
 
-                self._interp_args.append(('IDW', fig_dir, idw_exp, idw_lab))
+                self._interp_args.append(('IDW', fig_dir, idw_lab, idw_exp))
 
         self._initiate_nc()
 

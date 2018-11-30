@@ -6,11 +6,16 @@ Created on Nov 25, 2018
 
 import gdal
 import numpy as np
+import pandas as pd
 
 
 class KrigingDrift:
 
     def __init__(self):
+
+        self._drft_ndv = None
+        self._drft_arrs = None
+        self._stns_drft_df = None
 
         self._drft_asm_flag = False
         return
@@ -28,7 +33,7 @@ class KrigingDrift:
         drift rasters is taken if no alignment raster is specified.
         '''
 
-        self._drft_oarrs = []
+        self._drft_oarrs = []  #  the original ones, ndvs are not NaNs
 
         check_valss = [
             [],  # x_mins
@@ -116,4 +121,66 @@ class KrigingDrift:
             print('#' * 10)
 
         self._drft_asm_flag = True
+        return
+
+    def _prepare_stns_drift(self):
+
+        '''
+        Bring the drift data to a useable form. Also, for every station,
+        extract the drift values from each drift raster and put them in
+        a seperate dataframe.
+        '''
+
+        self._drft_arrs = []  # the clipped ones, ndvs are set to NaNs
+
+        krige_cols = np.arange(self._min_col, self._max_col + 1, dtype=int)
+        krige_rows = np.arange(self._min_row, self._max_row + 1, dtype=int)
+
+        assert self._nc_x_crds.shape[0] == krige_cols.shape[0]
+        assert self._nc_y_crds.shape[0] == krige_rows.shape[0]
+
+        (krige_drift_cols_mesh,
+         krige_drift_rows_mesh) = np.meshgrid(krige_cols, krige_rows)
+
+        krige_drift_cols_mesh = krige_drift_cols_mesh.ravel()
+        krige_drift_rows_mesh = krige_drift_rows_mesh.ravel()
+
+        if self._cell_sel_prms_set:
+            krige_drift_cols_mesh = krige_drift_cols_mesh[self._cntn_idxs]
+            krige_drift_rows_mesh = krige_drift_rows_mesh[self._cntn_idxs]
+
+        for drift_arr in self._drft_oarrs:
+            drift_vals = drift_arr[
+                krige_drift_rows_mesh, krige_drift_cols_mesh]
+
+            drift_vals[np.isclose(self._drft_ndv, drift_vals)] = np.nan
+
+            self._drft_arrs.append(drift_vals)
+
+        self._drft_arrs = np.array(self._drft_arrs, dtype=float)
+
+        drift_df_cols = np.arange(len(self._drft_oarrs))
+
+        self._stns_drft_df = pd.DataFrame(
+            index=self._crds_df.index,
+            columns=drift_df_cols,
+            dtype=float)
+
+        for stn in self._stns_drft_df.index:
+            stn_x = self._crds_df.loc[stn, 'X']
+            stn_y = self._crds_df.loc[stn, 'Y']
+
+            stn_col = int((stn_x - self._drft_x_min) / self._cell_size)
+            stn_row = int((self._drft_y_max - stn_y) / self._cell_size)
+
+            for col, drft_oarr in zip(drift_df_cols, self._drft_oarrs):
+                drft = drft_oarr[stn_row, stn_col]
+
+                if np.isclose(self._drft_ndv, drft):
+                    drft = np.nan
+
+                self._stns_drft_df.loc[stn, col] = drft
+
+        # TODO: check for repeating drift, that can produce singular matrix
+        self._stns_drft_df.dropna(inplace=True)
         return

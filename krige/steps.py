@@ -34,11 +34,8 @@ class KrigingSteps:
             '_krg_y_crds_plot_msh',
             '_krg_x_crds_msh',
             '_krg_y_crds_msh',
-            '_drft_rass',
-            '_n_drft_rass',
             '_drft_arrs',
             '_stns_drft_df',
-            '_drft_ndv',
             ]
 
         for read_lab in read_labs:
@@ -132,10 +129,6 @@ class KrigingSteps:
                     curr_y_coords,
                     curr_data_vals,
                     idw_exp)
-
-#             if interp_type == 'EDK':
-#                 interp_vals[np.isclose(
-#                     self._drft_ndv, self._drft_arrs[0])] = np.nan
 
             if interp_vals is None:
                 continue

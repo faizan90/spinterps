@@ -18,6 +18,21 @@ class KrigingData(VD):
 
         VD.__init__(self, verbose)
 
+        self._vgs_ser = None
+
+        self._cell_bdist = None
+
+        self._n_cpus = 1
+        self._n_cpus_scale = 1
+
+        self._plot_figs_flag = False
+
+        self._cell_size = None
+
+        self._min_var_thr = None
+        self._min_var_cut = None
+        self._max_var_cut = None
+
         self._vg_ser_set_flag = False
         self._out_dir_set_flag = False
         self._nc_set_flag = False
