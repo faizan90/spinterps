@@ -7,7 +7,7 @@ Created on Nov 25, 2018
 import os
 from math import ceil
 from pathlib import Path
-from multiprocessing import Pool
+from multiprocessing import Pool, Manager
 
 import psutil as ps
 
@@ -61,6 +61,8 @@ class KrigingMain(KD, KP):
 
         interp_steps_idxs = self._get_thread_steps_idxs()
 
+        self._mp_lock = Manager().Lock()
+
         if self._n_cpus > 1:
             mp_pool = Pool(self._n_cpus)
             krg_map = mp_pool.map
@@ -99,13 +101,15 @@ class KrigingMain(KD, KP):
                     f'Big iter: {j}, interpreter size after gen:',
                     get_current_proc_size(True))
 
-                import time; print('parent sleeping 20...'); time.sleep(20)
+#                 import time; print('parent sleeping 20...'); time.sleep(20)
 
                 for krd_fld_res in krg_fld_ress:
                     self._nc_hdl[ivar_name][
                         krd_fld_res[1]:krd_fld_res[2], :, :] = krd_fld_res[0]
 
                     krd_fld_res[0] = None
+
+                    print('wrote:', krd_fld_res[1], krd_fld_res[2])
 
                 self._nc_hdl.sync()
 
@@ -123,7 +127,12 @@ class KrigingMain(KD, KP):
 
     def _get_interp_gen_data(self, idx_i, idx_j, interp_arg):
 
-        return (self._data_df.iloc[idx_i:idx_j], idx_i, idx_j, interp_arg)
+        return (
+            self._data_df.iloc[idx_i:idx_j],
+            idx_i,
+            idx_j,
+            interp_arg,
+            self._mp_lock)
 
     def _get_thread_steps_idxs(self):
 
@@ -138,7 +147,7 @@ class KrigingMain(KD, KP):
         interpreter_size = get_current_proc_size()
 
         tot_avail_mem = int(
-            0.5 * ps.virtual_memory().free * self._max_mem_usage_ratio)
+            ps.virtual_memory().free * self._max_mem_usage_ratio)
 
         avail_threads_mem = tot_avail_mem - (self._n_cpus * interpreter_size)
 

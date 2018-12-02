@@ -51,7 +51,8 @@ class KrigingSteps:
         (data_df,
          beg_idx,
          end_idx,
-         interp_arg) = all_args
+         interp_arg,
+         mp_lock) = all_args
 
         interp_type = interp_arg[0]
 
@@ -80,7 +81,10 @@ class KrigingSteps:
         print(beg_idx, end_idx)
         print('before:', interp_type, get_current_proc_size(True))
 
-        import time; print('child sleeping 20...'); time.sleep(20)
+        with mp_lock:
+            import os
+            rand_secs = int(np.random.uniform(10, 10))
+            import time; print('child sleeping %d, %d...' % (os.getpid(), rand_secs)); time.sleep(rand_secs)
         return [interp_flds, beg_idx, end_idx]
 
         for i, interp_time in enumerate(fin_date_range):
