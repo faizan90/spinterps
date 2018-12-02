@@ -12,6 +12,8 @@ from descartes import PolygonPatch
 from spinterps import get_idw_arr
 from krigings import (OrdinaryKriging, SimpleKriging, ExternalDriftKriging_MD)
 
+from ..misc import get_current_proc_size
+
 plt.ioff()
 
 
@@ -20,6 +22,7 @@ class KrigingSteps:
     def __init__(self, krig_main_cls):
 
         read_labs = [
+            '_crds_df',
             '_vgs_ser',
             '_min_var_thr',
             '_min_var_cut',
@@ -46,7 +49,6 @@ class KrigingSteps:
     def get_interp_flds(self, all_args):
 
         (data_df,
-         crds_df,
          beg_idx,
          end_idx,
          interp_arg) = all_args
@@ -54,7 +56,7 @@ class KrigingSteps:
         interp_type = interp_arg[0]
 
         if interp_type == 'IDW':
-            idw_exp = interp_arg[2]
+            idw_exp = interp_arg[3]
 
             krg_flag = False
 
@@ -75,15 +77,22 @@ class KrigingSteps:
             np.nan,
             dtype=np.float32)
 
+        print(beg_idx, end_idx)
+        print('before:', interp_type, get_current_proc_size(True))
+
+        import time; print('child sleeping 20...'); time.sleep(20)
+        return [interp_flds, beg_idx, end_idx]
+
         for i, interp_time in enumerate(fin_date_range):
-            print(interp_type, interp_time)
+            print('before:', interp_type, interp_time, get_current_proc_size(True))
+
             curr_stns = data_df.loc[interp_time, :].dropna().index
 
             assert curr_stns.shape == np.unique(curr_stns).shape
 
             curr_data_vals = data_df.loc[interp_time, curr_stns].values
-            curr_x_coords = crds_df.loc[curr_stns, 'X'].values
-            curr_y_coords = crds_df.loc[curr_stns, 'Y'].values
+            curr_x_coords = self._crds_df.loc[curr_stns, 'X'].values
+            curr_y_coords = self._crds_df.loc[curr_stns, 'Y'].values
 
             if interp_type == 'EDK':
                 curr_drift_vals = (
@@ -151,6 +160,8 @@ class KrigingSteps:
                     interp_type,
                     out_figs_dir)
 
+            print('after:', interp_type, interp_time, get_current_proc_size(True))
+
         return [interp_flds, beg_idx, end_idx]
 
     def _plot_interp(
@@ -204,7 +215,6 @@ class KrigingSteps:
         ax.set_aspect('equal', 'datalim')
         plt.savefig(str(out_figs_dir / out_fig_name), bbox_inches='tight')
         plt.close()
-
         return
 
     def _mod_min_max(self, krige_fld):

@@ -32,19 +32,20 @@ def main():
     in_stns_coords_file = os.path.join(
         os.path.dirname(in_data_file),
         r'infilled_var_df_infill_stns_coords.csv')
-    out_dir = r'Niedersachsen_temperature_avg_interpolation'
+    out_dir = r'test_Niedersachsen_temperature_avg_interpolation'
     var_units = 'c'  # u'\u2103'  # 'centigrade'
     var_name = 'avg_temperature'
+
     out_krig_net_cdf_file = r'test_Niedersachsen_avg_temp_kriging_%s_to_%s_1km_all.nc'
 
     freq = 'D'
     strt_date = r'1961-01-01'
-    end_date = r'1961-01-30'
+    end_date = r'1975-06-30'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Niedersachsen\hydmod\raster\srtm_mosacis_niedersachsen_5km_gkz3.tif'])  # ,
+        [r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Niedersachsen\hydmod\raster\srtm_mosacis_niedersachsen_100m_gkz3.tif'])  # ,
     #     r'santa_rs_minerve_prep_june17/taudem_out/northings_drift_5km.tif',
     #     r'santa_rs_minerve_prep_june17/taudem_out/eastings_drift_5km.tif'])
 
@@ -73,8 +74,8 @@ def main():
     min_var_val = None
     max_var_val = None
 
-    idw_exps = [2, 3, 5]
-    n_cpus = 1
+    idw_exps = [3]  # [2, 3, 5]
+    n_cpus = 7
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
@@ -95,7 +96,7 @@ def main():
 #     idw_flag = False
     plot_figs_flag = False
 #     verbose = False
-#     interp_around_polys_flag = False
+    interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,

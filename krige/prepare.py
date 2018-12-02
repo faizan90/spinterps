@@ -274,7 +274,7 @@ class KrigingPrepare(KBD, KDT):
         time_nc.calendar = self._nc_tcldr
 
         for interp_arg in self._interp_args:
-            ivar_name = interp_arg[3]
+            ivar_name = interp_arg[2]
 
             nc_var = self._nc_hdl.createVariable(
                 ivar_name,

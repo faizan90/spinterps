@@ -23,7 +23,6 @@ class KrigingData(VD):
         self._cell_bdist = None
 
         self._n_cpus = 1
-        self._n_cpus_scale = 1
 
         self._plot_figs_flag = False
 

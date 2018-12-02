@@ -3,10 +3,23 @@ Created on Nov 25, 2018
 
 @author: Faizan
 '''
+import os
 
 import ogr
 import gdal
 import numpy as np
+import psutil as ps
+
+
+def get_current_proc_size(mb=False):
+
+    interpreter_size = ps.Process(os.getpid()).memory_info().vms
+
+    if mb:
+        megabytes = 1024 ** 2
+        interpreter_size //= megabytes
+
+    return interpreter_size
 
 
 def ret_mp_idxs(n_vals, n_cpus):
