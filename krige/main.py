@@ -9,6 +9,7 @@ from math import ceil
 from pathlib import Path
 from multiprocessing import Pool, Manager
 
+import numpy as np
 import psutil as ps
 
 from .steps import KrigingSteps as KS
@@ -39,7 +40,7 @@ class KrigingMain(KD, KP):
         self._edk_flag = False
         self._idw_flag = False
 
-        self._max_mem_usage_ratio = 0.6
+        self._max_mem_usage_ratio = 0.75
 
         self._main_vrfd_flag = False
         return
@@ -62,16 +63,18 @@ class KrigingMain(KD, KP):
         interp_steps_idxs = self._get_thread_steps_idxs()
 
         self._mp_lock = Manager().Lock()
+        self._qu = Manager().Queue()
 
         if self._n_cpus > 1:
             mp_pool = Pool(self._n_cpus)
-            krg_map = mp_pool.map
+            krg_map = mp_pool.imap_unordered
 
         else:
             krg_map = map
 
         krg_steps_cls = KS(self)
 
+        print('Main proc PID:', os.getpid())
         print(interp_steps_idxs)
 
         for interp_arg in self._interp_args:
@@ -86,34 +89,64 @@ class KrigingMain(KD, KP):
                 max_rng = min(self._n_cpus, interp_steps_idxs[j:].shape[0])
                 print('max_rng:', max_rng)
 
+                self._all_procs_strtd_flag = False
+
                 interp_gen = (
                     self._get_interp_gen_data(
+                        i,
                         interp_steps_idxs[j + i],
                         interp_steps_idxs[j + i + 1],
                         interp_arg)
 
                     for i in range(max_rng))
 
-                krg_fld_ress = list(krg_map(
-                    krg_steps_cls.get_interp_flds, interp_gen))
+                krg_map(
+                    krg_steps_cls.get_interp_flds, interp_gen)
 
                 print(
                     f'Big iter: {j}, interpreter size after gen:',
                     get_current_proc_size(True))
 
+                import time
+                while not self._all_procs_strtd_flag:
+                    time.sleep(1)
+                    print('wait 1 sec...')
+
 #                 import time; print('parent sleeping 20...'); time.sleep(20)
 
-                for krd_fld_res in krg_fld_ress:
-                    self._nc_hdl[ivar_name][
-                        krd_fld_res[1]:krd_fld_res[2], :, :] = krd_fld_res[0]
+                tot_items_to_extract = max_rng
 
-                    krd_fld_res[0] = None
+                while tot_items_to_extract:
+                    interp_fld, beg_idx, end_idx = self._qu.get(block=True)
 
-                    print('wrote:', krd_fld_res[1], krd_fld_res[2])
+                    print('Empty qu:', self._qu.empty())
+
+                    print(
+                        f'Big iter: {j}, interpreter size at read {tot_items_to_extract}:',
+                        get_current_proc_size(True))
+
+                    nc_idxs = np.linspace(beg_idx, end_idx, max_rng, dtype=int)
+                    arr_idxs = nc_idxs - beg_idx
+
+                    for i in range(max_rng - 1):
+                        print(nc_idxs[i], nc_idxs[i + 1])
+                        self._nc_hdl[ivar_name][nc_idxs[i]:nc_idxs[i + 1], :, :] = interp_fld[arr_idxs[i]:arr_idxs[i + 1]]
+
+                    tot_items_to_extract -= 1
+
+#                 for krd_fld_res in krg_fld_ress:
+#                     self._nc_hdl[ivar_name][
+#                         krd_fld_res[1]:krd_fld_res[2], :, :] = krd_fld_res[0]
+
+                    interp_fld = None
+
+                    self._qu.put((1,), block=True)
+
+                    print('wrote:', beg_idx, end_idx)
 
                 self._nc_hdl.sync()
 
-                del krd_fld_res, krg_fld_ress
+#                 del krd_fld_res, krg_fld_ress
 
                 print(
                     f'Big iter: {j}, interpreter size after assignment:',
@@ -123,16 +156,27 @@ class KrigingMain(KD, KP):
 
         self._nc_hdl.Source = self._nc_hdl.filepath()
         self._nc_hdl.close()
+
+        self._qu.close()
         return
 
-    def _get_interp_gen_data(self, idx_i, idx_j, interp_arg):
+    def _get_interp_gen_data(self, t_idx, idx_i, idx_j, interp_arg):
+
+        if t_idx:
+            qu_get = self._qu.get(block=True)
+            print('main qu_get:', qu_get)
+
+        if t_idx == (self._n_cpus - 1):
+            self._all_procs_strtd_flag = True
 
         return (
+            t_idx,
             self._data_df.iloc[idx_i:idx_j],
             idx_i,
             idx_j,
             interp_arg,
-            self._mp_lock)
+            self._mp_lock,
+            self._qu)
 
     def _get_thread_steps_idxs(self):
 

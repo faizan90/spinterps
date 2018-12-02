@@ -162,7 +162,6 @@ def main():
 
     krige_cls.verify()
     krige_cls.krige()
-
     return
 
 

@@ -22,6 +22,7 @@ class KrigingSteps:
     def __init__(self, krig_main_cls):
 
         read_labs = [
+            '_n_cpus',
             '_crds_df',
             '_vgs_ser',
             '_min_var_thr',
@@ -48,11 +49,17 @@ class KrigingSteps:
 
     def get_interp_flds(self, all_args):
 
-        (data_df,
+        (t_idx,
+         data_df,
          beg_idx,
          end_idx,
          interp_arg,
-         mp_lock) = all_args
+         lock,
+         qu) = all_args
+
+        if t_idx < (self._n_cpus - 1):
+            with lock:
+                qu.put((2,), block=True)
 
         interp_type = interp_arg[0]
 
@@ -81,11 +88,17 @@ class KrigingSteps:
         print(beg_idx, end_idx)
         print('before:', interp_type, get_current_proc_size(True))
 
-        with mp_lock:
+        with lock:
             import os
-            rand_secs = int(np.random.uniform(10, 10))
+
+            qu.put([interp_flds, beg_idx, end_idx], block=True)
+
+            rand_secs = int(np.random.uniform(1, 1))
             import time; print('child sleeping %d, %d...' % (os.getpid(), rand_secs)); time.sleep(rand_secs)
-        return [interp_flds, beg_idx, end_idx]
+            interp_flds = None
+            qu_get = qu.get(block=True)[0]
+            print('Got qu:', qu_get)
+        return  # [interp_flds, beg_idx, end_idx]
 
         for i, interp_time in enumerate(fin_date_range):
             print('before:', interp_type, interp_time, get_current_proc_size(True))
