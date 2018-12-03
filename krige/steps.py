@@ -12,8 +12,6 @@ from descartes import PolygonPatch
 from spinterps import get_idw_arr
 from krigings import (OrdinaryKriging, SimpleKriging, ExternalDriftKriging_MD)
 
-from ..misc import get_current_proc_size
-
 plt.ioff()
 
 
@@ -42,6 +40,8 @@ class KrigingSteps:
             '_stns_drft_df',
             ]
 
+        self._debug = False
+
         for read_lab in read_labs:
             setattr(self, read_lab, getattr(krig_main_cls, read_lab))
 
@@ -49,17 +49,28 @@ class KrigingSteps:
 
     def get_interp_flds(self, all_args):
 
-        (t_idx,
-         data_df,
+        ret = None
+
+        try:
+            ret = self._get_interp_flds(all_args)
+
+        except Exception as msg:
+            print('Error while interpolating:', msg)
+
+        return ret
+
+    def _get_interp_flds(self, all_args):
+
+        (data_df,
+         t_idx,
          beg_idx,
          end_idx,
+         max_rng,
          interp_arg,
          lock,
-         qu) = all_args
-
-        if t_idx < (self._n_cpus - 1):
-            with lock:
-                qu.put((2,), block=True)
+         qu_data,
+         qu_barr,
+         qu_done) = all_args
 
         interp_type = interp_arg[0]
 
@@ -85,24 +96,21 @@ class KrigingSteps:
             np.nan,
             dtype=np.float32)
 
-        print(beg_idx, end_idx)
-        print('before:', interp_type, get_current_proc_size(True))
+        if t_idx < (max_rng - 1):
+            qu_done.put((2222,), block=True)
+
+        qu_barr.put((1,), block=True)
 
         with lock:
-            import os
+            qu_data.put([interp_flds, beg_idx, end_idx], block=True)
 
-            qu.put([interp_flds, beg_idx, end_idx], block=True)
-
-            rand_secs = int(np.random.uniform(1, 1))
-            import time; print('child sleeping %d, %d...' % (os.getpid(), rand_secs)); time.sleep(rand_secs)
             interp_flds = None
-            qu_get = qu.get(block=True)[0]
-            print('Got qu:', qu_get)
-        return  # [interp_flds, beg_idx, end_idx]
+            qu_get = qu_done.get(block=True)[0]
+
+            assert qu_get == 1111
+        return
 
         for i, interp_time in enumerate(fin_date_range):
-            print('before:', interp_type, interp_time, get_current_proc_size(True))
-
             curr_stns = data_df.loc[interp_time, :].dropna().index
 
             assert curr_stns.shape == np.unique(curr_stns).shape
@@ -125,7 +133,7 @@ class KrigingSteps:
 
             if (model == 'nan') or (not curr_stns.shape[0]):
 
-                print('No interp on:', interp_time)
+                print('No interpolation on:', interp_time)
                 continue
 
             # TODO: another ratio for this.
@@ -176,8 +184,6 @@ class KrigingSteps:
                     model,
                     interp_type,
                     out_figs_dir)
-
-            print('after:', interp_type, interp_time, get_current_proc_size(True))
 
         return [interp_flds, beg_idx, end_idx]
 

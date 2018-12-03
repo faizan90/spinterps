@@ -3,6 +3,7 @@ Nov 25, 2018
 @author: Faizan-Uni-Stuttgart
 
 '''
+
 import os
 import timeit
 import time
@@ -15,7 +16,7 @@ from spinterps import KrigingMain
 
 def main():
 
-    main_dir = Path(r'Q:\Synchronize_LDs')
+    main_dir = Path(r'P:\Synchronize_LDs')
     os.chdir(main_dir)
 
     in_data_file = os.path.join(

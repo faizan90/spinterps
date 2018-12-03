@@ -5,9 +5,10 @@ Created on Nov 25, 2018
 '''
 
 import os
+import time
 from math import ceil
 from pathlib import Path
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool, Manager, Queue
 
 import numpy as np
 import psutil as ps
@@ -62,32 +63,53 @@ class KrigingMain(KD, KP):
 
         interp_steps_idxs = self._get_thread_steps_idxs()
 
-        self._mp_lock = Manager().Lock()
-        self._qu = Manager().Queue()
-
         if self._n_cpus > 1:
             mp_pool = Pool(self._n_cpus)
-            krg_map = mp_pool.imap_unordered
+
+            krg_map = mp_pool.imap_unordered  #  has to be a non blocking one
+
+            self._lock = Manager().Lock()
+            self._qu_data = Manager().Queue()
+            self._qu_barr = Manager().Queue()
+            self._qu_done = Manager().Queue()
 
         else:
             krg_map = map
 
+            self._lock = None
+            self._qu_data = Queue()
+            self._qu_barr = None
+            self._qu_done = None
+
         krg_steps_cls = KS(self)
 
-        print('Main proc PID:', os.getpid())
-        print(interp_steps_idxs)
+        if self._vb:
+            print('\n', '#' * 10, sep='')
+            print('Started interpolation...')
+            print('Main process PID:', os.getpid())
+            print('Interpolation step indices:\n', interp_steps_idxs, sep='')
 
         for interp_arg in self._interp_args:
             ivar_name = interp_arg[2]
 
+            if self._vb:
+                t_passes = int((interp_steps_idxs.shape[0] - 1) / self._n_cpus)
+
+                print('\n', '#' * 10, sep='')
+                print('Current interpolation method:', ivar_name)
+                print(f'Using {t_passes} pass(es) to interpolate.')
+                print('\n')
+
             for j in range(0, interp_steps_idxs.shape[0] - 1, self._n_cpus):
-
-                print(
-                    f'Big iter: {j}, interpreter size before gen:',
-                    get_current_proc_size(True))
-
                 max_rng = min(self._n_cpus, interp_steps_idxs[j:].shape[0])
-                print('max_rng:', max_rng)
+                assert max_rng > 0
+
+                if self._vb:
+                    print(
+                        f'Pass number {(j // max_rng) + 1} out of '
+                        f'{t_passes} pass(es).')
+
+                    print(f'Using {max_rng} worker(s) for the current pass.')
 
                 self._all_procs_strtd_flag = False
 
@@ -96,87 +118,95 @@ class KrigingMain(KD, KP):
                         i,
                         interp_steps_idxs[j + i],
                         interp_steps_idxs[j + i + 1],
-                        interp_arg)
+                        interp_arg,
+                        max_rng)
 
                     for i in range(max_rng))
 
-                krg_map(
-                    krg_steps_cls.get_interp_flds, interp_gen)
+                krg_map(krg_steps_cls.get_interp_flds, interp_gen)
 
-                print(
-                    f'Big iter: {j}, interpreter size after gen:',
-                    get_current_proc_size(True))
+                if self._n_cpus > 1:
+                    if self._vb:
+                        print('Waiting for all worker(s) to started...')
 
-                import time
-                while not self._all_procs_strtd_flag:
-                    time.sleep(1)
-                    print('wait 1 sec...')
+                    while not self._all_procs_strtd_flag:
+                        time.sleep(1)
 
-#                 import time; print('parent sleeping 20...'); time.sleep(20)
+                    if self._vb:
+                        print('All worker(s) started.')
+
+                    tot_procs_sync_ct = 0
+
+                    while tot_procs_sync_ct < max_rng:
+                        barr_ret = self._qu_barr.get(block=True)[0]
+                        assert barr_ret == 1
+
+                        tot_procs_sync_ct += barr_ret
+
+                if self._vb:
+                    print('Writing interpolated fields to the netCDF file...')
 
                 tot_items_to_extract = max_rng
-
                 while tot_items_to_extract:
-                    interp_fld, beg_idx, end_idx = self._qu.get(block=True)
+                    interp_fld, beg_idx, end_idx = (
+                        self._qu_data.get(block=True))
 
-                    print('Empty qu:', self._qu.empty())
+                    assert self._qu_data.empty()
 
-                    print(
-                        f'Big iter: {j}, interpreter size at read {tot_items_to_extract}:',
-                        get_current_proc_size(True))
-
-                    nc_idxs = np.linspace(beg_idx, end_idx, max_rng, dtype=int)
-                    arr_idxs = nc_idxs - beg_idx
+                    nc_is = np.linspace(beg_idx, end_idx, max_rng, dtype=int)
+                    ar_is = nc_is - beg_idx
 
                     for i in range(max_rng - 1):
-                        print(nc_idxs[i], nc_idxs[i + 1])
-                        self._nc_hdl[ivar_name][nc_idxs[i]:nc_idxs[i + 1], :, :] = interp_fld[arr_idxs[i]:arr_idxs[i + 1]]
+                        self._nc_hdl[ivar_name][
+                            nc_is[i]:nc_is[i + 1], :, :] = (
+                                interp_fld[ar_is[i]:ar_is[i + 1]])
 
                     tot_items_to_extract -= 1
 
-#                 for krd_fld_res in krg_fld_ress:
-#                     self._nc_hdl[ivar_name][
-#                         krd_fld_res[1]:krd_fld_res[2], :, :] = krd_fld_res[0]
-
                     interp_fld = None
 
-                    self._qu.put((1,), block=True)
-
-                    print('wrote:', beg_idx, end_idx)
+                    self._qu_done.put((1111,), block=True)
 
                 self._nc_hdl.sync()
 
-#                 del krd_fld_res, krg_fld_ress
+                if self._vb:
+                    print('Done writing for the current pass.')
+                    print('\n')
 
-                print(
-                    f'Big iter: {j}, interpreter size after assignment:',
-                    get_current_proc_size(True))
-
-                print('\n')
+            if self._vb:
+                print('Done with the interpolation method:', ivar_name)
+                print('#' * 10)
 
         self._nc_hdl.Source = self._nc_hdl.filepath()
         self._nc_hdl.close()
 
-        self._qu.close()
+        del self._qu_data, self._qu_barr, self._qu_done
+
+        if self._vb:
+            print('\n')
+            print('Done interpolating!')
+            print('#' * 10)
         return
 
-    def _get_interp_gen_data(self, t_idx, idx_i, idx_j, interp_arg):
+    def _get_interp_gen_data(self, t_idx, beg_idx, end_idx, interp_arg, max_rng):
 
         if t_idx:
-            qu_get = self._qu.get(block=True)
-            print('main qu_get:', qu_get)
+            assert self._qu_done.get(block=True)[0] == 2222
 
-        if t_idx == (self._n_cpus - 1):
+        if t_idx == (max_rng - 1):
             self._all_procs_strtd_flag = True
 
         return (
+            self._data_df.iloc[beg_idx:end_idx],
             t_idx,
-            self._data_df.iloc[idx_i:idx_j],
-            idx_i,
-            idx_j,
+            beg_idx,
+            end_idx,
+            max_rng,
             interp_arg,
-            self._mp_lock,
-            self._qu)
+            self._lock,
+            self._qu_data,
+            self._qu_barr,
+            self._qu_done)
 
     def _get_thread_steps_idxs(self):
 
@@ -226,6 +256,10 @@ class KrigingMain(KD, KP):
         steps_per_thread = step_idxs[1] - step_idxs[0]
 
         if self._vb:
+            print('\n', '#' * 10, sep='')
+
+            print('Memory management stuff...')
+
             print(f'Main interpreter size: {interpreter_size // megabytes} MB')
 
             print(
@@ -241,6 +275,8 @@ class KrigingMain(KD, KP):
                 f'{tot_interp_arr_size // megabytes} MB')
 
             print(f'No. of steps interpolated per thread: {steps_per_thread}')
+
+            print('#' * 10)
 
         return step_idxs
 

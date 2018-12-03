@@ -23,6 +23,7 @@ class KrigingData(VD):
         self._cell_bdist = None
 
         self._n_cpus = 1
+        self._mp_flag = False
 
         self._plot_figs_flag = False
 
@@ -432,6 +433,9 @@ class KrigingData(VD):
         assert 0 < n_cpus, 'n_cpus less than one!'
 
         self._n_cpus = n_cpus
+
+        if self._n_cpus > 1:
+            self._mp_flag = True
 
         assert isinstance(plot_figs_flag, bool), (
             'plot_figs_flag not a boolean!')
