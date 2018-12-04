@@ -8,7 +8,7 @@ import os
 import time
 from math import ceil
 from pathlib import Path
-from multiprocessing import Pool, Manager, Queue
+from multiprocessing import Pool, Manager, Queue, Lock
 
 import numpy as np
 import psutil as ps
@@ -63,7 +63,7 @@ class KrigingMain(KD, KP):
 
         interp_steps_idxs = self._get_thread_steps_idxs()
 
-        if self._n_cpus > 1:
+        if self._mp_flag:
             mp_pool = Pool(self._n_cpus)
 
             krg_map = mp_pool.imap_unordered  #  has to be a non blocking one
@@ -76,7 +76,7 @@ class KrigingMain(KD, KP):
         else:
             krg_map = map
 
-            self._lock = None
+            self._lock = Lock()  #  the manager might slow things down
             self._qu_data = Queue()
             self._qu_barr = None
             self._qu_done = None
@@ -123,11 +123,14 @@ class KrigingMain(KD, KP):
 
                     for i in range(max_rng))
 
-                krg_map(krg_steps_cls.get_interp_flds, interp_gen)
+                map_obj = krg_map(krg_steps_cls.get_interp_flds, interp_gen)
 
-                if self._n_cpus > 1:
+                if not self._mp_flag:
+                    list(map_obj)
+
+                if self._mp_flag:
                     if self._vb:
-                        print('Waiting for all worker(s) to started...')
+                        print('Waiting for all worker(s) to start...')
 
                     while not self._all_procs_strtd_flag:
                         time.sleep(1)
@@ -165,7 +168,8 @@ class KrigingMain(KD, KP):
 
                     interp_fld = None
 
-                    self._qu_done.put((1111,), block=True)
+                    if self._mp_flag:
+                        self._qu_done.put((1111,), block=True)
 
                 self._nc_hdl.sync()
 
@@ -190,7 +194,7 @@ class KrigingMain(KD, KP):
 
     def _get_interp_gen_data(self, t_idx, beg_idx, end_idx, interp_arg, max_rng):
 
-        if t_idx:
+        if t_idx and self._mp_flag:
             assert self._qu_done.get(block=True)[0] == 2222
 
         if t_idx == (max_rng - 1):

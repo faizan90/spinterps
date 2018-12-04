@@ -21,6 +21,7 @@ class KrigingSteps:
 
         read_labs = [
             '_n_cpus',
+            '_mp_flag',
             '_crds_df',
             '_vgs_ser',
             '_min_var_thr',
@@ -96,19 +97,11 @@ class KrigingSteps:
             np.nan,
             dtype=np.float32)
 
-        if t_idx < (max_rng - 1):
-            qu_done.put((2222,), block=True)
+        if self._mp_flag:
+            if t_idx < (max_rng - 1):
+                qu_done.put((2222,), block=True)
 
-        qu_barr.put((1,), block=True)
-
-        with lock:
-            qu_data.put([interp_flds, beg_idx, end_idx], block=True)
-
-            interp_flds = None
-            qu_get = qu_done.get(block=True)[0]
-
-            assert qu_get == 1111
-        return
+            qu_barr.put((1,), block=True)
 
         for i, interp_time in enumerate(fin_date_range):
             curr_stns = data_df.loc[interp_time, :].dropna().index
@@ -185,7 +178,16 @@ class KrigingSteps:
                     interp_type,
                     out_figs_dir)
 
-        return [interp_flds, beg_idx, end_idx]
+        with lock:
+            qu_data.put([interp_flds, beg_idx, end_idx], block=True)
+
+            interp_flds = None
+
+            if self._mp_flag:
+                qu_get = qu_done.get(block=True)[0]
+
+                assert qu_get == 1111
+        return
 
     def _plot_interp(
             self,
