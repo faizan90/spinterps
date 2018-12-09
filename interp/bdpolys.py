@@ -14,7 +14,7 @@ class SpInterpBoundaryPolygons:
 
     def __init__(self):
 
-        self._nrst_stns_slctd_flag=False
+        self._nrst_stns_slctd_flag = False
         return
 
     def _select_nearest_stations(self):
@@ -27,28 +27,28 @@ class SpInterpBoundaryPolygons:
         assert self._cell_sel_prms_set, (
             'Call set_cell_selection_parameters first!')
 
-        bds_vec=ogr.Open(str(self._poly_shp))
+        bds_vec = ogr.Open(str(self._poly_shp))
         assert bds_vec is not None, (
             'Could not open the polygons_shapefile!')
 
-        bds_lyr=bds_vec.GetLayer(0)
+        bds_lyr = bds_vec.GetLayer(0)
 
-        all_stns=self._data_df.columns
+        all_stns = self._data_df.columns
 
-        feat_buff_stns=[]
+        feat_buff_stns = []
 
         if self._ipoly_flag:
-            feat_buff_cells=[]
+            feat_buff_cells = []
 
         for feat in bds_lyr:
-            geom=feat.GetGeometryRef().Clone()
+            geom = feat.GetGeometryRef().Clone()
             assert geom is not None, (
                 'Something wrong with the geometries in the '
                 'polygons_shapefile!')
 
-            assert geom.GetGeometryType()==3, 'Geometry not a polygon!'
+            assert geom.GetGeometryType() == 3, 'Geometry not a polygon!'
 
-            assert geom.Area()>0, 'Geometry has no area!'
+            assert geom.Area() > 0, 'Geometry has no area!'
 
             feat_buff_stns.append(geom.Buffer(self._stn_bdist))
 
@@ -64,10 +64,10 @@ class SpInterpBoundaryPolygons:
                 'Zero polygons in the polygons_shapefile!')
 
         if self._vb:
-            print('\n', '#'*10, sep='')
+            print('\n', '#' * 10, sep='')
             print(len(feat_buff_stns), 'polygons in the polygons_shapefile.')
 
-        fin_stns=[]
+        fin_stns = []
         for poly in feat_buff_stns:
             assert poly is not None, 'Corrupt polygons after buffering!'
 
@@ -75,7 +75,7 @@ class SpInterpBoundaryPolygons:
                 if stn in fin_stns:
                     continue
 
-                curr_pt=cnvt_to_pt(
+                curr_pt = cnvt_to_pt(
                     *self._crds_df.loc[stn, ['X', 'Y']].values)
 
                 if chk_cntmt(curr_pt, poly):
@@ -88,15 +88,15 @@ class SpInterpBoundaryPolygons:
             print(
                 f'{len(fin_stns)} stations out of {self._crds_df.shape[0]} '
                 f'within buffer zone of polygons_shapefile.')
-            print('#'*10)
+            print('#' * 10)
 
-        fin_stns=np.unique(fin_stns)
+        fin_stns = np.unique(fin_stns)
 
-        self._data_df=self._data_df.loc[:, fin_stns]
-        self._crds_df=self._crds_df.loc[fin_stns, :]
+        self._data_df = self._data_df.loc[:, fin_stns]
+        self._crds_df = self._crds_df.loc[fin_stns, :]
 
         if self._ipoly_flag:
-            self._geom_buff_cells=feat_buff_cells
+            self._geom_buff_cells = feat_buff_cells
 
-        self._nrst_stns_slctd_flag=True
+        self._nrst_stns_slctd_flag = True
         return

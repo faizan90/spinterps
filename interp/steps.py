@@ -33,11 +33,11 @@ class SpInterpSteps:
             '_plot_polys',
             '_cntn_idxs',
             '_plot_figs_flag',
-            '_krg_crds_orig_shape',
-            '_krg_x_crds_plt_msh',
-            '_krg_y_crds_plot_msh',
-            '_krg_x_crds_msh',
-            '_krg_y_crds_msh',
+            '_interp_crds_orig_shape',
+            '_interp_x_crds_plt_msh',
+            '_interp_y_crds_plot_msh',
+            '_interp_x_crds_msh',
+            '_interp_y_crds_msh',
             '_qu_timeout_secs'
             ]
 
@@ -98,8 +98,8 @@ class SpInterpSteps:
 
         interp_flds = np.full(
             (fin_date_range.shape[0],
-             self._krg_crds_orig_shape[0],
-             self._krg_crds_orig_shape[1]),
+             self._interp_crds_orig_shape[0],
+             self._interp_crds_orig_shape[1]),
             np.nan,
             dtype=np.float32)
 
@@ -139,7 +139,7 @@ class SpInterpSteps:
             # TODO: another ratio for this.
             if np.all(curr_data_vals <= self._min_var_thr):
                 interp_vals = np.full(
-                    self._krg_crds_orig_shape, curr_data_vals.mean())
+                    self._interp_crds_orig_shape, curr_data_vals.mean())
 
             if krg_flag:
                 try:
@@ -157,8 +157,8 @@ class SpInterpSteps:
 
             else:
                 interp_vals = get_idw_arr(
-                    self._krg_x_crds_msh,
-                    self._krg_y_crds_msh,
+                    self._interp_x_crds_msh,
+                    self._interp_y_crds_msh,
                     curr_x_coords,
                     curr_y_coords,
                     curr_data_vals,
@@ -172,7 +172,7 @@ class SpInterpSteps:
 
             else:
                 interp_flds[i] = interp_vals.reshape(
-                    self._krg_crds_orig_shape)
+                    self._interp_crds_orig_shape)
 
             self._mod_min_max(interp_flds[i])
 
@@ -222,8 +222,8 @@ class SpInterpSteps:
         grd_max = np.nanmax(interp_fld)
 
         pclr = ax.pcolormesh(
-            self._krg_x_crds_plt_msh,
-            self._krg_y_crds_plot_msh,
+            self._interp_x_crds_plt_msh,
+            self._interp_y_crds_plot_msh,
             interp_fld,
             vmin=grd_min,
             vmax=grd_max)
@@ -260,13 +260,13 @@ class SpInterpSteps:
         plt.close()
         return
 
-    def _mod_min_max(self, krige_fld):
+    def _mod_min_max(self, interp_fld):
 
         if self._min_var_cut is not None:
-            krige_fld[krige_fld < self._min_var_cut] = self._min_var_cut
+            interp_fld[interp_fld < self._min_var_cut] = self._min_var_cut
 
         if self._max_var_cut is not None:
-            krige_fld[krige_fld > self._max_var_cut] = self._max_var_cut
+            interp_fld[interp_fld > self._max_var_cut] = self._max_var_cut
 
         return
 
@@ -280,34 +280,34 @@ class SpInterpSteps:
             interp_type):
 
         if interp_type == 'OK':
-            interp_cls = OrdinaryKriging(
+            krige_cls = OrdinaryKriging(
                 xi=curr_x_coords,
                 yi=curr_y_coords,
                 zi=curr_data_vals,
-                xk=self._krg_x_crds_msh,
-                yk=self._krg_y_crds_msh,
+                xk=self._interp_x_crds_msh,
+                yk=self._interp_y_crds_msh,
                 model=model)
 
         elif interp_type == 'SK':
-            interp_cls = SimpleKriging(
+            krige_cls = SimpleKriging(
                 xi=curr_x_coords,
                 yi=curr_y_coords,
                 zi=curr_data_vals,
-                xk=self._krg_x_crds_msh,
-                yk=self._krg_y_crds_msh,
+                xk=self._interp_x_crds_msh,
+                yk=self._interp_y_crds_msh,
                 model=model)
 
         elif interp_type == 'EDK':
-            interp_cls = ExternalDriftKriging_MD(
+            krige_cls = ExternalDriftKriging_MD(
                 xi=curr_x_coords,
                 yi=curr_y_coords,
                 zi=curr_data_vals,
                 si=curr_drift_vals,
-                xk=self._krg_x_crds_msh,
-                yk=self._krg_y_crds_msh,
+                xk=self._interp_x_crds_msh,
+                yk=self._interp_y_crds_msh,
                 sk=self._drft_arrs,
                 model=model)
 
-        interp_cls.krige()
+        krige_cls.krige()
 
-        return interp_cls.zk
+        return krige_cls.zk

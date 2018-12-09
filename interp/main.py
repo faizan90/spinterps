@@ -83,7 +83,7 @@ class SpInterpMain(SID, SIP):
             self._qu_barr = None
             self._qu_done = None
 
-        krg_steps_cls = SIS(self)
+        interp_steps_cls = SIS(self)
 
         if self._vb:
             print('\n', '#' * 10, sep='')
@@ -125,7 +125,7 @@ class SpInterpMain(SID, SIP):
 
                     for i in range(max_rng))
 
-                map_obj = spi_map(krg_steps_cls.get_interp_flds, interp_gen)
+                map_obj = spi_map(interp_steps_cls.get_interp_flds, interp_gen)
 
                 if not self._mp_flag:
                     list(map_obj)
@@ -259,8 +259,8 @@ class SpInterpMain(SID, SIP):
 
         tot_interp_arr_size = bytes_per_number * (
             self._data_df.shape[0] *
-            self._krg_crds_orig_shape[0] *
-            self._krg_crds_orig_shape[1])
+            self._interp_crds_orig_shape[0] *
+            self._interp_crds_orig_shape[1])
 
         if tot_interp_arr_size < avail_threads_mem:
             step_idxs = ret_mp_idxs(self._data_df.shape[0], self._n_cpus)
@@ -268,8 +268,8 @@ class SpInterpMain(SID, SIP):
         else:
             max_concurrent_steps = avail_threads_mem // (
                 bytes_per_number *
-                self._krg_crds_orig_shape[0] *
-                self._krg_crds_orig_shape[1])
+                self._interp_crds_orig_shape[0] *
+                self._interp_crds_orig_shape[1])
 
             steps_scale_cnst = ceil(
                 self._data_df.shape[0] / max_concurrent_steps)

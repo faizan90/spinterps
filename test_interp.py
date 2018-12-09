@@ -76,7 +76,7 @@ def main():
     max_var_val = None
 
     idw_exps = [2, 3, 5]
-    n_cpus = 7
+    n_cpus = 1
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 

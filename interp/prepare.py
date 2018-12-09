@@ -166,19 +166,19 @@ class SpInterpPrepare(SIBD, KDT):
         end_y_coord = strt_y_coord - (
             (self._max_row - self._min_row) * self._cell_size)
 
-        krige_x_coords = np.linspace(
+        interp_x_coords = np.linspace(
             strt_x_coord, end_x_coord, (self._max_col - self._min_col + 1))
 
-        krige_y_coords = np.linspace(
+        interp_y_coords = np.linspace(
             strt_y_coord, end_y_coord, (self._max_row - self._min_row + 1))
 
-        krige_x_coords_mesh, krige_y_coords_mesh = np.meshgrid(
-            krige_x_coords, krige_y_coords)
+        interp_x_coords_mesh, interp_y_coords_mesh = np.meshgrid(
+            interp_x_coords, interp_y_coords)
 
         # must not move
-        self._krg_crds_orig_shape = krige_x_coords_mesh.shape
+        self._interp_crds_orig_shape = interp_x_coords_mesh.shape
 
-        self._krg_x_crds_plt_msh, self._krg_y_crds_plot_msh = None, None
+        self._interp_x_crds_plt_msh, self._interp_y_crds_plot_msh = None, None
 
         if self._plot_figs_flag:
             # xy coords for pcolormesh
@@ -188,14 +188,14 @@ class SpInterpPrepare(SIBD, KDT):
             pcolmesh_y_coords = np.linspace(
                 self._y_max, self._y_min, (self._max_row - self._min_row + 1))
 
-            self._krg_x_crds_plt_msh, self._krg_y_crds_plot_msh = (
+            self._interp_x_crds_plt_msh, self._interp_y_crds_plot_msh = (
                 np.meshgrid(pcolmesh_x_coords, pcolmesh_y_coords))
 
-        self._nc_x_crds = krige_x_coords
-        self._nc_y_crds = krige_y_coords
+        self._nc_x_crds = interp_x_coords
+        self._nc_y_crds = interp_y_coords
 
-        self._krg_x_crds_msh = krige_x_coords_mesh.ravel()
-        self._krg_y_crds_msh = krige_y_coords_mesh.ravel()
+        self._interp_x_crds_msh = interp_x_coords_mesh.ravel()
+        self._interp_y_crds_msh = interp_y_coords_mesh.ravel()
         return
 
     def _select_nearby_cells(self):
@@ -209,12 +209,12 @@ class SpInterpPrepare(SIBD, KDT):
 
         if self._vb:
             print('\n', '#' * 10, sep='')
-            print(self._krg_x_crds_msh.shape[0],
+            print(self._interp_x_crds_msh.shape[0],
                   'cells to interpolate per step before intersection!')
 
-        fin_cntn_idxs = np.zeros(self._krg_x_crds_msh.shape[0], dtype=bool)
+        fin_cntn_idxs = np.zeros(self._interp_x_crds_msh.shape[0], dtype=bool)
         ogr_pts = np.vectorize(cnvt_to_pt)(
-            self._krg_x_crds_msh, self._krg_y_crds_msh)
+            self._interp_x_crds_msh, self._interp_y_crds_msh)
 
         for poly in self._geom_buff_cells:
             curr_cntn_idxs = np.vectorize(chk_cntmt)(ogr_pts, poly)
@@ -230,8 +230,8 @@ class SpInterpPrepare(SIBD, KDT):
 
         assert fin_idxs_sum, 'No cells selected for interpolation!'
 
-        self._krg_x_crds_msh = self._krg_x_crds_msh[fin_cntn_idxs]
-        self._krg_y_crds_msh = self._krg_y_crds_msh[fin_cntn_idxs]
+        self._interp_x_crds_msh = self._interp_x_crds_msh[fin_cntn_idxs]
+        self._interp_y_crds_msh = self._interp_y_crds_msh[fin_cntn_idxs]
 
         self._cntn_idxs = fin_cntn_idxs
         return

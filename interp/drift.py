@@ -133,25 +133,25 @@ class KrigingDrift:
 
         self._drft_arrs = []  # the clipped ones, ndvs are set to NaNs
 
-        krige_cols = np.arange(self._min_col, self._max_col + 1, dtype=int)
-        krige_rows = np.arange(self._min_row, self._max_row + 1, dtype=int)
+        interp_cols = np.arange(self._min_col, self._max_col + 1, dtype=int)
+        interp_rows = np.arange(self._min_row, self._max_row + 1, dtype=int)
 
-        assert self._nc_x_crds.shape[0] == krige_cols.shape[0]
-        assert self._nc_y_crds.shape[0] == krige_rows.shape[0]
+        assert self._nc_x_crds.shape[0] == interp_cols.shape[0]
+        assert self._nc_y_crds.shape[0] == interp_rows.shape[0]
 
-        (krige_drift_cols_mesh,
-         krige_drift_rows_mesh) = np.meshgrid(krige_cols, krige_rows)
+        (interp_drift_cols_mesh,
+         interp_drift_rows_mesh) = np.meshgrid(interp_cols, interp_rows)
 
-        krige_drift_cols_mesh = krige_drift_cols_mesh.ravel()
-        krige_drift_rows_mesh = krige_drift_rows_mesh.ravel()
+        interp_drift_cols_mesh = interp_drift_cols_mesh.ravel()
+        interp_drift_rows_mesh = interp_drift_rows_mesh.ravel()
 
         if self._cell_sel_prms_set:
-            krige_drift_cols_mesh = krige_drift_cols_mesh[self._cntn_idxs]
-            krige_drift_rows_mesh = krige_drift_rows_mesh[self._cntn_idxs]
+            interp_drift_cols_mesh = interp_drift_cols_mesh[self._cntn_idxs]
+            interp_drift_rows_mesh = interp_drift_rows_mesh[self._cntn_idxs]
 
         for drift_arr in self._drft_oarrs:
             drift_vals = drift_arr[
-                krige_drift_rows_mesh, krige_drift_cols_mesh]
+                interp_drift_rows_mesh, interp_drift_cols_mesh]
 
             drift_vals[np.isclose(self._drft_ndv, drift_vals)] = np.nan
 
