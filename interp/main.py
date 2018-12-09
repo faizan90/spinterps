@@ -13,9 +13,9 @@ from multiprocessing import Pool, Manager, Queue, Lock
 import numpy as np
 import psutil as ps
 
-from .steps import KrigingSteps as KS
-from .data import KrigingData as KD
-from .prepare import KrigingPrepare as KP
+from .steps import SpInterpSteps as SIS
+from .data import SpInterpData as SID
+from .prepare import SpInterpPrepare as SIP
 from ..misc import ret_mp_idxs, get_current_proc_size
 
 os.environ[str('MKL_NUM_THREADS')] = str(1)
@@ -23,12 +23,12 @@ os.environ[str('NUMEXPR_NUM_THREADS')] = str(1)
 os.environ[str('OMP_NUM_THREADS')] = str(1)
 
 
-class KrigingMain(KD, KP):
+class SpInterpMain(SID, SIP):
 
     def __init__(self, verbose=True):
 
-        KD.__init__(self, verbose)
-        KP.__init__(self)
+        SID.__init__(self, verbose)
+        SIP.__init__(self)
 
         self._drft_rass = None
         self._n_drft_rass = None
@@ -43,12 +43,14 @@ class KrigingMain(KD, KP):
 
         self._max_mem_usage_ratio = 0.75
 
+        self._qu_timeout_secs = 60
+
         self._main_vrfd_flag = False
         return
 
     def verify(self):
 
-        KD._KrigingData__verify(self)
+        SID._SpInterpData__verify(self)
 
         self._prepare()
 
@@ -57,7 +59,7 @@ class KrigingMain(KD, KP):
         self._main_vrfd_flag = True
         return
 
-    def krige(self):
+    def interpolate(self):
 
         assert self._main_vrfd_flag
 
@@ -66,7 +68,7 @@ class KrigingMain(KD, KP):
         if self._mp_flag:
             mp_pool = Pool(self._n_cpus)
 
-            krg_map = mp_pool.imap_unordered  #  has to be a non blocking one
+            spi_map = mp_pool.imap_unordered  #  has to be a non blocking one
 
             self._lock = Manager().Lock()
             self._qu_data = Manager().Queue()
@@ -74,14 +76,14 @@ class KrigingMain(KD, KP):
             self._qu_done = Manager().Queue()
 
         else:
-            krg_map = map
+            spi_map = map
 
             self._lock = Lock()  #  the manager might slow things down
             self._qu_data = Queue()
             self._qu_barr = None
             self._qu_done = None
 
-        krg_steps_cls = KS(self)
+        krg_steps_cls = SIS(self)
 
         if self._vb:
             print('\n', '#' * 10, sep='')
@@ -123,7 +125,7 @@ class KrigingMain(KD, KP):
 
                     for i in range(max_rng))
 
-                map_obj = krg_map(krg_steps_cls.get_interp_flds, interp_gen)
+                map_obj = spi_map(krg_steps_cls.get_interp_flds, interp_gen)
 
                 if not self._mp_flag:
                     list(map_obj)
@@ -141,18 +143,23 @@ class KrigingMain(KD, KP):
                     tot_procs_sync_ct = 0
 
                     while tot_procs_sync_ct < max_rng:
-                        barr_ret = self._qu_barr.get(block=True)[0]
+                        barr_ret = self._qu_barr.get(
+                            block=True, timeout=self._qu_timeout_secs)[0]
+
                         assert barr_ret == 1
 
                         tot_procs_sync_ct += barr_ret
 
-                if self._vb:
-                    print('Writing interpolated fields to the netCDF file...')
-
                 tot_items_to_extract = max_rng
                 while tot_items_to_extract:
                     interp_fld, beg_idx, end_idx = (
-                        self._qu_data.get(block=True))
+                        self._qu_data.get(
+                            block=True, timeout=self._qu_timeout_secs))
+
+                    if self._vb and (tot_items_to_extract == max_rng):
+                        print(
+                            'Writing interpolated fields to the '
+                            'netCDF file...')
 
                     assert self._qu_data.empty()
 
@@ -169,7 +176,10 @@ class KrigingMain(KD, KP):
                     interp_fld = None
 
                     if self._mp_flag:
-                        self._qu_done.put((1111,), block=True)
+                        self._qu_done.put(
+                            (1111,),
+                            block=True,
+                            timeout=self._qu_timeout_secs)
 
                 self._nc_hdl.sync()
 
@@ -192,14 +202,23 @@ class KrigingMain(KD, KP):
             print('#' * 10)
         return
 
-    def _get_interp_gen_data(self, t_idx, beg_idx, end_idx, interp_arg, max_rng):
+    def _get_interp_gen_data(
+            self, t_idx, beg_idx, end_idx, interp_arg, max_rng):
 
         if t_idx and self._mp_flag:
-            assert self._qu_done.get(block=True)[0] == 2222
+            assert self._qu_done.get(
+                block=True, timeout=self._qu_timeout_secs)[0] == 2222
 
         if t_idx == (max_rng - 1):
             self._all_procs_strtd_flag = True
 
+        if interp_arg[0] in ['OK', 'SK', 'EDK']:
+            drft_arrs = self._drft_arrs
+            stns_drft_df = self._stns_drft_df
+            vgs_ser = self._vgs_ser
+
+        else:
+            drft_arrs, stns_drft_df, vgs_ser = 3 * [None]
         return (
             self._data_df.iloc[beg_idx:end_idx],
             t_idx,
@@ -210,7 +229,10 @@ class KrigingMain(KD, KP):
             self._lock,
             self._qu_data,
             self._qu_barr,
-            self._qu_done)
+            self._qu_done,
+            drft_arrs,
+            stns_drft_df,
+            vgs_ser)
 
     def _get_thread_steps_idxs(self):
 

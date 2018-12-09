@@ -12,16 +12,16 @@ import netCDF4 as nc
 import shapefile as shp
 
 from .drift import KrigingDrift as KDT
-from .bdpolys import KrigingBoundaryPolygons as KBD
+from .bdpolys import SpInterpBoundaryPolygons as SIBD
 from ..misc import get_aligned_shp_bds_and_cell_size
 from ..misc import cnvt_to_pt, chk_cntmt, get_ras_props
 
 
-class KrigingPrepare(KBD, KDT):
+class SpInterpPrepare(SIBD, KDT):
 
     def __init__(self):
 
-        KBD.__init__(self)
+        SIBD.__init__(self)
         KDT.__init__(self)
 
         self._plot_polys = None

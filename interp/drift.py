@@ -77,7 +77,7 @@ class KrigingDrift:
             drift_cols = drift_ds.RasterXSize
 
             drift_band = drift_ds.GetRasterBand(1)
-            drift_arr = drift_band.ReadAsArray()
+            drift_arr = drift_band.ReadAsArray().astype(float)
 
             self._drft_oarrs.append(drift_arr)
 

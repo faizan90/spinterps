@@ -3,6 +3,8 @@ Created on Nov 26, 2018
 
 @author: Faizan-Uni
 '''
+import sys
+import traceback as tb
 
 import numpy as np
 
@@ -15,7 +17,7 @@ from krigings import (OrdinaryKriging, SimpleKriging, ExternalDriftKriging_MD)
 plt.ioff()
 
 
-class KrigingSteps:
+class SpInterpSteps:
 
     def __init__(self, krig_main_cls):
 
@@ -23,7 +25,6 @@ class KrigingSteps:
             '_n_cpus',
             '_mp_flag',
             '_crds_df',
-            '_vgs_ser',
             '_min_var_thr',
             '_min_var_cut',
             '_max_var_cut',
@@ -37,8 +38,7 @@ class KrigingSteps:
             '_krg_y_crds_plot_msh',
             '_krg_x_crds_msh',
             '_krg_y_crds_msh',
-            '_drft_arrs',
-            '_stns_drft_df',
+            '_qu_timeout_secs'
             ]
 
         self._debug = False
@@ -58,6 +58,9 @@ class KrigingSteps:
         except Exception as msg:
             print('Error while interpolating:', msg)
 
+        * _, exc_traceback = sys.exc_info()
+        tb.print_tb(exc_traceback, limit=None, file=sys.stdout)
+
         return ret
 
     def _get_interp_flds(self, all_args):
@@ -71,7 +74,10 @@ class KrigingSteps:
          lock,
          qu_data,
          qu_barr,
-         qu_done) = all_args
+         qu_done,
+         self._drft_arrs,
+         stns_drft_df,
+         vgs_ser) = all_args
 
         interp_type = interp_arg[0]
 
@@ -99,9 +105,10 @@ class KrigingSteps:
 
         if self._mp_flag:
             if t_idx < (max_rng - 1):
-                qu_done.put((2222,), block=True)
+                qu_done.put(
+                    (2222,), block=True, timeout=self._qu_timeout_secs)
 
-            qu_barr.put((1,), block=True)
+            qu_barr.put((1,), block=True, timeout=self._qu_timeout_secs)
 
         for i, interp_time in enumerate(fin_date_range):
             curr_stns = data_df.loc[interp_time, :].dropna().index
@@ -114,10 +121,10 @@ class KrigingSteps:
 
             if interp_type == 'EDK':
                 curr_drift_vals = (
-                    np.atleast_2d(self._stns_drft_df.loc[curr_stns].values.T))
+                    np.atleast_2d(stns_drft_df.loc[curr_stns].values.T))
 
             if krg_flag:
-                model = str(self._vgs_ser.loc[interp_time])
+                model = str(vgs_ser.loc[interp_time])
 
             else:
                 model = None
@@ -164,7 +171,8 @@ class KrigingSteps:
                 interp_flds[i].ravel()[self._cntn_idxs] = interp_vals
 
             else:
-                interp_flds[i] = interp_vals.reshape(self._krg_crds_orig_shape)
+                interp_flds[i] = interp_vals.reshape(
+                    self._krg_crds_orig_shape)
 
             self._mod_min_max(interp_flds[i])
 
@@ -179,12 +187,17 @@ class KrigingSteps:
                     out_figs_dir)
 
         with lock:
-            qu_data.put([interp_flds, beg_idx, end_idx], block=True)
+            qu_data.put(
+                [interp_flds, beg_idx, end_idx],
+                block=True,
+                timeout=self._qu_timeout_secs)
 
             interp_flds = None
 
             if self._mp_flag:
-                qu_get = qu_done.get(block=True)[0]
+                qu_get = qu_done.get(
+                    block=True,
+                    timeout=self._qu_timeout_secs)[0]
 
                 assert qu_get == 1111
         return
@@ -205,12 +218,15 @@ class KrigingSteps:
 
         fig, ax = plt.subplots()
 
+        grd_min = np.nanmin(interp_fld)
+        grd_max = np.nanmax(interp_fld)
+
         pclr = ax.pcolormesh(
             self._krg_x_crds_plt_msh,
             self._krg_y_crds_plot_msh,
             interp_fld,
-            vmin=np.nanmin(interp_fld),
-            vmax=np.nanmax(interp_fld))
+            vmin=grd_min,
+            vmax=grd_max)
 
         cb = fig.colorbar(pclr)
 
@@ -233,7 +249,9 @@ class KrigingSteps:
         ax.set_xlabel('Easting')
         ax.set_ylabel('Northing')
 
-        title = 'Time: %s\n(VG: %s)\n' % (time_str, model)
+        title = (
+            f'Time: {time_str}\n(VG: {model})\n'
+            f'Min.: {grd_min:0.4f}, Max.: {grd_max:0.4f}')
         ax.set_title(title)
 
         plt.setp(ax.get_xmajorticklabels(), rotation=70)

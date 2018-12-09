@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from spinterps import KrigingMain
+from spinterps import SpInterpMain
 
 
 def main():
@@ -37,7 +37,7 @@ def main():
     var_units = 'c'  # u'\u2103'  # 'centigrade'
     var_name = 'avg_temperature'
 
-    out_krig_net_cdf_file = r'test_Niedersachsen_avg_temp_kriging_%s_to_%s_1km_all.nc'
+    out_krig_net_cdf_file = r'test_Niedersachsen_avg_temp_kriging_%s_to_%s_5km_all.nc'
 
     freq = 'D'
     strt_date = r'1961-01-01'
@@ -75,7 +75,7 @@ def main():
     min_var_val = None
     max_var_val = None
 
-    idw_exps = [3]  # [2, 3, 5]
+    idw_exps = [2, 3, 5]
     n_cpus = 7
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
@@ -91,13 +91,13 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    ord_krige_flag = False
-    sim_krige_flag = False
-    edk_krige_flag = False
+#     ord_krige_flag = False
+#     sim_krige_flag = False
+#     edk_krige_flag = False
 #     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
-    interp_around_polys_flag = False
+#     interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,
@@ -120,28 +120,28 @@ def main():
     in_data_df.index = pd.to_datetime(in_data_df.index, format=in_date_fmt)
     in_vgs_df.index = pd.to_datetime(in_vgs_df.index, format=in_date_fmt)
 
-    krige_cls = KrigingMain(verbose)
+    spinterp_cls = SpInterpMain(verbose)
 
-    krige_cls.set_data(in_data_df, in_stns_coords_df)
-    krige_cls.set_vgs_ser(in_vgs_df.iloc[:, 0])
-    krige_cls.set_out_dir(out_dir)
+    spinterp_cls.set_data(in_data_df, in_stns_coords_df)
+    spinterp_cls.set_vgs_ser(in_vgs_df.iloc[:, 0])
+    spinterp_cls.set_out_dir(out_dir)
 
-    krige_cls.set_netcdf4_parameters(
+    spinterp_cls.set_netcdf4_parameters(
         out_krig_net_cdf_file,
         var_units,
         var_name,
         nc_time_units,
         nc_calendar)
 
-    krige_cls.set_interp_time_parameters(strt_date, end_date, freq, in_date_fmt)
-    krige_cls.set_cell_selection_parameters(
+    spinterp_cls.set_interp_time_parameters(strt_date, end_date, freq, in_date_fmt)
+    spinterp_cls.set_cell_selection_parameters(
         in_bounds_shp_file,
         buffer_dist,
         interp_around_polys_flag,
         sec_buffer_dist)
-    krige_cls.set_alignment_raster(align_ras_file)
+    spinterp_cls.set_alignment_raster(align_ras_file)
 
-    krige_cls.set_misc_settings(
+    spinterp_cls.set_misc_settings(
         n_cpus,
         plot_figs_flag,
         None,
@@ -150,19 +150,19 @@ def main():
         max_var_val)
 
     if ord_krige_flag:
-        krige_cls.turn_ordinary_kriging_on()
+        spinterp_cls.turn_ordinary_kriging_on()
 
     if sim_krige_flag:
-        krige_cls.turn_simple_kriging_on()
+        spinterp_cls.turn_simple_kriging_on()
 
     if edk_krige_flag:
-        krige_cls.turn_external_drift_kriging_on(in_drift_rasters_list)
+        spinterp_cls.turn_external_drift_kriging_on(in_drift_rasters_list)
 
     if idw_flag:
-        krige_cls.turn_inverse_distance_weighting_on(idw_exps)
+        spinterp_cls.turn_inverse_distance_weighting_on(idw_exps)
 
-    krige_cls.verify()
-    krige_cls.krige()
+    spinterp_cls.verify()
+    spinterp_cls.interpolate()
     return
 
 

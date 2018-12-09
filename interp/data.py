@@ -12,7 +12,7 @@ import pandas as pd
 from ..variograms.vgsinput import VariogramsData as VD
 
 
-class KrigingData(VD):
+class SpInterpData(VD):
 
     def __init__(self, verbose=True):
 
@@ -523,25 +523,27 @@ class KrigingData(VD):
         if (not self._vg_ser_set_flag) and self._vb:
 
             print('\n', '#' * 10, sep='')
-            print('No variograms series set. Only IDW will be possible!')
+            print(
+                'No variograms series were set by the user. '
+                'Only non-variogram type interpolations will be possible!')
             print('#' * 10)
 
         if (not self._cell_sel_prms_set) and self._vb:
 
             print('\n', '#' * 10, sep='')
-            print('Cell selection parameters were not set!')
+            print('Cell selection parameters were not set by the user!')
             print('#' * 10)
 
         if (not self._algn_ras_set_flag) and self._vb:
 
             print('\n', '#' * 10, sep='')
-            print('Alignment raster was not set!')
+            print('Alignment raster was not set by the user!')
             print('#' * 10)
 
         if (not self._misc_settings_set_flag) and self._vb:
 
             print('\n', '#' * 10, sep='')
-            print('Using default misc parameters!')
+            print('Using default misc. parameters!')
             print('#' * 10)
 
         self._data_vrfd_flag = True
