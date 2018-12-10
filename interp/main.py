@@ -6,6 +6,7 @@ Created on Nov 25, 2018
 
 import os
 import time
+import timeit
 from math import ceil
 from pathlib import Path
 from multiprocessing import Pool, Manager, Queue, Lock
@@ -95,6 +96,8 @@ class SpInterpMain(SID, SIP):
             ivar_name = interp_arg[2]
 
             if self._vb:
+                interp_beg_time = timeit.default_timer()
+
                 t_passes = int((interp_steps_idxs.shape[0] - 1) / self._n_cpus)
 
                 print('\n', '#' * 10, sep='')
@@ -132,13 +135,13 @@ class SpInterpMain(SID, SIP):
 
                 if self._mp_flag:
                     if self._vb:
-                        print('Waiting for all worker(s) to start...')
+                        print('Sending jobs to all workers...')
 
                     while not self._all_procs_strtd_flag:
                         time.sleep(1)
 
                     if self._vb:
-                        print('All worker(s) started.')
+                        print('Sent jobs to all workers.')
 
                     tot_procs_sync_ct = 0
 
@@ -188,7 +191,12 @@ class SpInterpMain(SID, SIP):
                     print('\n')
 
             if self._vb:
-                print('Done with the interpolation method:', ivar_name)
+                tot_beg_time = timeit.default_timer() - interp_beg_time
+
+                print(
+                    f'Done with the interpolation method: {ivar_name} in '
+                    f'{tot_beg_time:0.3f} seconds.',)
+
                 print('#' * 10)
 
         self._nc_hdl.Source = self._nc_hdl.filepath()
@@ -213,12 +221,18 @@ class SpInterpMain(SID, SIP):
             self._all_procs_strtd_flag = True
 
         if interp_arg[0] in ['OK', 'SK', 'EDK']:
-            drft_arrs = self._drft_arrs
-            stns_drft_df = self._stns_drft_df
             vgs_ser = self._vgs_ser
 
         else:
-            drft_arrs, stns_drft_df, vgs_ser = 3 * [None]
+            vgs_ser = None
+
+        if interp_arg[0] == 'EDK':
+            drft_arrs = self._drft_arrs
+            stns_drft_df = self._stns_drft_df
+
+        else:
+            drft_arrs, stns_drft_df = 2 * [None]
+
         return (
             self._data_df.iloc[beg_idx:end_idx],
             t_idx,
@@ -262,6 +276,12 @@ class SpInterpMain(SID, SIP):
             self._interp_crds_orig_shape[0] *
             self._interp_crds_orig_shape[1])
 
+        bytes_per_step = (
+            bytes_per_number * np.prod(self._interp_crds_orig_shape))
+
+        assert max_mem_per_thread > bytes_per_step, (
+                'Interpolation grid too fine or too many threads!')
+
         if tot_interp_arr_size < avail_threads_mem:
             step_idxs = ret_mp_idxs(self._data_df.shape[0], self._n_cpus)
 
@@ -274,7 +294,7 @@ class SpInterpMain(SID, SIP):
             steps_scale_cnst = ceil(
                 self._data_df.shape[0] / max_concurrent_steps)
 
-            assert steps_scale_cnst > 1
+            assert steps_scale_cnst > 1, 'This should not happen!'
 
             step_idxs = ret_mp_idxs(
                 self._data_df.shape[0], self._n_cpus * steps_scale_cnst)
@@ -298,7 +318,10 @@ class SpInterpMain(SID, SIP):
 
             print(
                 f'Total size of the interpolated array: '
-                f'{tot_interp_arr_size // megabytes} MB')
+                f'{tot_interp_arr_size / megabytes:0.6f} MB')
+
+            print(
+                f'Size per step: {bytes_per_step / megabytes:0.6f} MB')
 
             print(f'No. of steps interpolated per thread: {steps_per_thread}')
 

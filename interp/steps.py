@@ -11,8 +11,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 
-from spinterps import get_idw_arr
-from krigings import (OrdinaryKriging, SimpleKriging, ExternalDriftKriging_MD)
+from ..cyth import (
+    OrdinaryKriging,
+    SimpleKriging,
+    ExternalDriftKriging_MD,
+    get_idw_arr)
 
 plt.ioff()
 
@@ -58,8 +61,8 @@ class SpInterpSteps:
         except Exception as msg:
             print('Error while interpolating:', msg)
 
-        * _, exc_traceback = sys.exc_info()
-        tb.print_tb(exc_traceback, limit=None, file=sys.stdout)
+            * _, exc_traceback = sys.exc_info()
+            tb.print_tb(exc_traceback, limit=None, file=sys.stdout)
 
         return ret
 
@@ -75,7 +78,7 @@ class SpInterpSteps:
          qu_data,
          qu_barr,
          qu_done,
-         self._drft_arrs,
+         drft_arrs,
          stns_drft_df,
          vgs_ser) = all_args
 
@@ -149,7 +152,8 @@ class SpInterpSteps:
                         curr_data_vals,
                         curr_drift_vals,
                         model,
-                        interp_type)
+                        interp_type,
+                        drft_arrs)
 
                 except Exception as msg:
                     time_str = interp_time.strftime('%Y-%m-%dT%H:%M:%S')
@@ -277,7 +281,8 @@ class SpInterpSteps:
             curr_data_vals,
             curr_drift_vals,
             model,
-            interp_type):
+            interp_type,
+            drft_arrs):
 
         if interp_type == 'OK':
             krige_cls = OrdinaryKriging(
@@ -305,7 +310,7 @@ class SpInterpSteps:
                 si=curr_drift_vals,
                 xk=self._interp_x_crds_msh,
                 yk=self._interp_y_crds_msh,
-                sk=self._drft_arrs,
+                sk=drft_arrs,
                 model=model)
 
         krige_cls.krige()
