@@ -1,4 +1,4 @@
-#cython: linetrace=True, nonecheck=False, boundscheck=False, wraparound=False
+#cython: nonecheck=False, boundscheck=False, wraparound=False
 import numpy as np
 cimport numpy as np
 
@@ -19,65 +19,62 @@ cdef extern from 'math.h' nogil:
 
 cdef extern from 'misc.h' nogil:
     cdef:
-        DT_D get_dist(DT_D x1, DT_D y1, DT_D x2, DT_D y2)
+        DT_D get_dist(
+            const DT_D x1, 
+            const DT_D y1, 
+            const DT_D x2, 
+            const DT_D y2)
 
-        DT_L get_zero_idx(DT_D *x, DT_L len_x)
-
-        DT_D get_sum(DT_D *x, DT_L len_x)
+        DT_D get_sum(const DT_D *x, const DT_L len_x)
 
         void fill_idw_wts_arr(
-            DT_D *x_arr,
-            DT_D *pow_arr,
-            DT_D idw_exp,
-            DT_L len_x)
+                const DT_D *x_arr,
+                      DT_D *wts_arr,
+                const DT_D idw_exp,
+                const DT_L len_x)
 
         void fill_mult_arr(
-            DT_D *x,
-            DT_D *y,
-            DT_D *mult_arr,
-            DT_L len_x)
+                const DT_D *x,
+                const DT_D *y,
+                      DT_D *mult_arr,
+                const DT_L len_x)
 
 
 cpdef DT_D get_idw(
-    DT_D idw_x,
-    DT_D idw_y,
-    DT_D[:] xs,
-    DT_D[:] ys,
-    DT_D[:] zs,
-    DT_D idw_exp):
+    const DT_D idw_x,
+    const DT_D idw_y,
+    const DT_D[:] xs,
+    const DT_D[:] ys,
+    const DT_D[:] zs,
+    const DT_D idw_exp,
+          DT_D[:] idw_wts,
+          DT_D[:] dists,
+          DT_D[:] mult_arr):
 
     """
-    Get IDW value at a point given distances of
-    other points from it with values and the exponent
-    of the IDW
+    Get IDW value at a point given distances of other points 
+    from it with values and the exponent of the IDW.
     """
 
     cdef:
-        DT_L zero_idx, i, len_x = xs.shape[0]
-        DT_D idw_val, the_sum, the_wts
+        Py_ssize_t i
 
-        DT_D[:] idw_wts = np.zeros(shape=len_x, dtype=np.float64)
-        DT_D[:] dists = np.zeros(shape=len_x, dtype=np.float64)
-        DT_D[:] mult_arr = np.zeros(shape=len_x, dtype=np.float64)
+        DT_L len_x = xs.shape[0]
+
+        DT_D idw_val, the_sum, the_wts
 
     for i in range(len_x):
         dists[i] = get_dist(idw_x, idw_y, xs[i], ys[i])
 
-    zero_idx = get_zero_idx(&dists[0], len_x)
+    fill_idw_wts_arr(&dists[0], &idw_wts[0], idw_exp, len_x)
 
-    if zero_idx != -1:
-        idw_val = zs[zero_idx]
+    fill_mult_arr(&idw_wts[0], &zs[0], &mult_arr[0], len_x)
 
-    else:
-        fill_idw_wts_arr(&dists[0], &idw_wts[0], idw_exp, len_x)
+    the_sum = get_sum(&mult_arr[0], len_x)
 
-        fill_mult_arr(&idw_wts[0], &zs[0], &mult_arr[0], len_x)
+    the_wts = get_sum(&idw_wts[0], len_x)
 
-        the_sum = get_sum(&mult_arr[0], len_x)
-
-        the_wts = get_sum(&idw_wts[0], len_x)
-
-        idw_val = the_sum / the_wts
+    idw_val = the_sum / the_wts
 
     return idw_val
 
@@ -91,8 +88,13 @@ cpdef np.ndarray get_idw_arr(
     DT_D idw_exp):
 
     cdef:
-        DT_L i, len_x = xs.shape[0], len_idw_z = idw_y_arr.shape[0]
+        Py_ssize_t i
 
+        DT_L len_x = xs.shape[0], len_idw_z = idw_x_arr.shape[0]
+
+        DT_D[:] idw_wts = np.zeros(shape=len_x, dtype=np.float64)
+        DT_D[:] dists = np.zeros(shape=len_x, dtype=np.float64)
+        DT_D[:] mult_arr = np.zeros(shape=len_x, dtype=np.float64)
         DT_D[:] idw_z_arr = np.zeros(shape=len_idw_z, dtype=np.float64)
 
     for i in range(len_idw_z):
@@ -102,7 +104,10 @@ cpdef np.ndarray get_idw_arr(
             xs,
             ys,
             zs,
-            idw_exp)
+            idw_exp,
+            idw_wts,
+            dists,
+            mult_arr)
 
     return np.asarray(idw_z_arr)
 

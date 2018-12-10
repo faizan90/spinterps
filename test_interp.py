@@ -91,9 +91,9 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-#     ord_krige_flag = False
-#     sim_krige_flag = False
-#     edk_krige_flag = False
+    ord_krige_flag = False
+    sim_krige_flag = False
+    edk_krige_flag = False
 #     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False

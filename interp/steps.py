@@ -22,7 +22,7 @@ plt.ioff()
 
 class SpInterpSteps:
 
-    def __init__(self, krig_main_cls):
+    def __init__(self, spinterp_main_cls):
 
         read_labs = [
             '_n_cpus',
@@ -47,7 +47,7 @@ class SpInterpSteps:
         self._debug = False
 
         for read_lab in read_labs:
-            setattr(self, read_lab, getattr(krig_main_cls, read_lab))
+            setattr(self, read_lab, getattr(spinterp_main_cls, read_lab))
 
         return
 
