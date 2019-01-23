@@ -40,13 +40,36 @@ class SpInterpBoundaryPolygons:
         if self._ipoly_flag:
             feat_buff_cells = []
 
+        temp_geoms = []
+
         for feat in bds_lyr:
             geom = feat.GetGeometryRef().Clone()
+
             assert geom is not None, (
                 'Something wrong with the geometries in the '
                 'polygons_shapefile!')
 
-            assert geom.GetGeometryType() == 3, 'Geometry not a polygon!'
+            geom_type = geom.GetGeometryType()
+
+            if geom_type == 6:
+                for sub_geom in geom:
+                    temp_geoms.append(sub_geom.Clone())
+
+            elif geom_type == 3:
+                temp_geoms.append(geom)
+
+        assert temp_geoms, 'Zero usable polygons in the shapefile!'
+
+        for geom in temp_geoms:
+            assert geom is not None, (
+                'Something wrong with the geometries in the '
+                'polygons_shapefile!')
+
+            geom_type = geom.GetGeometryType()
+            geom_name = geom.GetGeometryName()
+
+            assert geom_type == 3, (
+                f'Unknown geometry type, name: {geom_type}, {geom_name}!')
 
             assert geom.Area() > 0, 'Geometry has no area!'
 
@@ -57,7 +80,8 @@ class SpInterpBoundaryPolygons:
 
         bds_vec.Destroy()
 
-        assert feat_buff_stns, 'Zero polygons in the polygons_shapefile!'
+        assert feat_buff_stns, (
+            'Zero polygons selected in the polygons_shapefile!')
 
         if self._ipoly_flag:
             assert feat_buff_cells, (
@@ -69,14 +93,14 @@ class SpInterpBoundaryPolygons:
 
         fin_stns = []
         for poly in feat_buff_stns:
-            assert poly is not None, 'Corrupt polygons after buffering!'
+            assert poly is not None, 'Corrupted polygon after buffering!'
 
             for stn in all_stns:
                 if stn in fin_stns:
                     continue
 
                 curr_pt = cnvt_to_pt(
-                    *self._crds_df.loc[stn, ['X', 'Y']].values)
+                        *self._crds_df.loc[stn, ['X', 'Y']].values)
 
                 if chk_cntmt(curr_pt, poly):
                     fin_stns.append(stn)

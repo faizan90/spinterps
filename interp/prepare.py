@@ -218,6 +218,9 @@ class SpInterpPrepare(SIBD, KDT):
 
         for poly in self._geom_buff_cells:
             curr_cntn_idxs = np.vectorize(chk_cntmt)(ogr_pts, poly)
+
+            assert curr_cntn_idxs.sum(), 'Polygon intersects zero cells!'
+
             fin_cntn_idxs = fin_cntn_idxs | curr_cntn_idxs
 
         fin_idxs_sum = fin_cntn_idxs.sum()

@@ -64,7 +64,7 @@ class SpInterpData(VD):
 
         assert all(vgs_ser.shape), 'Empty vgs_ser!'
 
-        self._vgs_ser = vgs_ser
+        self._vgs_ser = pd.Series(vgs_ser, dtype=str)
 
         miss_steps_ctr = 0
         for date in self._vgs_ser.index:
@@ -485,7 +485,7 @@ class SpInterpData(VD):
         if (self._min_var_thr is not None) and (self._min_var_cut is not None):
 
             assert self._min_var_thr >= self._min_var_cut, (
-                'min_value_to_krige_thresh has to be greater than or equal to'
+                'min_value_to_krige_thresh has to be greater than or equal to '
                 'min_cutoff_value!')
 
         if (self._min_var_cut is not None) and (self._max_var_cut is not None):

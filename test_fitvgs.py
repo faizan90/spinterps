@@ -17,16 +17,16 @@ from spinterps import FitVariograms
 def get_mean_temp_paths():
 
     in_vals_df_loc = os.path.join(
-             r'Nidersachsen_temperature_avg_norm_cop_infill_1961_to_2015',
+             r'full_neckar_temperature_avg_norm_cop_infill_1961_to_2015_20190118',
              r'02_combined_station_outputs',
              r'infilled_var_df_infill_stns.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'Nidersachsen_temperature_avg_norm_cop_infill_1961_to_2015',
+             r'full_neckar_temperature_avg_norm_cop_infill_1961_to_2015_20190118',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'Niedersachsen_avg_temperature_kriging_20181121'
+    out_dir = r'full_neckar_temperature_avg_kriging_20190119'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -34,16 +34,16 @@ def get_mean_temp_paths():
 def get_min_temp_paths():
 
     in_vals_df_loc = os.path.join(
-             r'Nidersachsen_temperature_avg_norm_cop_infill_1961_to_2015',
+             r'full_neckar_temperature_min_norm_cop_infill_1961_to_2015_20190118',
              r'02_combined_station_outputs',
              r'infilled_var_df_infill_stns.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'Nidersachsen_temperature_avg_norm_cop_infill_1961_to_2015',
+             r'full_neckar_temperature_min_norm_cop_infill_1961_to_2015_20190118',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'test_Niedersachsen_avg_temperature_kriging'
+    out_dir = r'full_neckar_temperature_min_kriging_20190119'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -51,33 +51,38 @@ def get_min_temp_paths():
 def get_max_temp_paths():
 
     in_vals_df_loc = os.path.join(
-             r'Nidersachsen_temperature_max_norm_cop_infill_1961_to_2015',
+             r'full_neckar_temperature_max_norm_cop_infill_1961_to_2015_20190118',
              r'02_combined_station_outputs',
              r'infilled_var_df_infill_stns.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'Nidersachsen_temperature_max_norm_cop_infill_1961_to_2015',
+             r'full_neckar_temperature_max_norm_cop_infill_1961_to_2015_20190118',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'Niedersachsen_max_temperature_kriging_20181121'
+    out_dir = r'full_neckar_temperature_max_kriging_20190119'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
 
 def get_ppt_paths():
 
-    in_vals_df_loc = os.path.join(
-             r'Nidersachsen_precipitation_norm_cop_infill_1961_to_2015',
-             r'02_combined_station_outputs',
-             r'infilled_var_df_infill_stns.csv')
-
+#     in_vals_df_loc = os.path.join(
+#              r'full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117',
+#              r'02_combined_station_outputs',
+#              r'infilled_var_df_infill_stns.csv')
+#
     in_stn_coords_df_loc = os.path.join(
-             r'Nidersachsen_precipitation_norm_cop_infill_1961_to_2015',
+             r'full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'Niedersachsen_precipitation_kriging_20181124'
+    in_vals_df_loc = os.path.join(
+        r'full_neckar_clim_data_2', r'precipitation.csv')
+
+#     in_stn_coords_df_loc = r'coords\full_neckar_clim_data_coords_2/precipitation_coords.csv'
+
+    out_dir = r'full_neckar_precipitation_kriging_20190120_not_infill'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -87,14 +92,14 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\DWD_meteo_hist_pres')
     os.chdir(main_dir)
 
-    vg_var = 'mean_temp'
+    vg_var = 'ppt'
 
     strt_date = '1961-01-01'
-    end_date = '1961-12-31'
+    end_date = '2015-12-31'
     min_valid_stns = 20
 
     drop_stns = []
-    mdr = 0.2
+    mdr = 0.7
     perm_r_list = [1, 2]
     fit_vgs = ['Sph', 'Exp']
     fil_nug_vg = 'Nug'
@@ -102,7 +107,7 @@ def main():
     ngp = 5
     figs_flag = True
 
-    n_cpus = 7
+    n_cpus = 31
 
     sep = ';'
 
@@ -110,13 +115,13 @@ def main():
         in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_mean_temp_paths()
 
     elif vg_var == 'min_temp':
-        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_mean_temp_paths()
+        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_min_temp_paths()
 
     elif vg_var == 'max_temp':
-        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_mean_temp_paths()
+        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_max_temp_paths()
 
     elif vg_var == 'ppt':
-        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_mean_temp_paths()
+        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_ppt_paths()
 
     else:
         raise RuntimeError(f'Unknown vg_var: {vg_var}!')

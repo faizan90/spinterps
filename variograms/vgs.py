@@ -782,7 +782,7 @@ class Variogram:
 #                        sort_idxs_adj = np.delete(sort_idxs-1, 0, 0)
 #                        adj_perm = np.array(o)[[sort_idxs_adj]]
 #                    else:
-                    adj_perm = np.array(o)[[sort_idxs]]
+                    adj_perm = np.array(o)[sort_idxs]
 
                     skip_perm_list.append(tuple(adj_perm))
 

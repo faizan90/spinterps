@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 
+from ..misc import traceback_wrapper
 from ..cyth import (
     OrdinaryKriging,
     SimpleKriging,
@@ -51,22 +52,8 @@ class SpInterpSteps:
 
         return
 
+    @traceback_wrapper
     def get_interp_flds(self, all_args):
-
-        ret = None
-
-        try:
-            ret = self._get_interp_flds(all_args)
-
-        except Exception as msg:
-            print('Error while interpolating:', msg)
-
-            * _, exc_traceback = sys.exc_info()
-            tb.print_tb(exc_traceback, limit=None, file=sys.stdout)
-
-        return ret
-
-    def _get_interp_flds(self, all_args):
 
         (data_df,
          t_idx,
@@ -140,7 +127,7 @@ class SpInterpSteps:
                 continue
 
             # TODO: another ratio for this.
-            if np.all(curr_data_vals <= self._min_var_thr):
+            if np.all(curr_data_vals < self._min_var_thr):
                 interp_vals = np.full(
                     self._interp_crds_orig_shape, curr_data_vals.mean())
 
@@ -266,11 +253,12 @@ class SpInterpSteps:
 
     def _mod_min_max(self, interp_fld):
 
-        if self._min_var_cut is not None:
-            interp_fld[interp_fld < self._min_var_cut] = self._min_var_cut
+        with np.errstate(invalid='ignore'):
+            if self._min_var_cut is not None:
+                interp_fld[interp_fld < self._min_var_cut] = self._min_var_cut
 
-        if self._max_var_cut is not None:
-            interp_fld[interp_fld > self._max_var_cut] = self._max_var_cut
+            if self._max_var_cut is not None:
+                interp_fld[interp_fld > self._max_var_cut] = self._max_var_cut
 
         return
 

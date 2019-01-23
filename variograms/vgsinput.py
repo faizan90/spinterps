@@ -71,6 +71,9 @@ class VariogramsData:
         stns_time_ser_df.columns = map(str, stns_time_ser_df.columns)
         stns_crds_df.index = map(str, stns_crds_df.index)
 
+        stns_crds_df = stns_crds_df.loc[:, ['X', 'Y']]
+        stns_crds_df.dropna(axis=0, how='any', inplace=True)
+
         stns_time_ser_df.dropna(axis=1, how='all', inplace=True)
 
         if self._vb:
@@ -82,6 +85,9 @@ class VariogramsData:
 
         assert cmn_stns.shape[0], (
             'No common stations between stns_time_ser_df and stns_crds_df!')
+
+        stns_time_ser_df = stns_time_ser_df[cmn_stns]
+        stns_crds_df = stns_crds_df.loc[cmn_stns]
 
         if self._vb:
             print(

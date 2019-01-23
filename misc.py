@@ -4,11 +4,39 @@ Created on Nov 25, 2018
 @author: Faizan
 '''
 import os
+import sys
+from functools import wraps
+import traceback as tb
 
 import ogr
 import gdal
 import numpy as np
 import psutil as ps
+
+
+def traceback_wrapper(func):
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+
+        func_res = None
+
+        try:
+            func_res = func(*args, **kwargs)
+
+        except:
+            pre_stack = tb.format_stack()[:-1]
+
+            err_tb = list(tb.TracebackException(*sys.exc_info()).format())
+
+            lines = [err_tb[0]] + pre_stack + err_tb[2:]
+
+            for line in lines:
+                print(line, file=sys.stderr, end='')
+
+        return func_res
+
+    return wrapper
 
 
 def get_current_proc_size(mb=False):

@@ -16,37 +16,48 @@ from spinterps import SpInterpMain
 
 def main():
 
-    main_dir = Path(r'Q:\Synchronize_LDs')
+    main_dir = Path(r'P:\Synchronize_LDs')
     os.chdir(main_dir)
 
     in_data_file = os.path.join(
             r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-            r'Nidersachsen_temperature_avg_norm_cop_infill_1961_to_2015',
+            r'full_neckar_temperature_max_norm_cop_infill_1961_to_2015_20190118',
             r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns.csv')
 
+#     in_data_file = os.path.join(
+#         r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
+#         r'full_neckar_clim_data_2\precipitation.csv')
+
     in_vgs_file = os.path.join(
         r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-        r'Niedersachsen_avg_temperature_kriging_20181121',
-        r'avg_temp_fitted_variograms__nk_1.000__evg_name_robust__ngp_5__h_typ_var.csv')
+        r'full_neckar_temperature_max_kriging_20190119',
+        r'vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
         os.path.dirname(in_data_file),
         r'infilled_var_df_infill_stns_coords.csv')
-    out_dir = r'test_Niedersachsen_temperature_avg_interpolation'
-    var_units = 'c'  # u'\u2103'  # 'centigrade'
-    var_name = 'avg_temperature'
 
-    out_krig_net_cdf_file = r'test_Niedersachsen_avg_temp_kriging_%s_to_%s_5km_all.nc'
+#     in_stns_coords_file = os.path.join(
+#         r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
+#         r'full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117',
+#         r'02_combined_station_outputs',
+#         r'infilled_var_df_infill_stns_coords.csv')
+
+    out_dir = r'full_neckar_max_temp_interp_20190122'
+    var_units = 'C'  # u'\u2103'  # 'centigrade'
+    var_name = 'temperature'
+
+    out_krig_net_cdf_file = r'full_neckar_max_temp_kriging_%s_to_%s_1km_all.nc'
 
     freq = 'D'
     strt_date = r'1961-01-01'
-    end_date = r'1961-06-30'
+    end_date = r'2015-12-31'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Niedersachsen\hydmod\raster\srtm_mosacis_niedersachsen_5km_gkz3.tif'])  # ,
+        [r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif'])  # ,
     #     r'santa_rs_minerve_prep_june17/taudem_out/northings_drift_5km.tif',
     #     r'santa_rs_minerve_prep_june17/taudem_out/eastings_drift_5km.tif'])
 
@@ -55,18 +66,11 @@ def main():
 #                      r'taudem_out_spate_rockenau\watersheds.shp'))
 
     in_bounds_shp_file = (
-        os.path.join(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Niedersachsen\hydmod\raster',
-                     r'taudem_out_nied\watersheds_test_krige.shp'))
+        os.path.join(r'P:\Synchronize\IWS\QGIS_Neckar\raster',
+                     r'taudem_out_spate_rockenau\watersheds.shp'))
 
     align_ras_file = in_drift_rasters_list[0]
 
-    out_figs_dir = os.path.join(out_dir, 'krige_figs')
-
-    select_vg_lab = r'best_fit_vg_no_01'
-
-    x_coords_lab = 'X'
-    y_coords_lab = 'Y'
-    time_dim_lab = 'time'
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
@@ -75,12 +79,12 @@ def main():
     min_var_val = None
     max_var_val = None
 
-    idw_exps = [2, 3, 5]
-    n_cpus = 7
+    idw_exps = [5]
+    n_cpus = 31
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
-    in_sep = str(';')
+    in_sep = ';'
     in_date_fmt = '%Y-%m-%d'
 
     ord_krige_flag = True
@@ -93,7 +97,7 @@ def main():
 
     ord_krige_flag = False
     sim_krige_flag = False
-    edk_krige_flag = False
+#     edk_krige_flag = False
 #     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
@@ -109,7 +113,8 @@ def main():
         in_vgs_file,
         sep=in_sep,
         index_col=0,
-        encoding='utf-8')
+        encoding='utf-8',
+        dtype=str)
 
     in_stns_coords_df = pd.read_csv(
         in_stns_coords_file,
@@ -133,7 +138,8 @@ def main():
         nc_time_units,
         nc_calendar)
 
-    spinterp_cls.set_interp_time_parameters(strt_date, end_date, freq, in_date_fmt)
+    spinterp_cls.set_interp_time_parameters(
+        strt_date, end_date, freq, in_date_fmt)
     spinterp_cls.set_cell_selection_parameters(
         in_bounds_shp_file,
         buffer_dist,
