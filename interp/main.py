@@ -89,7 +89,7 @@ class SpInterpMain(SID, SIP):
         if self._vb:
             print('\n', '#' * 10, sep='')
             print('Started interpolation...')
-            print('Main process PID:', os.getpid())
+            print('Parent process ID:', os.getpid())
             print('Interpolation step indices:\n', interp_steps_idxs, sep='')
 
         for interp_arg in self._interp_args:

@@ -121,17 +121,16 @@ class SpInterpSteps:
 
             interp_vals = None
 
-            if (model == 'nan') or (not curr_stns.shape[0]):
-
-                print('No interpolation on:', interp_time)
-                continue
-
             # TODO: another ratio for this.
             if np.all(curr_data_vals < self._min_var_thr):
                 interp_vals = np.full(
-                    self._interp_crds_orig_shape, curr_data_vals.mean())
+                    self._interp_x_crds_msh.shape[0], curr_data_vals.mean())
 
-            if krg_flag:
+            elif (model == 'nan') or (not curr_stns.shape[0]):
+                print('No interpolation on:', interp_time)
+                continue
+
+            elif krg_flag:
                 try:
                     interp_vals = self._get_krgd_fld(
                         curr_x_coords,
@@ -154,9 +153,6 @@ class SpInterpSteps:
                     curr_y_coords,
                     curr_data_vals,
                     idw_exp)
-
-            if interp_vals is None:
-                continue
 
             if self._cntn_idxs is not None:
                 interp_flds[i].ravel()[self._cntn_idxs] = interp_vals

@@ -17,16 +17,16 @@ from spinterps import FitVariograms
 def get_mean_temp_paths():
 
     in_vals_df_loc = os.path.join(
-             r'full_neckar_temperature_avg_norm_cop_infill_1961_to_2015_20190118',
+             r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
              r'02_combined_station_outputs',
              r'infilled_var_df_infill_stns.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'full_neckar_temperature_avg_norm_cop_infill_1961_to_2015_20190118',
+             r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'full_neckar_temperature_avg_kriging_20190119'
+    out_dir = r'Mulde_temperature_avg_kriging_20190417'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -34,16 +34,16 @@ def get_mean_temp_paths():
 def get_min_temp_paths():
 
     in_vals_df_loc = os.path.join(
-             r'full_neckar_temperature_min_norm_cop_infill_1961_to_2015_20190118',
+             r'Mulde_temperature_min_norm_cop_infill_1950_to_2015_20190417',
              r'02_combined_station_outputs',
              r'infilled_var_df_infill_stns.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'full_neckar_temperature_min_norm_cop_infill_1961_to_2015_20190118',
+             r'Mulde_temperature_min_norm_cop_infill_1950_to_2015_20190417',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'full_neckar_temperature_min_kriging_20190119'
+    out_dir = r'Mulde_temperature_min_kriging_20190417'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -51,38 +51,33 @@ def get_min_temp_paths():
 def get_max_temp_paths():
 
     in_vals_df_loc = os.path.join(
-             r'full_neckar_temperature_max_norm_cop_infill_1961_to_2015_20190118',
+             r'Mulde_temperature_max_norm_cop_infill_1950_to_2015_20190417',
              r'02_combined_station_outputs',
              r'infilled_var_df_infill_stns.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'full_neckar_temperature_max_norm_cop_infill_1961_to_2015_20190118',
+             r'Mulde_temperature_max_norm_cop_infill_1950_to_2015_20190417',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'full_neckar_temperature_max_kriging_20190119'
+    out_dir = r'Mulde_temperature_max_kriging_20190417'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
 
 def get_ppt_paths():
 
-#     in_vals_df_loc = os.path.join(
-#              r'full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117',
-#              r'02_combined_station_outputs',
-#              r'infilled_var_df_infill_stns.csv')
-#
+    in_vals_df_loc = os.path.join(
+             r'Mulde_preciptiation_infilling_1950_2015',
+             r'02_combined_station_outputs',
+             r'infilled_var_df_infill_stns.csv')
+
     in_stn_coords_df_loc = os.path.join(
-             r'full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117',
+             r'Mulde_preciptiation_infilling_1950_2015',
              r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns_coords.csv')
 
-    in_vals_df_loc = os.path.join(
-        r'full_neckar_clim_data_2', r'precipitation.csv')
-
-#     in_stn_coords_df_loc = r'coords\full_neckar_clim_data_coords_2/precipitation_coords.csv'
-
-    out_dir = r'full_neckar_precipitation_kriging_20190120_not_infill'
+    out_dir = r'Mulde_precipitation_kriging_20190417'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -92,9 +87,9 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\DWD_meteo_hist_pres')
     os.chdir(main_dir)
 
-    vg_var = 'ppt'
+    vg_vars = ['ppt']
 
-    strt_date = '1961-01-01'
+    strt_date = '1950-01-01'
     end_date = '2015-12-31'
     min_valid_stns = 20
 
@@ -105,67 +100,78 @@ def main():
     fil_nug_vg = 'Nug'
     n_best = 4
     ngp = 5
-    figs_flag = True
+    figs_flag = False
 
-    n_cpus = 31
+    n_cpus = 30
 
     sep = ';'
 
-    if vg_var == 'mean_temp':
-        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_mean_temp_paths()
+    for vg_var in vg_vars:
+        if vg_var == 'mean_temp':
+            (in_vals_df_loc,
+             in_stn_coords_df_loc,
+             out_dir) = get_mean_temp_paths()
 
-    elif vg_var == 'min_temp':
-        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_min_temp_paths()
+        elif vg_var == 'min_temp':
+            (in_vals_df_loc,
+             in_stn_coords_df_loc,
+             out_dir) = get_min_temp_paths()
 
-    elif vg_var == 'max_temp':
-        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_max_temp_paths()
+        elif vg_var == 'max_temp':
+            (in_vals_df_loc,
+             in_stn_coords_df_loc,
+             out_dir) = get_max_temp_paths()
 
-    elif vg_var == 'ppt':
-        in_vals_df_loc, in_stn_coords_df_loc, out_dir = get_ppt_paths()
+        elif vg_var == 'ppt':
+            (in_vals_df_loc,
+             in_stn_coords_df_loc,
+             out_dir) = get_ppt_paths()
 
-    else:
-        raise RuntimeError(f'Unknown vg_var: {vg_var}!')
+        else:
+            raise RuntimeError(f'Unknown vg_var: {vg_var}!')
 
-    in_vals_df = pd.read_csv(
-        in_vals_df_loc, sep=sep, index_col=0, encoding='utf-8')
+        in_vals_df = pd.read_csv(
+            in_vals_df_loc, sep=sep, index_col=0, encoding='utf-8')
 
-    in_vals_df.index = pd.to_datetime(in_vals_df.index, format='%Y-%m-%d')
-    in_vals_df = in_vals_df.loc[strt_date:end_date, :]
+        in_vals_df.index = pd.to_datetime(in_vals_df.index, format='%Y-%m-%d')
+        in_vals_df = in_vals_df.loc[strt_date:end_date, :]
 
-    if drop_stns:
-        in_vals_df.drop(labels=drop_stns, axis=1, inplace=True)
+        if drop_stns:
+            in_vals_df.drop(labels=drop_stns, axis=1, inplace=True)
 
-    in_vals_df.dropna(how='all', axis=0, inplace=True)
+        in_vals_df.dropna(how='all', axis=0, inplace=True)
 
-    in_coords_df = pd.read_csv(
-        in_stn_coords_df_loc, sep=sep, index_col=0, encoding='utf-8')
+        in_coords_df = pd.read_csv(
+            in_stn_coords_df_loc, sep=sep, index_col=0, encoding='utf-8')
 
-    in_coords_df.index = list(map(str, in_coords_df.index))
+        in_coords_df.index = list(map(str, in_coords_df.index))
 
-    if drop_stns:
-        in_coords_df.drop(labels=drop_stns, axis=0, inplace=True)
+        if drop_stns:
+            in_coords_df.drop(labels=drop_stns, axis=0, inplace=True)
 
-    fit_vg_cls = FitVariograms()
+        fit_vg_cls = FitVariograms()
 
-    fit_vg_cls.set_data(in_vals_df, in_coords_df)
+        fit_vg_cls.set_data(in_vals_df, in_coords_df)
 
-    fit_vg_cls.set_vg_fitting_parameters(
-        mdr,
-        perm_r_list,
-        fil_nug_vg,
-        ngp,
-        fit_vgs,
-        n_best)
+        fit_vg_cls.set_vg_fitting_parameters(
+            mdr,
+            perm_r_list,
+            fil_nug_vg,
+            ngp,
+            fit_vgs,
+            n_best)
 
-    fit_vg_cls.set_misc_settings(n_cpus, min_valid_stns)
+        fit_vg_cls.set_misc_settings(n_cpus, min_valid_stns)
 
-    fit_vg_cls.set_output_settings(out_dir, figs_flag)
+        fit_vg_cls.set_output_settings(out_dir, figs_flag)
 
-    fit_vg_cls.verify()
+        fit_vg_cls.verify()
 
-    fit_vg_cls.fit_vgs()
+        fit_vg_cls.fit_vgs()
 
-    fit_vg_cls.save_fin_vgs_df()
+        fit_vg_cls.save_fin_vgs_df()
+        fit_vg_cls = None
+
     return
 
 

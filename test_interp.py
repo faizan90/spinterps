@@ -21,62 +21,45 @@ def main():
 
     in_data_file = os.path.join(
             r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-            r'full_neckar_temperature_max_norm_cop_infill_1961_to_2015_20190118',
+            r'Mulde_preciptiation_infilling_1950_2015',
             r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns.csv')
 
-#     in_data_file = os.path.join(
-#         r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-#         r'full_neckar_clim_data_2\precipitation.csv')
-
     in_vgs_file = os.path.join(
-        r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-        r'full_neckar_temperature_max_kriging_20190119',
+        r'Mulde_precipitation_kriging_20190417',
         r'vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
         os.path.dirname(in_data_file),
         r'infilled_var_df_infill_stns_coords.csv')
 
-#     in_stns_coords_file = os.path.join(
-#         r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-#         r'full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117',
-#         r'02_combined_station_outputs',
-#         r'infilled_var_df_infill_stns_coords.csv')
+    out_dir = r'Mulde_precipitation_kriging_20190417'
+    var_units = 'mm'  # u'\u2103'  # 'centigrade'
+    var_name = 'precipitation'
 
-    out_dir = r'full_neckar_max_temp_interp_20190122'
-    var_units = 'C'  # u'\u2103'  # 'centigrade'
-    var_name = 'temperature'
-
-    out_krig_net_cdf_file = r'full_neckar_max_temp_kriging_%s_to_%s_1km_all.nc'
+    out_krig_net_cdf_file = r'mulde_precipitation_kriging_%s_to_%s_1km_all.nc'
 
     freq = 'D'
-    strt_date = r'1961-01-01'
+    strt_date = r'1950-01-01'
     end_date = r'2015-12-31'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif'])  # ,
-    #     r'santa_rs_minerve_prep_june17/taudem_out/northings_drift_5km.tif',
-    #     r'santa_rs_minerve_prep_june17/taudem_out/eastings_drift_5km.tif'])
-
-#     in_bounds_shp_file = (
-#         os.path.join(r'P:\Synchronize\IWS\QGIS_Neckar\raster',
-#                      r'taudem_out_spate_rockenau\watersheds.shp'))
+        [r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Mulde\hydmod\raster\srtm_mosaic_mulde_gkz3_1km.tif'])
 
     in_bounds_shp_file = (
-        os.path.join(r'P:\Synchronize\IWS\QGIS_Neckar\raster',
-                     r'taudem_out_spate_rockenau\watersheds.shp'))
+        os.path.join(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Mulde\hydmod\raster',
+                     r'taudem_out_mulde_20190416\watersheds.shp'))
 
     align_ras_file = in_drift_rasters_list[0]
 
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_ppt_thresh = -float('inf')
+    min_ppt_thresh = 1  # -float('inf')
 
-    min_var_val = None
+    min_var_val = 0
     max_var_val = None
 
     idw_exps = [5]
@@ -95,11 +78,11 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    ord_krige_flag = False
+#     ord_krige_flag = False
     sim_krige_flag = False
 #     edk_krige_flag = False
 #     idw_flag = False
-#     plot_figs_flag = False
+    plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False
 
