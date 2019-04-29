@@ -15,10 +15,12 @@ class VariogramsData:
 
         self._vb = verbose
 
+        self._index_type = None
+
         self._data_set_flag = False
         return
 
-    def set_data(self, stns_time_ser_df, stns_crds_df):
+    def set_data(self, stns_time_ser_df, stns_crds_df, index_type='date'):
 
         '''Set the data time series and coordinates dataframes.
 
@@ -32,6 +34,9 @@ class VariogramsData:
             A dataframe holding the coordinates of the stations. Index
             should be station labels and two columns 'X' and 'Y'
             representing the x- and y-coordinates.
+        index_type : str
+            The datatype of stns_time_ser_df.index. Currently, allowed
+            ones are obj and date.
         '''
 
         assert isinstance(stns_time_ser_df, pd.DataFrame), (
@@ -50,8 +55,23 @@ class VariogramsData:
         assert np.issubdtype(stns_crds_df.values.dtype, np.number), (
             'dtype of stns_crds_df should be a subtype of number!')
 
-        assert isinstance(stns_time_ser_df.index, pd.DatetimeIndex), (
-            'Index of stns_time_ser_df has to be a pd.DatetimeIndex object!')
+        if self._index_type is not None:
+            assert index_type == self._index_type, (
+                'Given and previously index_type do not match!')
+
+        if index_type == 'date':
+            assert isinstance(stns_time_ser_df.index, pd.DatetimeIndex), (
+                'Data type of index of stns_time_ser_df does not match '
+                'index_type!')
+
+        elif index_type == 'obj':
+            assert isinstance(stns_time_ser_df.index, object), (
+                'Data type of index of stns_time_ser_df does not match '
+                'index_type!')
+
+        else:
+            raise AssertionError(
+                'index_type can only be \'obj\' or \'date\'!')
 
         assert all([
             'X' in stns_crds_df.columns,
@@ -110,6 +130,7 @@ class VariogramsData:
 
         self._data_df = stns_time_ser_df
         self._crds_df = stns_crds_df
+        self._index_type = index_type
 
         if self._vb:
             print('Data set successfully!')

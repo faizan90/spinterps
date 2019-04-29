@@ -43,7 +43,7 @@ class SpInterpData(VD):
         self._data_vrfd_flag = False
         return
 
-    def set_vgs_ser(self, vgs_ser):
+    def set_vgs_ser(self, vgs_ser, index_type='date'):
 
         '''
         Set the time series of variograms
@@ -59,8 +59,21 @@ class SpInterpData(VD):
         assert isinstance(vgs_ser, pd.Series), (
             'vgs_ser has to be a pd.Series object!')
 
-        assert isinstance(vgs_ser.index, pd.DatetimeIndex), (
-            'Index of vgs_ser has to be a pd.DatetimeIndex object!')
+        if self._index_type is not None:
+            assert index_type == self._index_type, (
+                'Given and previously index_type do not match!')
+
+        if index_type == 'date':
+            assert isinstance(vgs_ser.index, pd.DatetimeIndex), (
+                'Data type of index of vg_ser does not match index_type!')
+
+        elif index_type == 'obj':
+            assert isinstance(vgs_ser.index, object), (
+                'Data type of index of vg_ser does not match index_type!')
+
+        else:
+            raise AssertionError(
+                'index_type can only be \'obj\' or \'date\'!')
 
         assert all(vgs_ser.shape), 'Empty vgs_ser!'
 
@@ -157,13 +170,17 @@ class SpInterpData(VD):
 
         self._nc_vlab = var_label
 
-        assert isinstance(time_units, str), 'time_units not a string!'
-        assert time_units, 'Empty time_units string!'
+        if time_units is not None:
+            assert isinstance(time_units, str), 'time_units not a string!'
+            assert time_units, 'Empty time_units string!'
 
         self._nc_tunits = time_units
 
-        assert isinstance(time_calendar, str), 'time_calendar not a string!'
-        assert time_calendar, 'Empty time_calendar string!'
+        if time_calendar is not None:
+            assert isinstance(time_calendar, str), (
+                'time_calendar not a string!')
+
+            assert time_calendar, 'Empty time_calendar string!'
 
         self._nc_tcldr = time_calendar
 
@@ -192,7 +209,7 @@ class SpInterpData(VD):
             beg_time,
             end_time,
             time_freq,
-            time_fmt=None):
+            time_fmt):
 
         '''
         Set the starting and ending time for the interpolation.
@@ -212,47 +229,53 @@ class SpInterpData(VD):
             based on beg_time, end_time and time_freq.
         time_fmt : None or str
             A string representing the time format of beg_time and end_time
-            if they are string objects.
+            if they are string objects. None means the index is not Time
+            or a similar datatype.
         '''
 
-        assert isinstance(time_fmt, str) or time_fmt is None, (
-            'time_fmt not a string or None!')
-
-        assert isinstance(time_freq, str), 'time-_freq not a string!'
-
-        self._tfreq = time_freq
-
-        if isinstance(beg_time, str):
-            assert isinstance(time_fmt, str), (
-                'time_fmt has to be a string if beg_time is a string!')
-
-            self._tbeg = pd.to_datetime(beg_time, format=time_fmt)
-
-        elif isinstance(beg_time, pd.Timestamp):
-            self._tbeg = beg_time
-
-        else:
-            raise AssertionError(
-                'beg_time can only be an str or a pd.Timestamp object!')
-
-        if isinstance(end_time, str):
-            assert isinstance(time_fmt, str), (
-                'time_fmt has to be a string if end_time is a string!')
-
+        if time_fmt is not None:
             assert isinstance(time_fmt, str), 'time_fmt not a string!'
 
-            self._tend = pd.to_datetime(end_time, format=time_fmt)
+            assert isinstance(time_freq, str), 'time-_freq not a string!'
 
-        elif isinstance(end_time, pd.Timestamp):
-            self._tend = end_time
+            self._tfreq = time_freq
+
+            if isinstance(beg_time, str):
+                assert isinstance(time_fmt, str), (
+                    'time_fmt has to be a string if beg_time is a string!')
+
+                self._tbeg = pd.to_datetime(beg_time, format=time_fmt)
+
+            elif isinstance(beg_time, pd.Timestamp):
+                self._tbeg = beg_time
+
+            else:
+                raise AssertionError(
+                    'beg_time can only be an str or a pd.Timestamp object!')
+
+            if isinstance(end_time, str):
+                assert isinstance(time_fmt, str), (
+                    'time_fmt has to be a string if end_time is a string!')
+
+                assert isinstance(time_fmt, str), 'time_fmt not a string!'
+
+                self._tend = pd.to_datetime(end_time, format=time_fmt)
+
+            elif isinstance(end_time, pd.Timestamp):
+                self._tend = end_time
+
+            else:
+                raise AssertionError(
+                    'end_time can only be an str or a pd.Timestamp object!')
+
+            assert self._tend >= self._tbeg, (
+                'Begining time of interpolation cannot be less than the ending '
+                'time!')
 
         else:
-            raise AssertionError(
-                'end_time can only be an str or a pd.Timestamp object!')
-
-        assert self._tend >= self._tbeg, (
-            'Begining time of interpolation cannot be less than the ending '
-            'time!')
+            self._tbeg = None
+            self._tend = None
+            self._tfreq = None
 
         if self._vb:
             print('\n', '#' * 10, sep='')

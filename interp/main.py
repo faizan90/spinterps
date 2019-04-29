@@ -44,7 +44,7 @@ class SpInterpMain(SID, SIP):
 
         self._max_mem_usage_ratio = 0.75
 
-        self._qu_timeout_secs = (3600 * 24 * 30)  # reduce for debug purposes
+        self._qu_timeout_secs = (3600 * 24 * 1)  # reduce for debug purposes
 
         self._main_vrfd_flag = False
         return

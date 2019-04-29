@@ -3,9 +3,6 @@ Created on Nov 26, 2018
 
 @author: Faizan-Uni
 '''
-import sys
-import traceback as tb
-
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -42,7 +39,8 @@ class SpInterpSteps:
             '_interp_y_crds_plot_msh',
             '_interp_x_crds_msh',
             '_interp_y_crds_msh',
-            '_qu_timeout_secs'
+            '_qu_timeout_secs',
+            '_index_type',
             ]
 
         self._debug = False
@@ -199,7 +197,15 @@ class SpInterpSteps:
             interp_type,
             out_figs_dir):
 
-        time_str = interp_time.strftime('%Y_%m_%d_T_%H_%M')
+        if self._index_type == 'date':
+            time_str = interp_time.strftime('%Y_%m_%d_T_%H_%M')
+
+        elif self._index_type == 'obj':
+            time_str = interp_time
+
+        else:
+            raise NotImplementedError(
+                f'Unknown index_type: {self._index_type}!')
 
         out_fig_name = f'{interp_type.lower()}_{time_str}.png'
 

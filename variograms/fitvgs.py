@@ -99,6 +99,8 @@ class FitVariogramsSteps:
         self._vg_names = fit_vg_cls._vg_names
         self._n_best_vgs = fit_vg_cls._n_best_vgs
 
+        self._index_type = fit_vg_cls._index_type
+
         self._min_vld_stns = fit_vg_cls._min_vld_stns
 
         self._out_figs_path = fit_vg_cls._out_figs_path
@@ -171,8 +173,17 @@ class FitVariogramsSteps:
             h_arr = vg.vg_h_arr
             vg_fit = vg.vg_fit
 
-            date_str = '%0.4d-%0.2d-%0.2d' % (
-                date.year, date.month, date.day)
+            if self._index_type == 'date':
+                date_str = '%0.4d-%0.2d-%0.2d' % (
+                    date.year, date.month, date.day)
+
+            elif self._index_type == 'obj':
+                date_str = date
+
+            else:
+                raise ValueError(
+                    f'Not programmed to handle given index_type: '
+                    f'{self._index_type}!')
 
             plt.figure(figsize=fig_size)
 

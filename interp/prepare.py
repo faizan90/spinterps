@@ -268,13 +268,21 @@ class SpInterpPrepare(SIBD, KDT):
         time_nc = self._nc_hdl.createVariable(
             self._nc_tlab, 'i8', dimensions=self._nc_tlab)
 
-        time_nc[:] = nc.date2num(
-            self._time_rng.to_pydatetime(),
-            units=self._nc_tunits,
-            calendar=self._nc_tcldr)
+        if self._index_type == 'date':
+            time_nc[:] = nc.date2num(
+                self._time_rng.to_pydatetime(),
+                units=self._nc_tunits,
+                calendar=self._nc_tcldr)
 
-        time_nc.units = self._nc_tunits
-        time_nc.calendar = self._nc_tcldr
+            time_nc.units = self._nc_tunits
+            time_nc.calendar = self._nc_tcldr
+
+        elif self._index_type == 'obj':
+            time_nc[:] = np.arange(self._time_rng.shape[0], dtype=int)
+
+        else:
+            raise NotImplementedError(
+                f'Unknown index_type: {self._index_type}!')
 
         for interp_arg in self._interp_args:
             ivar_name = interp_arg[2]
@@ -306,8 +314,16 @@ class SpInterpPrepare(SIBD, KDT):
             self._edk_flag,
             self._idw_flag])
 
-        self._time_rng = pd.date_range(
-            self._tbeg, self._tend, freq=self._tfreq)
+        if self._index_type == 'date':
+            self._time_rng = pd.date_range(
+                self._tbeg, self._tend, freq=self._tfreq)
+
+        elif self._index_type == 'obj':
+            self._time_rng = self._data_df.index
+
+        else:
+            raise NotImplementedError(
+                f'Unknown index_type: {self._index_type}!')
 
         if self._cell_sel_prms_set:
             self._select_nearest_stations()
