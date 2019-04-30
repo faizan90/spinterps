@@ -50,14 +50,14 @@ class VariogramsData:
         assert all(stns_crds_df.shape), 'Empty stns_crds_df!'
 
         assert np.issubdtype(stns_time_ser_df.values.dtype, np.floating), (
-            'dtype of stns_time_ser_df should be a subtype of floating!')
+            'dtype of stns_time_ser_df should be a subtype of np.floating!')
 
         assert np.issubdtype(stns_crds_df.values.dtype, np.number), (
-            'dtype of stns_crds_df should be a subtype of number!')
+            'dtype of stns_crds_df should be a subtype of np.number!')
 
         if self._index_type is not None:
             assert index_type == self._index_type, (
-                'Given and previously index_type do not match!')
+                'Given and previously set index_type do not match!')
 
         if index_type == 'date':
             assert isinstance(stns_time_ser_df.index, pd.DatetimeIndex), (

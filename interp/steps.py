@@ -303,6 +303,9 @@ class SpInterpSteps:
                 sk=drft_arrs,
                 model=model)
 
+        else:
+            raise ValueError(f'Unknown interpolation type: {interp_type}!')
+
         krige_cls.krige()
 
         return krige_cls.zk

@@ -260,6 +260,8 @@ class SpInterpMain(SID, SIP):
         # actual interpreter size will probably be much smaller than this
         interpreter_size = get_current_proc_size()
 
+        assert 0 < self._max_mem_usage_ratio <= 1
+
         tot_avail_mem = int(
             ps.virtual_memory().free * self._max_mem_usage_ratio)
 

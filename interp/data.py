@@ -61,7 +61,7 @@ class SpInterpData(VD):
 
         if self._index_type is not None:
             assert index_type == self._index_type, (
-                'Given and previously index_type do not match!')
+                'Given and previously set index_type do not match!')
 
         if index_type == 'date':
             assert isinstance(vgs_ser.index, pd.DatetimeIndex), (
@@ -79,13 +79,7 @@ class SpInterpData(VD):
 
         self._vgs_ser = pd.Series(vgs_ser, dtype=str)
 
-        miss_steps_ctr = 0
-        for date in self._vgs_ser.index:
-            if len(self._vgs_ser.loc[date]) >= 6:
-                continue
-
-            self._vgs_ser[date] = 'nan'
-            miss_steps_ctr += 1
+        miss_steps_ctr = (self._vgs_ser.values == 'nan').sum()
 
         if self._vb:
             print('\n', '#' * 10, sep='')
@@ -144,15 +138,17 @@ class SpInterpData(VD):
             Name of the interpolated variable. Can be anything. Again this
             is not important for the interpolation but may help others to '
             know what the name of the variable is.
-        time_units : str
+        time_units : str or None
             Starting date that is used as a reference by the netCDF4 module
             to convert datetime objects to integers and the other way around.
             It generally looks like days since 1900-00-00. Read the netCDF4
-            documentation to get a better idea.
-        time_calendar : str
+            documentation to get a better idea. Can be None to represent
+            non-datetime like index.
+        time_calendar : str or None
             A calendar name that is compatible with the netCDF4 library.
             It is typically gregorian or something. Read the netCDF4
-            documentation to get a better idea.
+            documentation to get a better idea. Can be None to represent
+            non-datetime like index.
         '''
 
         assert isinstance(out_file_name, str), (
@@ -229,8 +225,9 @@ class SpInterpData(VD):
             based on beg_time, end_time and time_freq.
         time_fmt : None or str
             A string representing the time format of beg_time and end_time
-            if they are string objects. None means the index is not Time
-            or a similar datatype.
+            if they are string objects. None means the index is a
+            non-datetime like. In such a case no checks are done for the
+            previous parameters and everything is set to None.
         '''
 
         if time_fmt is not None:
@@ -424,7 +421,7 @@ class SpInterpData(VD):
         '''
         Set some more parameters
 
-        Default values defined in KrigingMain
+        Default values defined in SpInterpMain
 
         Parameters
         ----------

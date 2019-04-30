@@ -24,7 +24,7 @@ class KrigingDrift:
 
         '''
         Given the drift rasters, check if all of them have similar properties
-        such as cell size, coordinates' minima and maxima and no data values.
+        such as cell size, extents and no data values.
 
         If the alignment raster is specified then the cell size of the
         drift rasters should match that of the alignment raster.

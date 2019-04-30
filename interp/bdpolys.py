@@ -28,6 +28,7 @@ class SpInterpBoundaryPolygons:
             'Call set_cell_selection_parameters first!')
 
         bds_vec = ogr.Open(str(self._poly_shp))
+
         assert bds_vec is not None, (
             'Could not open the polygons_shapefile!')
 
@@ -106,7 +107,7 @@ class SpInterpBoundaryPolygons:
                     fin_stns.append(stn)
 
         assert fin_stns, (
-            'Found no stations that are close enough to the polygons!')
+            'Found zero stations that are close enough to the polygons!')
 
         if self._vb:
             print(
