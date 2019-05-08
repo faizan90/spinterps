@@ -24,6 +24,12 @@ class SpInterpBoundaryPolygons:
         nearest polygon.
         '''
 
+        if self._vb:
+            print('\n', '#' * 10, sep='')
+            print(
+                'Selecting stations within and around the shaefile '
+                'polygons...')
+
         assert self._cell_sel_prms_set, (
             'Call set_cell_selection_parameters first!')
 
@@ -89,7 +95,6 @@ class SpInterpBoundaryPolygons:
                 'Zero polygons in the polygons_shapefile!')
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
             print(len(feat_buff_stns), 'polygons in the polygons_shapefile.')
 
         fin_stns = []
