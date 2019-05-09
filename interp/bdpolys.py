@@ -27,7 +27,7 @@ class SpInterpBoundaryPolygons:
         if self._vb:
             print('\n', '#' * 10, sep='')
             print(
-                'Selecting stations within and around the shaefile '
+                'Selecting stations within and around the shapefile '
                 'polygons...')
 
         assert self._cell_sel_prms_set, (
@@ -96,6 +96,7 @@ class SpInterpBoundaryPolygons:
 
         if self._vb:
             print(len(feat_buff_stns), 'polygons in the polygons_shapefile.')
+            print(len(all_stns), 'stations in the coordinates dataframe.')
 
         fin_stns = []
         for poly in feat_buff_stns:

@@ -16,7 +16,7 @@ from spinterps import SpInterpMain
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize_LDs')
+    main_dir = Path(r'Q:\Synchronize_LDs')
     os.chdir(main_dir)
 
     in_data_file = os.path.join(
@@ -33,15 +33,17 @@ def main():
         os.path.dirname(in_data_file),
         r'infilled_var_df_infill_stns_coords.csv')
 
-    out_dir = r'Mulde_precipitation_kriging_20190417'
+    index_type = 'date'
+
+    out_dir = r'test_spinterp'
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
-    out_krig_net_cdf_file = r'mulde_precipitation_kriging_%s_to_%s_1km_all.nc'
+    out_krig_net_cdf_file = r'mulde_precipitation_kriging_%s_to_%s_1km_test.nc'
 
     freq = 'D'
     strt_date = r'1950-01-01'
-    end_date = r'2015-12-31'
+    end_date = r'1950-12-31'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
@@ -57,13 +59,13 @@ def main():
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_ppt_thresh = 1  # -float('inf')
+    min_ppt_thresh = 1  # -float('inf') # 1
 
     min_var_val = 0
     max_var_val = None
 
-    idw_exps = [5]
-    n_cpus = 31
+    idw_exps = [1, 3, 5]
+    n_cpus = 7
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
@@ -79,10 +81,10 @@ def main():
     interp_around_polys_flag = True
 
 #     ord_krige_flag = False
-    sim_krige_flag = False
+#     sim_krige_flag = False
 #     edk_krige_flag = False
 #     idw_flag = False
-    plot_figs_flag = False
+#     plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False
 
@@ -110,8 +112,8 @@ def main():
 
     spinterp_cls = SpInterpMain(verbose)
 
-    spinterp_cls.set_data(in_data_df, in_stns_coords_df)
-    spinterp_cls.set_vgs_ser(in_vgs_df.iloc[:, 0])
+    spinterp_cls.set_data(in_data_df, in_stns_coords_df, index_type=index_type)
+    spinterp_cls.set_vgs_ser(in_vgs_df.iloc[:, 0], index_type=index_type)
     spinterp_cls.set_out_dir(out_dir)
 
     spinterp_cls.set_netcdf4_parameters(

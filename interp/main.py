@@ -5,11 +5,10 @@ Created on Nov 25, 2018
 '''
 
 import os
-import time
 import timeit
 from math import ceil
 from pathlib import Path
-from multiprocessing import Pool, Manager, Queue, Lock
+from multiprocessing import Pool, Manager, Lock
 
 import numpy as np
 import psutil as ps
@@ -42,9 +41,7 @@ class SpInterpMain(SID, SIP):
         self._edk_flag = False
         self._idw_flag = False
 
-        self._max_mem_usage_ratio = 0.75
-
-        self._qu_timeout_secs = (3600 * 24 * 1)  # reduce for debug purposes
+        self._max_mem_usage_ratio = 0.9
 
         self._main_vrfd_flag = False
         return
@@ -69,20 +66,14 @@ class SpInterpMain(SID, SIP):
         if self._mp_flag:
             mp_pool = Pool(self._n_cpus)
 
-            spi_map = mp_pool.imap_unordered  #  has to be a non blocking one
+            spi_map = mp_pool.map  # has to be a blocking one
 
             self._lock = Manager().Lock()
-            self._qu_data = Manager().Queue()
-            self._qu_barr = Manager().Queue()
-            self._qu_done = Manager().Queue()
 
         else:
             spi_map = map
 
             self._lock = Lock()  #  the manager might slow things down
-            self._qu_data = Queue()
-            self._qu_barr = None
-            self._qu_done = None
 
         interp_steps_cls = SIS(self)
 
@@ -116,11 +107,8 @@ class SpInterpMain(SID, SIP):
 
                     print(f'Using {max_rng} worker(s) for the current pass.')
 
-                self._all_procs_strtd_flag = False
-
                 interp_gen = (
                     self._get_interp_gen_data(
-                        i,
                         interp_steps_idxs[j + i],
                         interp_steps_idxs[j + i + 1],
                         interp_arg,
@@ -128,63 +116,15 @@ class SpInterpMain(SID, SIP):
 
                     for i in range(max_rng))
 
-                map_obj = spi_map(interp_steps_cls.get_interp_flds, interp_gen)
-
-                if not self._mp_flag:
-                    list(map_obj)
-
                 if self._mp_flag:
                     if self._vb:
                         print('Sending jobs to all workers...')
 
-                    while not self._all_procs_strtd_flag:
-                        time.sleep(1)
+                maped_obj = spi_map(
+                    interp_steps_cls.get_interp_flds, interp_gen)
 
-                    if self._vb:
-                        print('Sent jobs to all workers.')
-
-                    tot_procs_sync_ct = 0
-
-                    while tot_procs_sync_ct < max_rng:
-                        barr_ret = self._qu_barr.get(
-                            block=True, timeout=self._qu_timeout_secs)[0]
-
-                        assert barr_ret == 1
-
-                        tot_procs_sync_ct += barr_ret
-
-                tot_items_to_extract = max_rng
-                while tot_items_to_extract:
-                    interp_fld, beg_idx, end_idx = (
-                        self._qu_data.get(
-                            block=True, timeout=self._qu_timeout_secs))
-
-                    if self._vb and (tot_items_to_extract == max_rng):
-                        print(
-                            'Writing interpolated fields to the '
-                            'netCDF file...')
-
-                    assert self._qu_data.empty()
-
-                    nc_is = np.linspace(beg_idx, end_idx, max_rng, dtype=int)
-                    ar_is = nc_is - beg_idx
-
-                    for i in range(max_rng - 1):
-                        self._nc_hdl[ivar_name][
-                            nc_is[i]:nc_is[i + 1], :, :] = (
-                                interp_fld[ar_is[i]:ar_is[i + 1]])
-
-                    tot_items_to_extract -= 1
-
-                    interp_fld = None
-
-                    if self._mp_flag:
-                        self._qu_done.put(
-                            (1111,),
-                            block=True,
-                            timeout=self._qu_timeout_secs)
-
-                self._nc_hdl.sync()
+                if not self._mp_flag:
+                    list(maped_obj)
 
                 if self._vb:
                     print('Done writing for the current pass.')
@@ -199,11 +139,6 @@ class SpInterpMain(SID, SIP):
 
                 print('#' * 10)
 
-        self._nc_hdl.Source = self._nc_hdl.filepath()
-        self._nc_hdl.close()
-
-        del self._qu_data, self._qu_barr, self._qu_done
-
         if self._vb:
             print('\n')
             print('Done interpolating!')
@@ -211,14 +146,7 @@ class SpInterpMain(SID, SIP):
         return
 
     def _get_interp_gen_data(
-            self, t_idx, beg_idx, end_idx, interp_arg, max_rng):
-
-        if t_idx and self._mp_flag:
-            assert self._qu_done.get(
-                block=True, timeout=self._qu_timeout_secs)[0] == 2222
-
-        if t_idx == (max_rng - 1):
-            self._all_procs_strtd_flag = True
+            self, beg_idx, end_idx, interp_arg, max_rng):
 
         if interp_arg[0] in ['OK', 'SK', 'EDK']:
             vgs_ser = self._vgs_ser
@@ -235,15 +163,11 @@ class SpInterpMain(SID, SIP):
 
         return (
             self._data_df.iloc[beg_idx:end_idx],
-            t_idx,
             beg_idx,
             end_idx,
             max_rng,
             interp_arg,
             self._lock,
-            self._qu_data,
-            self._qu_barr,
-            self._qu_done,
             drft_arrs,
             stns_drft_df,
             vgs_ser)

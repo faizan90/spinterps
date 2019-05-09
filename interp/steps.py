@@ -4,6 +4,7 @@ Created on Nov 26, 2018
 @author: Faizan-Uni
 '''
 import numpy as np
+import netCDF4 as nc
 
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
@@ -39,8 +40,8 @@ class SpInterpSteps:
             '_interp_y_crds_plot_msh',
             '_interp_x_crds_msh',
             '_interp_y_crds_msh',
-            '_qu_timeout_secs',
             '_index_type',
+            '_nc_file_path',
             ]
 
         self._debug = False
@@ -54,15 +55,11 @@ class SpInterpSteps:
     def get_interp_flds(self, all_args):
 
         (data_df,
-         t_idx,
          beg_idx,
          end_idx,
          max_rng,
          interp_arg,
          lock,
-         qu_data,
-         qu_barr,
-         qu_done,
          drft_arrs,
          stns_drft_df,
          vgs_ser) = all_args
@@ -90,13 +87,6 @@ class SpInterpSteps:
              self._interp_crds_orig_shape[1]),
             np.nan,
             dtype=np.float32)
-
-        if self._mp_flag:
-            if t_idx < (max_rng - 1):
-                qu_done.put(
-                    (2222,), block=True, timeout=self._qu_timeout_secs)
-
-            qu_barr.put((1,), block=True, timeout=self._qu_timeout_secs)
 
         for i, interp_time in enumerate(fin_date_range):
             curr_stns = data_df.loc[interp_time, :].dropna().index
@@ -172,19 +162,21 @@ class SpInterpSteps:
                     out_figs_dir)
 
         with lock:
-            qu_data.put(
-                [interp_flds, beg_idx, end_idx],
-                block=True,
-                timeout=self._qu_timeout_secs)
+            nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
+            ar_is = nc_is - beg_idx
+
+            nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r+')
+
+            for i in range(max_rng):
+                nc_hdl[interp_arg[2]][
+                    nc_is[i]:nc_is[i + 1], :, :] = (
+                        interp_flds[ar_is[i]:ar_is[i + 1]])
+
+            nc_hdl.sync()
+            nc_hdl.close()
 
             interp_flds = None
 
-            if self._mp_flag:
-                qu_get = qu_done.get(
-                    block=True,
-                    timeout=self._qu_timeout_secs)[0]
-
-                assert qu_get == 1111
         return
 
     def _plot_interp(
@@ -245,10 +237,12 @@ class SpInterpSteps:
         title = (
             f'Time: {time_str}\n(VG: {model})\n'
             f'Min.: {grd_min:0.4f}, Max.: {grd_max:0.4f}')
+
         ax.set_title(title)
 
         plt.setp(ax.get_xmajorticklabels(), rotation=70)
         ax.set_aspect('equal', 'datalim')
+
         plt.savefig(str(out_figs_dir / out_fig_name), bbox_inches='tight')
         plt.close()
         return

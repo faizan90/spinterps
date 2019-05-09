@@ -246,26 +246,26 @@ class SpInterpPrepare(SIBD, KDT):
         coordinates and time stamps will be saved in this file.
         '''
 
-        self._nc_hdl = nc.Dataset(
+        nc_hdl = nc.Dataset(
             str(self._out_dir / (self._nc_out.split('.')[0] + '.nc')),
             mode='w')
 
-        self._nc_hdl.set_auto_mask(False)
-        self._nc_hdl.createDimension(self._nc_xlab, self._nc_x_crds.shape[0])
-        self._nc_hdl.createDimension(self._nc_ylab, self._nc_y_crds.shape[0])
-        self._nc_hdl.createDimension(self._nc_tlab, self._time_rng.shape[0])
+        nc_hdl.set_auto_mask(False)
+        nc_hdl.createDimension(self._nc_xlab, self._nc_x_crds.shape[0])
+        nc_hdl.createDimension(self._nc_ylab, self._nc_y_crds.shape[0])
+        nc_hdl.createDimension(self._nc_tlab, self._time_rng.shape[0])
 
-        x_coords_nc = self._nc_hdl.createVariable(
+        x_coords_nc = nc_hdl.createVariable(
             self._nc_xlab, 'd', dimensions=self._nc_xlab)
 
         x_coords_nc[:] = self._nc_x_crds
 
-        y_coords_nc = self._nc_hdl.createVariable(
+        y_coords_nc = nc_hdl.createVariable(
             self._nc_ylab, 'd', dimensions=self._nc_ylab)
 
         y_coords_nc[:] = self._nc_y_crds
 
-        time_nc = self._nc_hdl.createVariable(
+        time_nc = nc_hdl.createVariable(
             self._nc_tlab, 'i8', dimensions=self._nc_tlab)
 
         if self._index_type == 'date':
@@ -287,7 +287,7 @@ class SpInterpPrepare(SIBD, KDT):
         for interp_arg in self._interp_args:
             ivar_name = interp_arg[2]
 
-            nc_var = self._nc_hdl.createVariable(
+            nc_var = nc_hdl.createVariable(
                 ivar_name,
                 'd',
                 dimensions=(self._nc_tlab, self._nc_ylab, self._nc_xlab),
@@ -302,6 +302,10 @@ class SpInterpPrepare(SIBD, KDT):
             else:
                 nc_var.standard_name = self._nc_vlab + f' ({ivar_name})'
 
+        self._nc_file_path = nc_hdl.filepath()
+
+        nc_hdl.Source = self._nc_file_path
+        nc_hdl.close()
         return
 
     def _prepare(self):
