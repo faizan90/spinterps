@@ -61,23 +61,24 @@ class ExtractReferencePolygons:
 
         shp_hdl = ogr.Open(str(self._poly_shp_path))
 
+        assert shp_hdl is not None
+
         assert shp_hdl.GetLayerCount() == 1
-
-        spt_ref = shp_hdl.GetSpatialRef()
-
-        assert 'PROJCS' in spt_ref.ExportToWkt()
 
         poly_lyr = shp_hdl.GetLayer(0)
 
         assert poly_lyr.GetFeatureCount() > 0
 
-        polygon = poly_lyr.GetNextFeature()
+        spt_ref = poly_lyr.GetSpatialRef()
+
+        assert 'PROJCS' in spt_ref.ExportToWkt()
 
         labels = []
         geoms = {}
         areas = {}
         extents = {}
 
+        polygon = poly_lyr.GetNextFeature()
         while polygon:
             geom = polygon.GetGeometryRef().Clone()
             assert geom is not None
@@ -88,7 +89,7 @@ class ExtractReferencePolygons:
             assert geom_type == 3, (
                 f'Unsupported geometry type, name: {geom_type}, {geom_name}!')
 
-            label = polygon.GetFieldAsInterger(self._poly_label_field)
+            label = polygon.GetFieldAsInteger(self._poly_label_field)
             assert label is not None
             assert isinstance(label, int)
 
@@ -106,7 +107,15 @@ class ExtractReferencePolygons:
             areas[label] = area
             extents[label] = extent
 
+            polygon = poly_lyr.GetNextFeature()
+
+        shp_hdl.Destroy()
+
         n_polys = len(labels)
+
+        labels_set = set(labels)
+
+        assert n_polys == len(labels_set)
 
         assert n_polys == len(geoms)
         assert n_polys == len(areas)
@@ -122,12 +131,12 @@ class ExtractReferencePolygons:
 
             print(f'INFO: Found {n_polys} polygons!')
 
-            print(f'Label   |       Area       |   Extents')
+            print(f'Label   |       Area       |   Extent')
 
             for label in self._poly_labels:
                 area = self._poly_areas[label]
                 extent = self._poly_extents[label]
-                print(f'{label:<8d}|{area:^18f}|   {extent}')
+                print(f'{label:<8d}|{area:^18.3f}|   {extent}')
 
             print_el()
 

@@ -4,3 +4,6 @@ from .cyth import (
 from .variograms import FitVariograms
 from .interp import SpInterpMain
 
+from .extract import (
+    ExtractReferencePolygons, ExtractNetCDFCoords, ExtractGTiffCoords)
+
