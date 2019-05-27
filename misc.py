@@ -13,6 +13,20 @@ import gdal
 import numpy as np
 import psutil as ps
 
+print_line_str = 40 * '#'
+
+
+def print_sl():
+
+    print(2 * '\n', print_line_str, sep='')
+    return
+
+
+def print_el():
+
+    print(print_line_str)
+    return
+
 
 def traceback_wrapper(func):
 
