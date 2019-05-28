@@ -82,6 +82,7 @@ class ExtractReferencePolygons:
         while polygon:
             geom = polygon.GetGeometryRef().Clone()
             assert geom is not None
+            assert len(geom.GetGeometryRef(0).GetPoints()) > 2
 
             geom_type = geom.GetGeometryType()
             geom_name = geom.GetGeometryName()
@@ -89,9 +90,8 @@ class ExtractReferencePolygons:
             assert geom_type == 3, (
                 f'Unsupported geometry type, name: {geom_type}, {geom_name}!')
 
-            label = polygon.GetFieldAsInteger(self._poly_label_field)
+            label = polygon.GetFieldAsString(self._poly_label_field)
             assert label is not None
-            assert isinstance(label, int)
 
             area = geom.Area()
             assert area is not None
@@ -113,6 +113,8 @@ class ExtractReferencePolygons:
 
         n_polys = len(labels)
 
+        assert n_polys
+
         labels_set = set(labels)
 
         assert n_polys == len(labels_set)
@@ -121,7 +123,7 @@ class ExtractReferencePolygons:
         assert n_polys == len(areas)
         assert n_polys == len(extents)
 
-        self._poly_labels = labels
+        self._poly_labels = tuple(labels)
         self._poly_geoms = geoms
         self._poly_areas = areas
         self._poly_extents = extents
@@ -136,7 +138,7 @@ class ExtractReferencePolygons:
             for label in self._poly_labels:
                 area = self._poly_areas[label]
                 extent = self._poly_extents[label]
-                print(f'{label:<8d}|{area:^18.3f}|   {extent}')
+                print(f'{label:<8s}|{area:^18.3f}|   {extent}')
 
             print_el()
 

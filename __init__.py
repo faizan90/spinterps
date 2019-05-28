@@ -5,5 +5,8 @@ from .variograms import FitVariograms
 from .interp import SpInterpMain
 
 from .extract import (
-    ExtractReferencePolygons, ExtractNetCDFCoords, ExtractGTiffCoords)
+    ExtractReferencePolygons,
+    ExtractNetCDFCoords,
+    ExtractGTiffCoords,
+    PolyAndCrdsItsctIdxs)
 

@@ -5,170 +5,140 @@ Created on May 27, 2019
 '''
 
 import ogr
-import osr
 import numpy as np
-import netCDF4 as nc
 
-ogr.UseExceptions()
-osr.UseExceptions()
+from ..misc import print_sl, print_el
 
 
-def get_polygon_nc_intersection_idxs(
-        path_to_nc,
-        path_to_poly_shp,
-        poly_id,
-        poly_id_field,
-        nc_x_crds_lab,
-        nc_y_crds_lab,
-        min_area_thresh,
-        max_cells_thresh):
+class PolyAndCrdsItsctIdxs:
 
-    cat_vec = ogr.Open(path_to_poly_shp)
-    lyr = cat_vec.GetLayer(0)
+    def __init__(self, verbose=True):
 
-    feat_dict = {}
-    feat_area_dict = {}
-    cat_envel_dict = {}
+        self._vb = verbose
 
-    feat = lyr.GetNextFeature()
+        self._poly_geoms = None
+        self._poly_labels = None
 
-    while feat:
-        geom = feat.GetGeometryRef()
-        f_val = feat.GetFieldAsInteger(str(poly_id_field))
-        if f_val is None:
-            raise RuntimeError('Could not get f_val!')
+        self._ras_type_labs = ('nc', 'gtiff')
 
-        feat_area_dict[f_val] = geom.Area()  # do before transform
+        self._x_crds_orig = None
+        self._y_crds_orig = None
+        self._ras_type_lab = None
 
-        feat_dict[f_val] = feat
+        self._set_itsct_idxs_polys_flag = False
+        self._set_itsct_idxs_crds_flag = False
+        self._set_itsct_idxs_vrfd_flag = False
+        return
 
-        cat_envel_dict[f_val] = geom.GetEnvelope()  # do after transform
-        feat = lyr.GetNextFeature()
+    def set_polygons(self, polygon_geometries, labels):
 
-    cat_vec.Destroy()
+        assert isinstance(polygon_geometries, dict)
+        assert isinstance(labels, tuple)
 
-    in_nc = nc.Dataset(path_to_nc)
-    lat_arr = in_nc.variables[nc_y_crds_lab][:]
-    lon_arr = in_nc.variables[nc_x_crds_lab][:]
-    in_nc.close()
+        assert len(polygon_geometries)
 
-    assert not np.all(np.isnan(lat_arr))
-    assert not np.all(np.isnan(lon_arr))
+        assert len(polygon_geometries) == len(labels)
 
-    apply_cell_correc = True
-    cell_size = abs(round(lon_arr[1] - lon_arr[0], 3))
-    x_l_c = lon_arr[0]
-    x_u_c = lon_arr[-1]
-    y_l_c = lat_arr[0]
-    y_u_c = lat_arr[-1]
+        for label in labels:
+            assert label in polygon_geometries
 
-    if x_l_c > x_u_c:
-        x_l_c, x_u_c = x_u_c, x_l_c
+            geom = polygon_geometries[label]
 
-    if y_l_c > y_u_c:
-        y_l_c, y_u_c = y_u_c, y_l_c
+            assert isinstance(geom, ogr.Geometry)
 
-    # raise Exception
+            assert geom.GetGeometryType() == 3
 
-    if apply_cell_correc:
-        # because values are at the center of the cell
-        # so I shift it back
-        x_l_c -= (cell_size / 2.)
-        x_u_c += (cell_size / 2.)
-        y_l_c -= (cell_size / 2.)
-        y_u_c += (cell_size / 2.)
-    else:
-        x_u_c += cell_size
-        y_u_c += cell_size
+            assert len(geom.GetGeometryRef(0).GetPoints()) > 2
 
-    x_coords = np.arange(x_l_c, x_u_c * 1.00000001, cell_size)
-    y_coords = np.arange(y_l_c, y_u_c * 1.00000001, cell_size)
+        self._poly_geoms = polygon_geometries
+        self._poly_labels = labels
 
-#    print feat_dict.keys()
+        if self._vb:
+            print_sl()
 
-    geom = feat_dict[poly_id].GetGeometryRef()
+            print(
+                f'INFO: Set {len(self._poly_labels)} polygons for '
+                f'intersection with coordinates')
 
-    extents = cat_envel_dict[poly_id]
-    cat_area = feat_area_dict[poly_id]
+            print_el()
 
-    inter_areas = []
-    x_low, x_hi, y_low, y_hi = extents
+        self._set_itsct_idxs_polys_flag = True
+        return
 
-    # adjustment to get all cells intersecting the polygon
-    x_low = x_low - cell_size
-    x_hi = x_hi + cell_size
-    y_low = y_low - cell_size
-    y_hi = y_hi + cell_size
+    def set_coordinates(self, x_crds, y_crds, raster_type_label):
 
-    x_cors_idxs = np.where(np.logical_and(x_coords >= x_low,
-                                          x_coords <= x_hi))[0]
-    y_cors_idxs = np.where(np.logical_and(y_coords >= y_low,
-                                          y_coords <= y_hi))[0]
+        assert isinstance(x_crds, np.ndarray)
+        assert 1 <= x_crds.ndim <= 2
+        assert np.all(np.isfinite(x_crds))
+        assert np.all(x_crds.shape)
 
-    x_cors = x_coords[x_cors_idxs]
-    y_cors = y_coords[y_cors_idxs]
+        assert isinstance(y_crds, np.ndarray)
+        assert 1 <= y_crds.ndim <= 2
+        assert np.all(np.isfinite(y_crds))
+        assert np.all(y_crds.shape)
 
-    n_cells = x_cors.shape[0] * y_cors.shape[0]
-    if n_cells > max_cells_thresh:
-        use_cntnmt = True
-        cell_area = cell_size ** 2
-    else:
-        use_cntnmt = False
+        assert isinstance(raster_type_label, str)
+        assert raster_type_label in self._ras_type_labs
 
-    cat_x_idxs = []
-    cat_y_idxs = []
-    n_cells_cntned = 0
+        self._x_crds_orig = x_crds
+        self._y_crds_orig = y_crds
+        self._ras_type_lab = raster_type_label
 
-    for x_idx in range(x_cors.shape[0] - 1):
-        for y_idx in range(y_cors.shape[0] - 1):
-            if use_cntnmt:
-                avg_x_cor = 0.5 * (x_cors[x_idx] + x_cors[x_idx + 1])
-                avg_y_cor = 0.5 * (y_cors[y_idx] + y_cors[y_idx + 1])
-                avg_cor = ogr.CreateGeometryFromWkt(("POINT (%f %f)" %
-                                                     (avg_x_cor, avg_y_cor)))
+        if self._vb:
+            print_sl()
 
-                if geom.Contains(avg_cor):
-                    inter_area = cell_area
-                else:
-                    inter_area = 0.0
-            else:
-                ring = ogr.Geometry(ogr.wkbLinearRing)
+            print(f'INFO: Set the following raster coordinate properties:')
+            print(f'Shape of X coordinates: {self._x_crds_orig.shape}')
 
-                ring.AddPoint(x_cors[x_idx], y_cors[y_idx])
-                ring.AddPoint(x_cors[x_idx + 1], y_cors[y_idx])
-                ring.AddPoint(x_cors[x_idx + 1], y_cors[y_idx + 1])
-                ring.AddPoint(x_cors[x_idx], y_cors[y_idx + 1])
-                ring.AddPoint(x_cors[x_idx], y_cors[y_idx])
+            print(
+                f'X coordinates\' min and max: '
+                f'{self._x_crds_orig.min():0.3f}, '
+                f'{self._x_crds_orig.max():0.3f}')
 
-                poly = ogr.Geometry(ogr.wkbPolygon)
-                poly.AddGeometry(ring)
+            print(f'Shape of Y coordinates: {self._y_crds_orig.shape}')
 
-                inter_poly = poly.Intersection(geom)
+            print(
+                f'Y coordinates\' min and max: '
+                f'{self._y_crds_orig.min():0.3f}, '
+                f'{self._y_crds_orig.max():0.3f}')
 
-                # to get the area, I convert it to coordinate sys of
-                # the shapefile that is hopefully in linear units
-                inter_area = inter_poly.Area()
+            print_el()
 
-            if inter_area < min_area_thresh:
-                continue
+        self._set_itsct_idxs_crds_flag = True
+        return
 
-            n_cells_cntned += 1
+    def verify(self):
 
-            inter_areas.append(inter_area)
-            cat_x_idxs.append((x_cors[x_idx] - x_l_c) / cell_size)
-            cat_y_idxs.append((y_cors[y_idx] - y_l_c) / cell_size)
+        assert self._set_itsct_idxs_polys_flag
+        assert self._set_itsct_idxs_crds_flag
 
-    cat_area_ratios_arr = np.divide(inter_areas, cat_area)
-    cat_intersect_cols_arr = np.int64(np.round(cat_x_idxs, 6))
-    cat_intersect_rows_arr = np.int64(np.round(cat_y_idxs, 6))
+        x_min = self._x_crds_orig.min()
+        x_max = self._x_crds_orig.max()
 
-    normed_area = np.round(np.sum(cat_area_ratios_arr))
-    print('Normalized area sum:', normed_area)
+        y_min = self._y_crds_orig.min()
+        y_max = self._y_crds_orig.max()
 
-#    tot_time = np.round(timeit.default_timer() - strt_time, 3)
-    print(poly_id, n_cells, n_cells_cntned, normed_area)
+        for label in self._poly_labels:
+            geom = self._poly_geoms[label]
 
-    return (poly_id,
-            cat_intersect_rows_arr,
-            cat_intersect_cols_arr,
-            cat_area_ratios_arr)
+            gx_min, gx_max, gy_min, gy_max = geom.GetEnvelope()
+
+            assert gx_min >= x_min
+            assert gx_max <= x_max
+
+            assert gy_min >= y_min
+            assert gy_max <= y_max
+
+        if self._vb:
+            print_sl()
+
+            print(
+                f'INFO: All inputs for polygons\' and coordinates\' '
+                f'intersection verified to be correct')
+
+            print_el()
+
+        self._set_itsct_idxs_vrfd_flag = True
+        return
+
+    __verify = verify

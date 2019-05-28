@@ -70,6 +70,9 @@ class ExtractNetCDFCoords:
         self._nc_x_crds = nc_hdl[self._nc_x_crds_lab][...]
         self._nc_y_crds = nc_hdl[self._nc_y_crds_lab][...]
 
+        assert np.all(self._nc_x_crds.shape)
+        assert np.all(self._nc_y_crds.shape)
+
         if np.ma.is_masked(self._nc_x_crds):
             self._nc_x_crds = self._nc_x_crds.data
             self._nc_y_crds = self._nc_y_crds.data

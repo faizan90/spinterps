@@ -8,28 +8,31 @@ import time
 from pathlib import Path
 
 from spinterps import (
-    ExtractReferencePolygons, ExtractNetCDFCoords, ExtractGTiffCoords)
+    ExtractReferencePolygons,
+    ExtractNetCDFCoords,
+    ExtractGTiffCoords,
+    PolyAndCrdsItsctIdxs)
 
 
 def main():
 
-#     main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau')
-#     os.chdir(main_dir)
-#
-#     path_to_shp = r'watersheds.shp'
-#
-#     label_field = 'DN'
-#
-#     ERP = ExtractReferencePolygons()
-#
-#     ERP.set_path_to_poly_shp(path_to_shp, label_field)
-#
-#     ERP.assemble_polygon_data()
-#
-#     poly_labels = ERP.get_labels()
-#     poly_geoms = ERP.get_geometries()
-#     poly_areas = ERP.get_areas()
-#     poly_extents = ERP.get_extents()
+    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau')
+    os.chdir(main_dir)
+
+    path_to_shp = r'watersheds.shp'
+
+    label_field = 'DN'
+
+    ERP = ExtractReferencePolygons()
+
+    ERP.set_path_to_poly_shp(path_to_shp, label_field)
+
+    ERP.assemble_polygon_data()
+
+    poly_labels = ERP.get_labels()
+    poly_geoms = ERP.get_geometries()
+    poly_areas = ERP.get_areas()
+    poly_extents = ERP.get_extents()
 
 #     main_dir = Path(r'Q:\Synchronize_LDs\Mulde_pet_kriging_20190417')
 #     os.chdir(main_dir)
@@ -49,7 +52,7 @@ def main():
 #     os.chdir(main_dir)
 #
 #     path_to_gtiff = r'mulde_pet_kriging_1950-01-01_to_2015-12-31_1km_all.nc'
-
+#
     main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau')
     os.chdir(main_dir)
 
@@ -63,6 +66,13 @@ def main():
 
     gtiff_x_crds = EGTC.get_x_coordinates()
     gtiff_y_crds = EGTC.get_y_coordinates()
+
+    PCII = PolyAndCrdsItsctIdxs()
+
+    PCII.set_polygons(poly_geoms, poly_labels)
+    PCII.set_coordinates(gtiff_x_crds, gtiff_y_crds, EGTC._raster_type_lab)
+
+    PCII.verify()
 
     return
 

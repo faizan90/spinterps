@@ -62,12 +62,21 @@ class ExtractGTiffCoords:
         n_rows = gtiff_hdl.RasterYSize
         n_cols = gtiff_hdl.RasterXSize
 
+        assert n_rows
+        assert n_cols
+
         geotransform = gtiff_hdl.GetGeoTransform()
+
+        gtiff_hdl = None
+
         x_min = geotransform[0]
         y_max = geotransform[3]
 
         pix_width = geotransform[1]
         pix_height = abs(geotransform[5])
+
+        assert pix_width > 0
+        assert pix_height > 0
 
         x_max = x_min + (n_cols * pix_width)
         y_min = y_max - (n_rows * pix_height)
