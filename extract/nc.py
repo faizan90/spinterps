@@ -95,7 +95,7 @@ class ExtractNetCDFCoords:
         assert np.all(np.isfinite(self._nc_x_crds))
         assert np.all(np.isfinite(self._nc_y_crds))
 
-        assert len(self._nc_x_crds.shape) == len(self._nc_y_crds.shape)
+        assert self._nc_x_crds.ndim == self._nc_y_crds.ndim
 
         if self._vb:
             print_sl()
