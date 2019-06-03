@@ -5,9 +5,13 @@ Created on May 27, 2019
 '''
 
 import ogr
+import gdal
 import numpy as np
 
-from ..misc import print_sl, print_el
+from ..misc import print_sl, print_el, gdal_err_hdlr
+
+gdal.PushErrorHandler(gdal_err_hdlr)
+ogr.UseExceptions()
 
 
 class PolyAndCrdsItsctIdxs:
@@ -59,6 +63,8 @@ class PolyAndCrdsItsctIdxs:
 
             assert len(geom.GetGeometryRef(0).GetPoints()) > 2
 
+            assert geom.Area() > 0
+
         self._poly_geoms = polygon_geometries
         self._poly_labels = labels
 
@@ -76,15 +82,8 @@ class PolyAndCrdsItsctIdxs:
 
     def set_coordinates(self, x_crds, y_crds, raster_type_label):
 
-        assert isinstance(x_crds, np.ndarray)
-        assert 1 <= x_crds.ndim <= 2
-        assert np.all(np.isfinite(x_crds))
-        assert np.all(x_crds.shape)
-
-        assert isinstance(y_crds, np.ndarray)
-        assert 1 <= y_crds.ndim <= 2
-        assert np.all(np.isfinite(y_crds))
-        assert np.all(y_crds.shape)
+        self._verf_crds(x_crds)
+        self._verf_crds(y_crds)
 
         assert x_crds.ndim == y_crds.ndim
 
@@ -97,43 +96,19 @@ class PolyAndCrdsItsctIdxs:
         self._ras_type_lab = raster_type_label
         self._crds_ndims = x_crds.ndim
 
+        self._x_crds_orig.flags.writeable = False
+        self._y_crds_orig.flags.writeable = False
+
         if (self._ras_type_lab == 'nc') and (self._crds_ndims == 1):
-            assert x_crds.shape[0] > 1
-            assert y_crds.shape[0] > 1
+            self._x_crds = self._get_rect_crds_1d(self._x_crds_orig)
+            self._y_crds = self._get_rect_crds_1d(self._y_crds_orig)
 
-            x_left = (0.5 * (x_crds[+1] - x_crds[+0])) - x_crds[+0]
-            x_rght = (0.5 * (x_crds[-1] - x_crds[-1])) + x_crds[-1]
-
-            y_up = (0.5 * (y_crds[+1] - y_crds[+0])) - y_crds[+0]
-            y_dn = (0.5 * (y_crds[-1] - y_crds[-1])) + y_crds[-1]
-
-            self._x_crds_orig = np.concatenate(
-                (x_left, self._x_crds_orig, x_rght))
-
-            self._y_crds_orig = np.concatenate(
-                (y_up, self._y_crds_orig, y_dn))
-
-            if self._vb:
-                print_sl()
-
-                print('Padded X and Y coordinates!')
-
-                print_el()
-
-        if self._crds_ndims == 1:
-            assert (
-                np.all(np.ediff1d(self._x_crds_orig) > 0) or
-                np.all(np.ediff1d(self._x_crds_orig[::-1]) > 0))
-
-            assert (
-                np.all(np.ediff1d(self._y_crds_orig) > 0) or
-                np.all(np.ediff1d(self._y_crds_orig[::-1]) > 0))
+        elif (self._ras_type_lab == 'gtiff') and (self._crds_ndims == 1):
+            self._x_crds, self._y_crds = (
+                self._x_crds_orig.copy(), self._y_crds_orig.copy())
 
         else:
             raise NotImplementedError
-
-        self._x_crds_orig.flags.writeable = False
-        self._y_crds_orig.flags.writeable = False
 
         if self._vb:
             print_sl()
@@ -158,6 +133,39 @@ class PolyAndCrdsItsctIdxs:
         self._set_itsct_idxs_crds_flag = True
         return
 
+    def _verf_crds(self, crds):
+
+        assert isinstance(crds, np.ndarray)
+        assert crds.ndim == 1
+        assert np.all(np.isfinite(crds))
+        assert np.all(crds.shape)
+
+        assert np.unique(crds).shape == crds.shape
+
+        assert (
+            np.all(np.ediff1d(crds) > 0) or
+            np.all(np.ediff1d(crds[::-1]) > 0))
+        return
+
+    def _get_rect_crds_1d(self, crds):
+
+        assert crds.ndim == 1
+
+        crds_rect = np.full(crds.shape[0] + 1, np.nan)
+
+        crds_rect[1:-1] = (crds[:-1] + crds[1:]) * 0.5
+
+        crds_rect[+0] = crds[+0] - (0.5 * (crds[+1] - crds[+0]))
+        crds_rect[-1] = crds[-1] + (0.5 * (crds[-1] - crds[-2]))
+
+        assert np.all(np.isfinite(crds_rect))
+
+        assert (
+            np.all(np.ediff1d(crds_rect) > 0) or
+            np.all(np.ediff1d(crds_rect[::-1]) > 0))
+
+        return crds_rect
+
     def set_intersect_misc_settings(
             self,
             minimum_cell_area_intersection_percentage,
@@ -166,11 +174,11 @@ class PolyAndCrdsItsctIdxs:
         assert isinstance(
             minimum_cell_area_intersection_percentage, (int, float))
 
-        assert 0 < minimum_cell_area_intersection_percentage <= 100
+        assert 0 <= minimum_cell_area_intersection_percentage <= 100
 
         assert isinstance(maximum_cells_threshold_per_polygon, int)
 
-        assert 0 < maximum_cells_threshold_per_polygon < np.inf
+        assert 0 <= maximum_cells_threshold_per_polygon < np.inf
 
         self._min_itsct_area_pct_thresh = (
             minimum_cell_area_intersection_percentage)
@@ -198,11 +206,11 @@ class PolyAndCrdsItsctIdxs:
         assert self._set_itsct_idxs_polys_flag
         assert self._set_itsct_idxs_crds_flag
 
-        x_min = self._x_crds_orig.min()
-        x_max = self._x_crds_orig.max()
+        x_min = self._x_crds.min()
+        x_max = self._x_crds.max()
 
-        y_min = self._y_crds_orig.min()
-        y_max = self._y_crds_orig.max()
+        y_min = self._y_crds.min()
+        y_max = self._y_crds.max()
 
         for label in self._poly_labels:
             geom = self._poly_geoms[label]
@@ -231,13 +239,28 @@ class PolyAndCrdsItsctIdxs:
 
         assert self._crds_ndims == 1
 
-        gx_min, gx_max, gy_min, gy_max = geom.GetEnvelope()
+        geom_area = geom.Area()
+        assert geom_area > 0
 
-        x_crds = self._x_crds_orig
-        y_crds = self._y_crds_orig
+        x_crds = self._x_crds
+        y_crds = self._y_crds
 
-        tot_x_idxs = (x_crds >= gx_min) & (x_crds <= gx_max)
-        tot_y_idxs = (y_crds >= gy_min) & (y_crds <= gy_max)
+        geom_buff = geom.Buffer(max(
+            abs(x_crds[+1] - x_crds[+0]),
+            abs(x_crds[-1] - x_crds[-2]),
+            abs(y_crds[+1] - y_crds[+0]),
+            abs(y_crds[-1] - y_crds[-2]),
+            ))
+
+        assert geom_buff is not None
+
+        geom_buff_area = geom_buff.Area()
+        assert geom_buff_area > 0
+
+        gx_min, gx_max, gy_min, gy_max = geom_buff.GetEnvelope()
+
+        tot_x_idxs = np.where((x_crds >= gx_min) & (x_crds <= gx_max))[0]
+        tot_y_idxs = np.where((y_crds >= gy_min) & (y_crds <= gy_max))[0]
 
         assert tot_x_idxs.sum() > 1
         assert tot_y_idxs.sum() > 1
@@ -248,19 +271,11 @@ class PolyAndCrdsItsctIdxs:
         n_cells_acptd = 0
         x_crds_acptd_idxs = []
         y_crds_acptd_idxs = []
+        itsct_areas = []
         itsct_rel_areas = []
 
-        geom_area = geom.Area()
-        assert geom_area > 0
-
-        for x_idx in range(x_crds.shape[0] - 1):
-            if not tot_x_idxs[x_idx]:
-                continue
-
-            for y_idx in range(y_crds.shape[0] - 1):
-                if not tot_y_idxs[y_idx]:
-                    continue
-
+        for x_idx in tot_x_idxs:
+            for y_idx in tot_y_idxs:
                 ring = ogr.Geometry(ogr.wkbLinearRing)
 
                 ring.AddPoint(x_crds[x_idx], y_crds[y_idx])
@@ -275,7 +290,7 @@ class PolyAndCrdsItsctIdxs:
                 itsct_poly = poly.Intersection(geom)
                 itsct_cell_area = itsct_poly.Area()
 
-                assert 0.0 < itsct_cell_area < np.inf
+                assert 0.0 <= itsct_cell_area < np.inf
 
                 min_area_thresh = (
                     (self._min_itsct_area_pct_thresh / 100.0) * poly.Area())
@@ -288,16 +303,19 @@ class PolyAndCrdsItsctIdxs:
                 x_crds_acptd_idxs.append(x_idx)
                 y_crds_acptd_idxs.append(y_idx)
 
+                itsct_areas.append(itsct_cell_area)
                 itsct_rel_areas.append(itsct_cell_area / geom_area)
 
         assert n_cells_acptd > 0
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
-        assert n_cells_acptd == itsct_rel_areas
+        assert n_cells_acptd == len(itsct_areas)
+        assert n_cells_acptd == len(itsct_rel_areas)
 
         return {
             'x':np.array(x_crds_acptd_idxs, dtype=int),
             'y': np.array(y_crds_acptd_idxs, dtype=int),
+            'area': np.array(itsct_areas, dtype=float),
             'rel_area': np.array(itsct_rel_areas, dtype=float)}
 
     def compute_intersect_idxs(self):

@@ -8,5 +8,5 @@ from .extract import (
     ExtractReferencePolygons,
     ExtractNetCDFCoords,
     ExtractGTiffCoords,
+    ExtractGTiffValues,
     PolyAndCrdsItsctIdxs)
-

@@ -214,3 +214,22 @@ def get_aligned_shp_bds_and_cell_size(bounds_shp_file, align_ras_file):
     return (
         (adj_shp_x_min, adj_shp_x_max, adj_shp_y_min, adj_shp_y_max),
         ras_cell_size)
+
+
+class GdalErrorHandler:
+
+    '''Because of some annoying geometry area operation warning.'''
+
+    def __init__(self):
+        self.err_level = gdal.CE_None
+        self.err_no = 0
+        self.err_msg = ''
+
+    def handler(self, err_level, err_no, err_msg):
+        self.err_level = err_level
+        self.err_no = err_no
+        self.err_msg = err_msg
+
+
+gdal_err_hdl = GdalErrorHandler()
+gdal_err_hdlr = gdal_err_hdl.handler
