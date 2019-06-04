@@ -41,10 +41,15 @@ def main():
     poly_areas = ERP.get_areas()
     poly_extents = ERP.get_extents()
 
-    main_dir = Path(r'P:\Synchronize\IWS\Papers\Hydrological_Model_Parameter_Selection_2019\data\tem_resample_interpolation')
+#     main_dir = Path(r'P:\Synchronize\IWS\Papers\Hydrological_Model_Parameter_Selection_2019\data\tem_resample_interpolation')
+#     os.chdir(main_dir)
+#
+#     path_to_nc = r'tem_spinterp.nc'
+
+    main_dir = Path(r'Q:\Synchronize_LDs\full_neckar_precipitation_interpolation')
     os.chdir(main_dir)
 
-    path_to_nc = r'tem_spinterp.nc'
+    path_to_nc = r'full_neckar_ppt_interp__1961-01-01_to_2015-12-31_2km_all.nc'
 
     ENCC = ExtractNetCDFCoords()
 
@@ -90,26 +95,26 @@ def main():
 
     ENCV = ExtractNetCDFValues()
 
-    ENCV.set_input(path_to_nc, 'OK', 'time')
-#     ENCV.set_output('dfdf.h5')
-    ENCV.set_output(None)
+    ENCV.set_input(path_to_nc, 'SK', 'time')
+    ENCV.set_output('dfdf.h5')
+#     ENCV.set_output(None)
 
-    ENCV.extract_data_for_indicies(itsct_idxs)
+    ENCV.extract_data_for_indicies_and_save(itsct_idxs, True)
 
-    extracted_values = ENCV.get_extracted_data()
-
-    for label in itsct_idxs:
-        x_crds_label = x_crds[itsct_idxs[label]['x']]
-        y_crds_label = y_crds[itsct_idxs[label]['y']]
-
-        crds_df = pd.DataFrame(data=
-            {'x': x_crds_label,
-             'y': y_crds_label,
-             'area':itsct_idxs[label]['area'],
-             'rel_area':itsct_idxs[label]['rel_area'],
-             **extracted_values[label]})
-
-        crds_df.to_csv(f'{label}.csv', sep=';', index=False)
+#     extracted_values = ENCV.get_extracted_data()
+#
+#     for label in itsct_idxs:
+#         x_crds_label = x_crds[itsct_idxs[label]['x']]
+#         y_crds_label = y_crds[itsct_idxs[label]['y']]
+#
+#         crds_df = pd.DataFrame(data=
+#             {'x': x_crds_label,
+#              'y': y_crds_label,
+#              'area':itsct_idxs[label]['area'],
+#              'rel_area':itsct_idxs[label]['rel_area'],
+#              **extracted_values[label]})
+#
+#         crds_df.to_csv(f'{label}.csv', sep=';', index=False)
 
     return
 

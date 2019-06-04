@@ -273,6 +273,8 @@ class PolyAndCrdsItsctIdxs:
         y_crds_acptd_idxs = []
         itsct_areas = []
         itsct_rel_areas = []
+        x_crds_acptd = []
+        y_crds_acptd = []
 
         for x_idx in tot_x_idxs:
             for y_idx in tot_y_idxs:
@@ -306,6 +308,10 @@ class PolyAndCrdsItsctIdxs:
                 itsct_areas.append(itsct_cell_area)
                 itsct_rel_areas.append(itsct_cell_area / geom_area)
 
+                centroid = poly.Centroid()
+                x_crds_acptd.append(centroid.GetX())
+                y_crds_acptd.append(centroid.GetY())
+
         assert n_cells_acptd > 0
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
@@ -313,10 +319,12 @@ class PolyAndCrdsItsctIdxs:
         assert n_cells_acptd == len(itsct_rel_areas)
 
         return {
-            'x':np.array(x_crds_acptd_idxs, dtype=int),
-            'y': np.array(y_crds_acptd_idxs, dtype=int),
-            'area': np.array(itsct_areas, dtype=float),
-            'rel_area': np.array(itsct_rel_areas, dtype=float)}
+            'cols':np.array(x_crds_acptd_idxs, dtype=int),
+            'rows': np.array(y_crds_acptd_idxs, dtype=int),
+            'itsctd_area': np.array(itsct_areas, dtype=float),
+            'rel_itsctd_area': np.array(itsct_rel_areas, dtype=float),
+            'x_cen_crds': np.array(x_crds_acptd, dtype=float),
+            'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
 
     def compute_intersect_idxs(self):
 

@@ -97,6 +97,9 @@ class ExtractNetCDFCoords:
         else:
             raise NotImplementedError
 
+        assert np.unique(self._x_crds.size) == self._x_crds.size
+        assert np.unique(self._y_crds.size) == self._y_crds.size
+
         assert np.all(np.isfinite(self._x_crds))
         assert np.all(np.isfinite(self._y_crds))
 
@@ -137,6 +140,8 @@ class ExtractNetCDFValues:
     def __init__(self, verbose=True):
 
         self._vb = verbose
+
+        self._extrtd_data = None
 
         self._in_path = None
         self._in_var_lab = None
@@ -215,13 +220,51 @@ class ExtractNetCDFValues:
         self._set_out_flag = True
         return
 
-    def extract_data_for_indicies(self, indicies):
+    def _verf_idxs(self, indicies, save_add_vars_flag):
+
+        add_var_labels_main = set()
+
+#         for label, crds_idxs in indicies.items():
+        for crds_idxs in indicies.values():
+            assert 'cols' in crds_idxs
+            cols_idxs = crds_idxs['cols']
+            assert cols_idxs.ndim == 1
+            assert cols_idxs.size > 0
+            assert np.issubdtype(cols_idxs.dtype, np.integer)
+
+            assert 'rows' in crds_idxs
+            rows_idxs = crds_idxs['rows']
+            assert rows_idxs.ndim == 1
+            assert rows_idxs.size > 0
+            assert np.issubdtype(rows_idxs.dtype, np.integer)
+
+            if not save_add_vars_flag:
+                continue
+
+            if not add_var_labels_main:
+                add_var_labels_main = set(
+                    crds_idxs.keys()) - set(('rows', 'cols'))
+
+            else:
+                assert not (
+                    add_var_labels_main -
+                    set(crds_idxs.keys()) -
+                    set(('rows', 'cols')))
+
+        return add_var_labels_main
+
+    def extract_data_for_indicies_and_save(
+            self, indicies, save_add_vars_flag=True):
 
         assert self._set_in_flag
         assert self._set_out_flag
 
         assert isinstance(indicies, dict)
         assert indicies
+
+        assert isinstance(save_add_vars_flag, bool)
+
+        add_var_labels = self._verf_idxs(indicies, save_add_vars_flag)
 
         in_hdl = nc.Dataset(str(self._in_path))
 
@@ -235,28 +278,54 @@ class ExtractNetCDFValues:
         assert in_var.ndim == 3
         assert in_var.size > 0
         assert all(in_var.shape)
+        assert np.issubdtype(in_var.dtype, np.number)
 
         in_time = in_hdl[self._in_time_lab]
         in_time.set_always_mask(False)
+        assert np.issubdtype(in_time.dtype, np.number)
 
         assert in_time.ndim == 1
         assert in_time.size > 0
 
         assert in_time.shape[0] == in_var.shape[0]
 
+        misc_grp_labs = add_var_labels | set(('rows', 'cols', 'data'))
+
         if self._out_fmt == 'h5':
-            out_hdl = h5py.File(str(self._out_path), mode='w', driver=None)
+            out_hdl = h5py.File(str(self._out_path), mode='a', driver=None)
 
-            out_time_grp = out_hdl.create_group(self._in_time_lab)
-            out_time_grp[self._in_time_lab] = in_time[...]
+            if self._in_time_lab not in out_hdl:
+                out_time_grp = out_hdl.create_group(self._in_time_lab)
+                out_time_grp[self._in_time_lab] = in_time[...]
 
-            if hasattr(in_time, 'units'):
-                out_time_grp.attrs['units'] = in_time.units
+                if hasattr(in_time, 'units'):
+                    out_time_grp.attrs['units'] = in_time.units
 
-            if hasattr(in_time, 'calendar'):
-                out_time_grp.attrs['calendar'] = in_time.calendar
+                if hasattr(in_time, 'calendar'):
+                    out_time_grp.attrs['calendar'] = in_time.calendar
 
-            out_var_grp = out_hdl.create_group(self._in_var_lab)
+                for grp in misc_grp_labs:
+                    assert grp not in out_hdl
+                    out_hdl.create_group(grp)
+
+            else:
+                out_time_grp = out_hdl[self._in_time_lab]
+
+                assert np.all(
+                    out_time_grp[self._in_time_lab][...] == in_time[...])
+
+                if hasattr(in_time, 'units'):
+                    assert out_time_grp.attrs['units'] == in_time.units
+
+                if hasattr(in_time, 'calendar'):
+                    assert out_time_grp.attrs['calendar'] == in_time.calendar
+
+                for grp in misc_grp_labs:
+                    assert grp in out_hdl
+
+            assert self._in_var_lab not in out_hdl['data']
+
+            out_var_grp = out_hdl['data'].create_group(self._in_var_lab)
 
             if hasattr(in_var, 'units'):
                 out_var_grp.attrs['units'] = in_var.units
@@ -278,35 +347,33 @@ class ExtractNetCDFValues:
             print_el()
 
         in_var_data = in_var[...]
-
         for label, crds_idxs in indicies.items():
-            x_crds_idxs = crds_idxs['x']
-            assert x_crds_idxs.ndim == 1
-            assert x_crds_idxs.size > 0
 
-            x_crds_idxs_min = x_crds_idxs.min()
-            x_crds_idxs_max = x_crds_idxs.max()
-            assert (x_crds_idxs_max > 0) & (x_crds_idxs_min > 0)
+            cols_idxs = crds_idxs['cols']
+            cols_idxs_min = cols_idxs.min()
+            cols_idxs_max = cols_idxs.max()
+            assert (cols_idxs_max > 0) & (cols_idxs_min > 0)
 
-            y_crds_idxs = crds_idxs['y']
-            assert y_crds_idxs.ndim == 1
-            assert y_crds_idxs.size > 0
+            rows_idxs = crds_idxs['rows']
+            rows_idxs_min = rows_idxs.min()
+            rows_idxs_max = rows_idxs.max()
+            assert (rows_idxs_max > 0) & (rows_idxs_min > 0)
 
-            y_crds_idxs_min = y_crds_idxs.min()
-            y_crds_idxs_max = y_crds_idxs.max()
-            assert (y_crds_idxs_max > 0) & (y_crds_idxs_min > 0)
+            assert cols_idxs.shape == rows_idxs.shape
 
-            assert x_crds_idxs.shape == y_crds_idxs.shape
+            assert rows_idxs_max < in_var_data.shape[1]
+            assert cols_idxs_max < in_var_data.shape[2]
 
-            assert y_crds_idxs_max < in_var_data.shape[1]
-            assert x_crds_idxs_max < in_var_data.shape[2]
+            crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
+
+            assert len(crds_set) == cols_idxs.size
 
             if self._out_fmt == 'raw':
                 steps_data = {}
 
                 for i in range(in_time.shape[0]):
                     step = in_time[i].item()
-                    step_data = in_var_data[i, y_crds_idxs, x_crds_idxs]
+                    step_data = in_var_data[i, rows_idxs, cols_idxs]
 
                     steps_data[step] = step_data
 
@@ -315,19 +382,37 @@ class ExtractNetCDFValues:
                 extrt_data[label] = steps_data
 
             elif self._out_fmt == 'h5':
-                label_var = out_var_grp.create_group(str(label))
-                label_var['columns'] = x_crds_idxs
-                label_var['rows'] = y_crds_idxs
-                label_var['data'] = in_var_data[:, y_crds_idxs, x_crds_idxs]
+                label_str = str(label)
+
+                for add_var_lab in add_var_labels:
+                    grp_lnk = f'{add_var_lab}/{label_str}'
+
+                    if label_str in out_hdl[add_var_lab]:
+                        assert np.all(np.isclose(
+                            out_hdl[grp_lnk][...],
+                            crds_idxs[add_var_lab]))
+
+                    else:
+                        out_hdl[grp_lnk] = crds_idxs[add_var_lab]
+
+                if label_str in out_hdl['rows']:
+                    assert np.all(
+                        out_hdl[f'rows/{label_str}'][...] == rows_idxs)
+
+                    assert np.all(
+                        out_hdl[f'cols/{label_str}'][...] == cols_idxs)
+
+                else:
+                    out_hdl[f'rows/{label_str}'] = rows_idxs
+                    out_hdl[f'cols/{label_str}'] = cols_idxs
+
+                out_var_grp[label_str] = in_var_data[
+                    :, rows_idxs, cols_idxs]
 
                 out_hdl.flush()
 
             else:
                 raise NotImplementedError
-
-        if self._out_fmt == 'raw':
-            assert extrt_data
-            self._extrt_data = extrt_data
 
         in_hdl.close()
         in_hdl = None
@@ -336,6 +421,13 @@ class ExtractNetCDFValues:
             out_hdl.flush()
             out_hdl.close()
             out_hdl = None
+
+        elif self._out_fmt == 'raw':
+            assert extrt_data
+            self._extrtd_data = extrt_data
+
+        else:
+            raise NotImplementedError
 
         self._set_data_extrt_flag = True
         return
@@ -346,6 +438,6 @@ class ExtractNetCDFValues:
 
         assert self._set_data_extrt_flag
 
-        assert self._extrt_data is not None
+        assert self._extrtd_data is not None
 
-        return self._extrt_data
+        return self._extrtd_data
