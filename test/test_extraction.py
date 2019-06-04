@@ -12,6 +12,7 @@ import pandas as pd
 from spinterps import (
     ExtractReferencePolygons,
     ExtractNetCDFCoords,
+    ExtractNetCDFValues,
     ExtractGTiffCoords,
     ExtractGTiffValues,
     PolyAndCrdsItsctIdxs)
@@ -32,48 +33,46 @@ def main():
 
     ERP.assemble_polygon_data()
 
-    poly_labels = ERP.get_labels()
-    poly_geoms = ERP.get_geometries()
+    poly_labels = ERP.get_labels()[:2]
+
+    poly_geoms = {
+        poly_label: ERP.get_geometries()[poly_label] for poly_label in poly_labels}
+
     poly_areas = ERP.get_areas()
     poly_extents = ERP.get_extents()
 
-#     main_dir = Path(r'Q:\Synchronize_LDs\Mulde_pet_kriging_20190417')
-#     os.chdir(main_dir)
-#
-#     path_to_nc = r'mulde_pet_kriging_1950-01-01_to_2015-12-31_1km_all.nc'
-#
-#     ENCC = ExtractNetCDFCoords()
-#
-#     ENCC.set_netcdf_properties(path_to_nc, 'X', 'Y')
-#
-#     ENCC.assemble_netcdf_data()
-#
-#     nc_x_crds = ENCC.get_x_coordinates()
-#     nc_y_crds = ENCC.get_y_coordinates()
-
-#     main_dir = Path(r'Q:\Synchronize_LDs\Mulde_pet_kriging_20190417')
-#     os.chdir(main_dir)
-#
-#     path_to_gtiff = r'mulde_pet_kriging_1950-01-01_to_2015-12-31_1km_all.nc'
-#
-    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster')
+    main_dir = Path(r'P:\Synchronize\IWS\Papers\Hydrological_Model_Parameter_Selection_2019\data\tem_resample_interpolation')
     os.chdir(main_dir)
 
-    path_to_gtiff = r'lower_de_gauss_z3_2km.tif'
+    path_to_nc = r'tem_spinterp.nc'
 
-    EGTC = ExtractGTiffCoords()
+    ENCC = ExtractNetCDFCoords()
 
-    EGTC.set_path_to_gtiff(path_to_gtiff)
+    ENCC.set_netcdf_properties(path_to_nc, 'X', 'Y')
 
-    EGTC.assemble_gtiff_data()
+    ENCC.assemble_netcdf_data()
 
-    x_crds = EGTC.get_x_coordinates()
-    y_crds = EGTC.get_y_coordinates()
+    x_crds = ENCC.get_x_coordinates()
+    y_crds = ENCC.get_y_coordinates()
+
+#     main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster')
+#     os.chdir(main_dir)
+#
+#     path_to_gtiff = r'lower_de_gauss_z3_2km.tif'
+#
+#     EGTC = ExtractGTiffCoords()
+#
+#     EGTC.set_path_to_gtiff(path_to_gtiff)
+#
+#     EGTC.assemble_gtiff_data()
+#
+#     x_crds = EGTC.get_x_coordinates()
+#     y_crds = EGTC.get_y_coordinates()
 
     PCII = PolyAndCrdsItsctIdxs()
 
     PCII.set_polygons(poly_geoms, poly_labels)
-    PCII.set_coordinates(x_crds, y_crds, EGTC._raster_type_lab)
+    PCII.set_coordinates(x_crds, y_crds, ENCC._raster_type_lab)
 
     PCII.verify()
 
@@ -81,27 +80,35 @@ def main():
 
     itsct_idxs = PCII.get_intersect_idxs()
 
-    EGTV = ExtractGTiffValues()
+#     EGTV = ExtractGTiffValues()
+#
+#     EGTV.set_path_to_gtiff(path_to_gtiff)
+#
+#     EGTV.extract_data_for_indices(itsct_idxs)
+#
+#     extracted_values = EGTV.get_extracted_data()
 
-    EGTV.set_path_to_gtiff(path_to_gtiff)
-    EGTV.assemble_gtiff_data()
+    ENCV = ExtractNetCDFValues()
 
-    EGTV.extract_data_for_indices(itsct_idxs)
+    ENCV.set_input(path_to_nc, 'OK', 'time')
+    ENCV.set_output('dfdf.h5')
 
-    extracted_values = EGTV.get_extracted_data()
+    ENCV.extract_data_for_indicies(itsct_idxs)
 
-    for label in itsct_idxs:
-        x_crds_label = x_crds[itsct_idxs[label]['x']]
-        y_crds_label = y_crds[itsct_idxs[label]['y']]
-
-        crds_df = pd.DataFrame(data=
-            {'x': x_crds_label,
-             'y': y_crds_label,
-             'area':itsct_idxs[label]['area'],
-             'rel_area':itsct_idxs[label]['rel_area'],
-             **extracted_values[label]})
-
-        crds_df.to_csv(f'{label}.csv', sep=';', index=False)
+#     extracted_values = ENCV.get_extracted_data()
+#
+#     for label in itsct_idxs:
+#         x_crds_label = x_crds[itsct_idxs[label]['x']]
+#         y_crds_label = y_crds[itsct_idxs[label]['y']]
+#
+#         crds_df = pd.DataFrame(data=
+#             {'x': x_crds_label,
+#              'y': y_crds_label,
+#              'area':itsct_idxs[label]['area'],
+#              'rel_area':itsct_idxs[label]['rel_area'],
+#              **extracted_values[label]})
+#
+#         crds_df.to_csv(f'{label}.csv', sep=';', index=False)
 
     return
 

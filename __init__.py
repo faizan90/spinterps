@@ -7,6 +7,7 @@ from .interp import SpInterpMain
 from .extract import (
     ExtractReferencePolygons,
     ExtractNetCDFCoords,
+    ExtractNetCDFValues,
     ExtractGTiffCoords,
     ExtractGTiffValues,
     PolyAndCrdsItsctIdxs)

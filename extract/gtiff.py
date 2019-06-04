@@ -164,7 +164,7 @@ class ExtractGTiffValues:
         self._set_gtiff_path_flag = True
         return
 
-    def assemble_gtiff_data(self):
+    def _assemble_data(self):
 
         assert self._set_gtiff_path_flag
 
@@ -214,6 +214,8 @@ class ExtractGTiffValues:
 
     def extract_data_for_indices(self, indicies):
 
+        self._assemble_data()
+
         assert self._set_gtiff_data_asm_flag
 
         assert isinstance(indicies, dict)
@@ -249,8 +251,6 @@ class ExtractGTiffValues:
                 assert x_crds_idxs_max < data.shape[1]
 
                 bnd_data = data[y_crds_idxs, x_crds_idxs]
-
-                assert np.all(np.isfinite(bnd_data))
 
                 bnds_data[bnd] = bnd_data
 

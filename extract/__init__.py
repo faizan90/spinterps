@@ -5,6 +5,6 @@ Created on May 27, 2019
 '''
 
 from .poly import ExtractReferencePolygons
-from .nc import ExtractNetCDFCoords
+from .nc import ExtractNetCDFCoords, ExtractNetCDFValues
 from .gtiff import ExtractGTiffCoords, ExtractGTiffValues
 from .idxs import PolyAndCrdsItsctIdxs
