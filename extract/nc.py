@@ -114,6 +114,7 @@ class ExtractNetCDFCoords:
             print_el()
 
         in_hdl.close()
+        in_hdl = None
 
         self._set_crds_extrt_flag = True
         return
@@ -182,26 +183,25 @@ class ExtractNetCDFValues:
 
     def set_output(self, path_to_output):
 
-        assert isinstance(path_to_output, (str, Path))
-
-        path_to_output = Path(path_to_output).absolute()
-
-        assert path_to_output.parents[0].exists()
-
-        fmt = path_to_output.suffix
-
-        self._out_path = path_to_output
-
-        if fmt == '':
+        if path_to_output is None:
             self._out_fmt = 'raw'
 
-            path_to_output.mkdir(exist_ok=True)
-
-        elif fmt in ('.h5', '.hdf5'):
-            self._out_fmt = 'h5'
-
         else:
-            raise NotImplementedError
+            assert isinstance(path_to_output, (str, Path))
+
+            path_to_output = Path(path_to_output).absolute()
+
+            assert path_to_output.parents[0].exists()
+
+            fmt = path_to_output.suffix
+
+            if fmt in ('.h5', '.hdf5'):
+                self._out_fmt = 'h5'
+
+            else:
+                raise NotImplementedError
+
+        self._out_path = path_to_output
 
         if self._vb:
             print_sl()

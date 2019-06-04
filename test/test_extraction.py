@@ -91,24 +91,25 @@ def main():
     ENCV = ExtractNetCDFValues()
 
     ENCV.set_input(path_to_nc, 'OK', 'time')
-    ENCV.set_output('dfdf.h5')
+#     ENCV.set_output('dfdf.h5')
+    ENCV.set_output(None)
 
     ENCV.extract_data_for_indicies(itsct_idxs)
 
-#     extracted_values = ENCV.get_extracted_data()
-#
-#     for label in itsct_idxs:
-#         x_crds_label = x_crds[itsct_idxs[label]['x']]
-#         y_crds_label = y_crds[itsct_idxs[label]['y']]
-#
-#         crds_df = pd.DataFrame(data=
-#             {'x': x_crds_label,
-#              'y': y_crds_label,
-#              'area':itsct_idxs[label]['area'],
-#              'rel_area':itsct_idxs[label]['rel_area'],
-#              **extracted_values[label]})
-#
-#         crds_df.to_csv(f'{label}.csv', sep=';', index=False)
+    extracted_values = ENCV.get_extracted_data()
+
+    for label in itsct_idxs:
+        x_crds_label = x_crds[itsct_idxs[label]['x']]
+        y_crds_label = y_crds[itsct_idxs[label]['y']]
+
+        crds_df = pd.DataFrame(data=
+            {'x': x_crds_label,
+             'y': y_crds_label,
+             'area':itsct_idxs[label]['area'],
+             'rel_area':itsct_idxs[label]['rel_area'],
+             **extracted_values[label]})
+
+        crds_df.to_csv(f'{label}.csv', sep=';', index=False)
 
     return
 
