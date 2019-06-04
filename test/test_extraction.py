@@ -48,9 +48,9 @@ def main():
 
     ENCC = ExtractNetCDFCoords()
 
-    ENCC.set_netcdf_properties(path_to_nc, 'X', 'Y')
+    ENCC.set_input(path_to_nc, 'X', 'Y')
 
-    ENCC.assemble_netcdf_data()
+    ENCC.extract_coordinates()
 
     x_crds = ENCC.get_x_coordinates()
     y_crds = ENCC.get_y_coordinates()
