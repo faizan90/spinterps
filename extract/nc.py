@@ -8,9 +8,10 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pandas as pd
 import netCDF4 as nc
 
-from ..misc import print_sl, print_el
+from ..misc import print_sl, print_el, num2date
 
 
 class ExtractNetCDFCoords:
@@ -149,6 +150,8 @@ class ExtractNetCDFValues:
 
         self._out_path = None
         self._out_fmt = None
+
+        self._time_strs_fmt = '%Y%m%dT%H%M%S'
 
         self._set_in_flag = False
         self._set_out_flag = False
@@ -289,6 +292,17 @@ class ExtractNetCDFValues:
 
         assert in_time.shape[0] == in_var.shape[0]
 
+        if hasattr(in_time, 'units') and hasattr(in_time, 'calendar'):
+            in_time_strs = pd.DatetimeIndex(num2date(
+                in_time[...],
+                in_time.units,
+                in_time.calendar)).strftime(self._time_strs_fmt)
+
+            h5_str_dt = h5py.special_dtype(vlen=str)
+
+        else:
+            in_time_strs = None
+
         path_stem = self._in_path.stem
         assert path_stem
 
@@ -311,8 +325,19 @@ class ExtractNetCDFValues:
                     assert grp not in out_hdl
                     out_hdl.create_group(grp)
 
+                if in_time_strs is not None:
+                    in_time_strs_ds = out_time_grp.create_dataset(
+                        'time_strs',
+                        (in_time_strs.shape[0],),
+                        dtype=h5_str_dt)
+
+                    in_time_strs_ds[:] = in_time_strs
+
             else:
                 out_time_grp = out_hdl[self._in_time_lab]
+
+                assert (
+                    out_time_grp[self._in_time_lab].shape == in_time.shape)
 
                 assert np.all(
                     out_time_grp[self._in_time_lab][...] == in_time[...])
@@ -325,6 +350,15 @@ class ExtractNetCDFValues:
 
                 for grp in misc_grp_labs:
                     assert grp in out_hdl
+
+                if (('time_strs' in out_time_grp) and
+                    (in_time_strs is not None)):
+
+                    assert (
+                        out_time_grp['time_strs'].shape == in_time_strs.shape)
+
+                    assert np.all(
+                        out_time_grp['time_strs'][...] == in_time_strs)
 
             assert self._in_var_lab not in out_hdl[path_stem]
 
@@ -350,6 +384,13 @@ class ExtractNetCDFValues:
             print_el()
 
         in_var_data = in_var[...]
+
+        if in_time_strs is not None:
+            in_time_data = in_time_strs
+
+        else:
+            in_time_data = in_time[...]
+
         for label, crds_idxs in indicies.items():
 
             cols_idxs = crds_idxs['cols']
@@ -375,7 +416,7 @@ class ExtractNetCDFValues:
                 steps_data = {}
 
                 for i in range(in_time.shape[0]):
-                    step = in_time[i].item()
+                    step = in_time_data[i]
                     step_data = in_var_data[i, rows_idxs, cols_idxs]
 
                     steps_data[step] = step_data

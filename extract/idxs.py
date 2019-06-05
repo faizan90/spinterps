@@ -456,26 +456,19 @@ class PolyAndCrdsItsctIdxs:
 
         gx_min, gx_max, gy_min, gy_max = geom_buff.GetEnvelope()
 
-        tot_x_idxs = np.vstack(
-            np.where((x_crds >= gx_min) & (x_crds <= gx_max))).T
+        tot_idxs = np.vstack(np.where(
+            (x_crds >= gx_min) &
+            (x_crds <= gx_max) &
+            (y_crds >= gy_min) &
+            (y_crds <= gy_max))).T
 
-        x_keep_idxs = ~(
-            (tot_x_idxs[:, 0] >= (x_crds.shape[0] - 1)) |
-            (tot_x_idxs[:, 1] >= (x_crds.shape[1] - 1)))
+        keep_idxs = ~(
+            (tot_idxs[:, 0] >= (x_crds.shape[0] - 1)) |
+            (tot_idxs[:, 1] >= (x_crds.shape[1] - 1)))
 
-        tot_x_idxs = tot_x_idxs[x_keep_idxs].copy('c')
+        tot_idxs = tot_idxs[keep_idxs].copy('c')
 
-        tot_y_idxs = np.vstack(
-            np.where((y_crds >= gy_min) & (y_crds <= gy_max))).T
-
-        y_keep_idxs = ~(
-            (tot_y_idxs[:, 0] >= (y_crds.shape[0] - 1)) |
-            (tot_y_idxs[:, 1] >= (y_crds.shape[1] - 1)))
-
-        tot_y_idxs = tot_y_idxs[y_keep_idxs].copy('c')
-
-        assert tot_x_idxs.size > 1
-        assert tot_y_idxs.size > 1
+        assert tot_idxs.size > 1
 
         assert np.all(x_crds.shape)
         assert np.all(y_crds.shape)
@@ -488,59 +481,78 @@ class PolyAndCrdsItsctIdxs:
         x_crds_acptd = []
         y_crds_acptd = []
 
-        for x_row_idx, x_col_idx in tot_x_idxs:
-            for y_row_idx, y_col_idx in tot_y_idxs:
-                ring = ogr.Geometry(ogr.wkbLinearRing)
+        for row_idx, col_idx in tot_idxs:
+            ring = ogr.Geometry(ogr.wkbLinearRing)
 
-                ring.AddPoint(
-                    x_crds[x_row_idx, x_col_idx],
-                    y_crds[y_row_idx, y_col_idx])
+            ring.AddPoint(
+                x_crds[row_idx, col_idx],
+                y_crds[row_idx, col_idx])
 
-                ring.AddPoint(
-                    x_crds[x_row_idx + 1, x_col_idx],
-                    y_crds[y_row_idx + 1, y_col_idx])
+            ring.AddPoint(
+                x_crds[row_idx + 1, col_idx],
+                y_crds[row_idx + 1, col_idx])
 
-                ring.AddPoint(
-                    x_crds[x_row_idx + 1, x_col_idx + 1],
-                    y_crds[y_row_idx + 1, y_col_idx + 1])
+            ring.AddPoint(
+                x_crds[row_idx + 1, col_idx + 1],
+                y_crds[row_idx + 1, col_idx + 1])
 
-                ring.AddPoint(
-                    x_crds[x_row_idx, x_col_idx + 1],
-                    y_crds[y_row_idx, y_col_idx + 1])
+            ring.AddPoint(
+                x_crds[row_idx, col_idx + 1],
+                y_crds[row_idx, col_idx + 1])
 
-                ring.AddPoint(
-                    x_crds[x_row_idx, x_col_idx],
-                    y_crds[y_row_idx, y_col_idx])
+            ring.AddPoint(
+                x_crds[row_idx, col_idx],
+                y_crds[row_idx, col_idx])
 
-                poly = ogr.Geometry(ogr.wkbPolygon)
-                poly.AddGeometry(ring)
+            poly = ogr.Geometry(ogr.wkbPolygon)
+            poly.AddGeometry(ring)
 
-                poly_area = poly.Area()
+            poly_area = poly.Area()
 
-                assert poly_area > 0
+            assert poly_area > 0
 
-                itsct_poly = poly.Intersection(geom)
-                itsct_cell_area = itsct_poly.Area()
+            itsct_poly = poly.Intersection(geom)
+            itsct_cell_area = itsct_poly.Area()
 
-                assert 0.0 <= itsct_cell_area < np.inf
+            assert 0.0 <= itsct_cell_area < np.inf
 
-                min_area_thresh = (
-                    (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
+            min_area_thresh = (
+                (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
 
-                if itsct_cell_area < min_area_thresh:
-                    continue
+            if itsct_cell_area < min_area_thresh:
+                continue
 
-                n_cells_acptd += 1
+            print(
+                x_crds[row_idx, col_idx],
+                y_crds[row_idx, col_idx])
 
-                x_crds_acptd_idxs.append(x_col_idx)
-                y_crds_acptd_idxs.append(y_row_idx)
+            print(
+                x_crds[row_idx + 1, col_idx],
+                y_crds[row_idx + 1, col_idx])
 
-                itsct_areas.append(itsct_cell_area)
-                itsct_rel_areas.append(itsct_cell_area / geom_area)
+            print(
+                x_crds[row_idx + 1, col_idx + 1],
+                y_crds[row_idx + 1, col_idx + 1])
 
-                centroid = poly.Centroid()
-                x_crds_acptd.append(centroid.GetX())
-                y_crds_acptd.append(centroid.GetY())
+            print(
+                x_crds[row_idx, col_idx + 1],
+                y_crds[row_idx, col_idx + 1])
+
+            print(
+                x_crds[row_idx, col_idx],
+                y_crds[row_idx, col_idx])
+
+            n_cells_acptd += 1
+
+            x_crds_acptd_idxs.append(col_idx)
+            y_crds_acptd_idxs.append(row_idx)
+
+            itsct_areas.append(itsct_cell_area)
+            itsct_rel_areas.append(itsct_cell_area / geom_area)
+
+            centroid = poly.Centroid()
+            x_crds_acptd.append(centroid.GetX())
+            y_crds_acptd.append(centroid.GetY())
 
         assert n_cells_acptd > 0
         assert n_cells_acptd == len(x_crds_acptd_idxs)
@@ -549,6 +561,8 @@ class PolyAndCrdsItsctIdxs:
         assert n_cells_acptd == len(itsct_rel_areas)
         assert n_cells_acptd == len(x_crds_acptd)
         assert n_cells_acptd == len(y_crds_acptd)
+
+        print(f'n_cells_acptd: {n_cells_acptd}')
 
         return {
             'cols':np.array(x_crds_acptd_idxs, dtype=int),
@@ -564,7 +578,7 @@ class PolyAndCrdsItsctIdxs:
 
         self._itsct_idxs_cmptd_flag = False
 
-        assert self._crds_ndims < 3  # for now
+        assert self._crds_ndims < 3
 
         itsct_idxs_dict = {}
 
