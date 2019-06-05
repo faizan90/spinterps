@@ -103,7 +103,7 @@ class ExtractNetCDFCoords:
         assert np.all(np.isfinite(self._x_crds))
         assert np.all(np.isfinite(self._y_crds))
 
-        assert self._x_crds.ndim == 1
+#         assert self._x_crds.ndim == 1
         assert self._x_crds.ndim == self._y_crds.ndim
 
         if self._vb:
@@ -186,7 +186,7 @@ class ExtractNetCDFValues:
         self._set_in_flag = True
         return
 
-    def set_output(self, path_to_output):
+    def set_output(self, path_to_output=None):
 
         if path_to_output is None:
             self._out_fmt = 'raw'
@@ -253,7 +253,7 @@ class ExtractNetCDFValues:
 
         return add_var_labels_main
 
-    def extract_data_for_indicies_and_save(
+    def extract_data_for_indices_and_save(
             self, indicies, save_add_vars_flag=True):
 
         assert self._set_in_flag
@@ -289,7 +289,10 @@ class ExtractNetCDFValues:
 
         assert in_time.shape[0] == in_var.shape[0]
 
-        misc_grp_labs = add_var_labels | set(('rows', 'cols', 'data'))
+        path_stem = self._in_path.stem
+        assert path_stem
+
+        misc_grp_labs = add_var_labels | set(('rows', 'cols', path_stem))
 
         if self._out_fmt == 'h5':
             out_hdl = h5py.File(str(self._out_path), mode='a', driver=None)
@@ -323,15 +326,15 @@ class ExtractNetCDFValues:
                 for grp in misc_grp_labs:
                     assert grp in out_hdl
 
-            assert self._in_var_lab not in out_hdl['data']
+            assert self._in_var_lab not in out_hdl[path_stem]
 
-            out_var_grp = out_hdl['data'].create_group(self._in_var_lab)
+            out_var_grp = out_hdl[path_stem].create_group(self._in_var_lab)
 
             if hasattr(in_var, 'units'):
                 out_var_grp.attrs['units'] = in_var.units
 
         elif self._out_fmt == 'raw':
-            extrt_data = {}
+            extrtd_data = {}
 
         else:
             raise NotImplementedError
@@ -379,10 +382,12 @@ class ExtractNetCDFValues:
 
                 assert steps_data
 
-                extrt_data[label] = steps_data
+                extrtd_data[label] = steps_data
 
             elif self._out_fmt == 'h5':
                 label_str = str(label)
+
+                assert label_str not in out_var_grp
 
                 for add_var_lab in add_var_labels:
                     grp_lnk = f'{add_var_lab}/{label_str}'
@@ -423,8 +428,8 @@ class ExtractNetCDFValues:
             out_hdl = None
 
         elif self._out_fmt == 'raw':
-            assert extrt_data
-            self._extrtd_data = extrt_data
+            assert extrtd_data
+            self._extrtd_data = extrtd_data
 
         else:
             raise NotImplementedError

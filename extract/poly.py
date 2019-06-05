@@ -69,9 +69,9 @@ class ExtractReferencePolygons:
 
         assert poly_lyr.GetFeatureCount() > 0
 
-        spt_ref = poly_lyr.GetSpatialRef()
+#         spt_ref = poly_lyr.GetSpatialRef()
 
-        assert 'PROJCS' in spt_ref.ExportToWkt()
+#         assert 'PROJCS' in spt_ref.ExportToWkt()
 
         labels = []
         geoms = {}

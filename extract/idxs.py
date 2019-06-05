@@ -27,6 +27,8 @@ class PolyAndCrdsItsctIdxs:
 
         self._x_crds_orig = None
         self._y_crds_orig = None
+        self._x_crds = None
+        self._y_crds = None
         self._ras_type_lab = None
         self._crds_ndims = None
 
@@ -107,6 +109,10 @@ class PolyAndCrdsItsctIdxs:
             self._x_crds, self._y_crds = (
                 self._x_crds_orig.copy(), self._y_crds_orig.copy())
 
+        elif (self._ras_type_lab == 'nc') and (self._crds_ndims == 2):
+            self._x_crds, self._y_crds = self._get_rect_crds_2d(
+                self._x_crds_orig, self._y_crds_orig)
+
         else:
             raise NotImplementedError
 
@@ -136,15 +142,38 @@ class PolyAndCrdsItsctIdxs:
     def _verf_crds(self, crds):
 
         assert isinstance(crds, np.ndarray)
-        assert crds.ndim == 1
         assert np.all(np.isfinite(crds))
         assert np.all(crds.shape)
+
+        if crds.ndim == 1:
+            self._verf_crds_1d(crds)
+
+        elif crds.ndim == 2:
+            self._verf_crds_2d(crds)
+
+        else:
+            raise NotImplementedError
+        return
+
+    def _verf_crds_1d(self, crds):
 
         assert np.unique(crds).shape == crds.shape
 
         assert (
             np.all(np.ediff1d(crds) > 0) or
             np.all(np.ediff1d(crds[::-1]) > 0))
+        return
+
+    def _verf_crds_2d(self, crds):
+
+        diffs_lr = np.diff(crds)
+        diffs_ud = np.diff(crds.T)
+
+        assert (
+            np.all(diffs_lr > 0) or
+            np.all(np.fliplr(diffs_lr) > 0) or
+            np.all(diffs_ud > 0) or
+            np.all(np.flipud(diffs_ud) > 0))
         return
 
     def _get_rect_crds_1d(self, crds):
@@ -165,6 +194,77 @@ class PolyAndCrdsItsctIdxs:
             np.all(np.ediff1d(crds_rect[::-1]) > 0))
 
         return crds_rect
+
+    def _get_rect_crds_2d(self, x_crds, y_crds):
+
+        assert x_crds.ndim == y_crds.ndim
+        assert x_crds.shape == y_crds.shape
+
+        crds_rect_shape = (y_crds.shape[0] + 1, y_crds.shape[1] + 1)
+
+        y_crds_rect = np.full(crds_rect_shape, np.nan)
+        x_crds_rect = np.full(crds_rect_shape, np.nan)
+
+        for i in range(1, crds_rect_shape[0] - 1):
+            for j in range(1, crds_rect_shape[1] - 1):
+                y_crds_rect[i, j] = y_crds[i, j] - (
+                    0.5 * (y_crds[i, j] - y_crds[i - 1, j - 1]))
+
+                x_crds_rect[i, j] = x_crds[i, j] - (
+                    0.5 * (x_crds[i, j] - x_crds[i - 1, j - 1]))
+
+        y_crds_rect[+0, +0] = y_crds[+0, +0] + (
+            0.5 * (y_crds[+0, +0] - y_crds[+1, +0]))
+
+        y_crds_rect[-1, -1] = y_crds[-1, -1] + (
+            0.5 * (y_crds[-1, -1] - y_crds[-2, -1]))
+
+        y_crds_rect[-1, +0] = y_crds[-1, +0] + (
+            0.5 * (y_crds[-1, +0] - y_crds[-2, +0]))
+
+        y_crds_rect[+0, -1] = y_crds[+0, -1] + (
+            0.5 * (y_crds[+0, -1] - y_crds[+1, -1]))
+
+        y_crds_rect[+0, +1:-1] = y_crds[+0, +1:] - (
+            0.5 * (y_crds[+1, +1:] - y_crds[+0, :-1]))
+
+        y_crds_rect[-1, +1:-1] = y_crds[-1, +1:] + (
+            0.5 * (y_crds[-1, :-1] - y_crds[-2, +1:]))
+
+        y_crds_rect[+1:-1, +0] = y_crds[+1:, +0] - (
+            0.5 * (y_crds[+1:, +0] - y_crds[:-1, +0]))
+
+        y_crds_rect[+1:-1, -1] = y_crds[+1:, -1] - (
+            0.5 * (y_crds[+1:, -1] - y_crds[:-1, -1]))
+
+        x_crds_rect[+0, +0] = x_crds[+0, +0] + (
+            0.5 * (x_crds[+0, +0] - x_crds[+0, +1]))
+
+        x_crds_rect[-1, -1] = x_crds[-1, -1] + (
+            0.5 * (x_crds[-1, -1] - x_crds[-1, -2]))
+
+        x_crds_rect[-1, +0] = x_crds[-1, +0] + (
+            0.5 * (x_crds[-1, +0] - x_crds[-1, +1]))
+
+        x_crds_rect[+0, -1] = x_crds[+0, -1] + (
+            0.5 * (x_crds[+0, -1] - x_crds[+0, -2]))
+
+        x_crds_rect[+0, +1:-1] = x_crds[+0, +1:] - (
+            0.5 * (x_crds[+0, +1:] - x_crds[+0, :-1]))
+
+        x_crds_rect[-1, +1:-1] = x_crds[-1, +1:] - (
+            0.5 * (x_crds[-1, +1:] - x_crds[-1, :-1]))
+
+        x_crds_rect[+1:-1, +0] = x_crds[+1:, +0] + (
+            0.5 * (x_crds[:-1, +0] - x_crds[+1:, +1]))
+
+        x_crds_rect[+1:-1, -1] = x_crds[+1:, -1] + (
+            0.5 * (x_crds[:-1, -1] - x_crds[+1:, -2]))
+
+        assert np.all(np.isfinite(x_crds_rect))
+        assert np.all(np.isfinite(y_crds_rect))
+
+        return x_crds_rect, y_crds_rect
 
     def set_intersect_misc_settings(
             self,
@@ -289,13 +389,17 @@ class PolyAndCrdsItsctIdxs:
                 poly = ogr.Geometry(ogr.wkbPolygon)
                 poly.AddGeometry(ring)
 
+                poly_area = poly.Area()
+
+                assert poly_area > 0
+
                 itsct_poly = poly.Intersection(geom)
                 itsct_cell_area = itsct_poly.Area()
 
                 assert 0.0 <= itsct_cell_area < np.inf
 
                 min_area_thresh = (
-                    (self._min_itsct_area_pct_thresh / 100.0) * poly.Area())
+                    (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
 
                 if itsct_cell_area < min_area_thresh:
                     continue
@@ -317,6 +421,134 @@ class PolyAndCrdsItsctIdxs:
         assert n_cells_acptd == len(y_crds_acptd_idxs)
         assert n_cells_acptd == len(itsct_areas)
         assert n_cells_acptd == len(itsct_rel_areas)
+        assert n_cells_acptd == len(x_crds_acptd)
+        assert n_cells_acptd == len(y_crds_acptd)
+
+        return {
+            'cols':np.array(x_crds_acptd_idxs, dtype=int),
+            'rows': np.array(y_crds_acptd_idxs, dtype=int),
+            'itsctd_area': np.array(itsct_areas, dtype=float),
+            'rel_itsctd_area': np.array(itsct_rel_areas, dtype=float),
+            'x_cen_crds': np.array(x_crds_acptd, dtype=float),
+            'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
+
+    def _cmpt_2d_idxs(self, geom):
+
+        assert self._crds_ndims == 2
+
+        geom_area = geom.Area()
+        assert geom_area > 0
+
+        x_crds = self._x_crds
+        y_crds = self._y_crds
+
+        geom_buff = geom.Buffer(max(
+            abs(x_crds[+1, +0] - x_crds[+0, +0]),
+            abs(x_crds[-1, -1] - x_crds[-2, -1]),
+            abs(y_crds[+1, +0] - y_crds[+0, 0]),
+            abs(y_crds[-1, -1] - y_crds[-2, -1]),
+            ))
+
+        assert geom_buff is not None
+
+        geom_buff_area = geom_buff.Area()
+        assert geom_buff_area > 0
+
+        gx_min, gx_max, gy_min, gy_max = geom_buff.GetEnvelope()
+
+        tot_x_idxs = np.vstack(
+            np.where((x_crds >= gx_min) & (x_crds <= gx_max))).T
+
+        x_keep_idxs = ~(
+            (tot_x_idxs[:, 0] >= (x_crds.shape[0] - 1)) |
+            (tot_x_idxs[:, 1] >= (x_crds.shape[1] - 1)))
+
+        tot_x_idxs = tot_x_idxs[x_keep_idxs].copy('c')
+
+        tot_y_idxs = np.vstack(
+            np.where((y_crds >= gy_min) & (y_crds <= gy_max))).T
+
+        y_keep_idxs = ~(
+            (tot_y_idxs[:, 0] >= (y_crds.shape[0] - 1)) |
+            (tot_y_idxs[:, 1] >= (y_crds.shape[1] - 1)))
+
+        tot_y_idxs = tot_y_idxs[y_keep_idxs].copy('c')
+
+        assert tot_x_idxs.size > 1
+        assert tot_y_idxs.size > 1
+
+        assert np.all(x_crds.shape)
+        assert np.all(y_crds.shape)
+
+        n_cells_acptd = 0
+        x_crds_acptd_idxs = []
+        y_crds_acptd_idxs = []
+        itsct_areas = []
+        itsct_rel_areas = []
+        x_crds_acptd = []
+        y_crds_acptd = []
+
+        for x_row_idx, x_col_idx in tot_x_idxs:
+            for y_row_idx, y_col_idx in tot_y_idxs:
+                ring = ogr.Geometry(ogr.wkbLinearRing)
+
+                ring.AddPoint(
+                    x_crds[x_row_idx, x_col_idx],
+                    y_crds[y_row_idx, y_col_idx])
+
+                ring.AddPoint(
+                    x_crds[x_row_idx + 1, x_col_idx],
+                    y_crds[y_row_idx + 1, y_col_idx])
+
+                ring.AddPoint(
+                    x_crds[x_row_idx + 1, x_col_idx + 1],
+                    y_crds[y_row_idx + 1, y_col_idx + 1])
+
+                ring.AddPoint(
+                    x_crds[x_row_idx, x_col_idx + 1],
+                    y_crds[y_row_idx, y_col_idx + 1])
+
+                ring.AddPoint(
+                    x_crds[x_row_idx, x_col_idx],
+                    y_crds[y_row_idx, y_col_idx])
+
+                poly = ogr.Geometry(ogr.wkbPolygon)
+                poly.AddGeometry(ring)
+
+                poly_area = poly.Area()
+
+                assert poly_area > 0
+
+                itsct_poly = poly.Intersection(geom)
+                itsct_cell_area = itsct_poly.Area()
+
+                assert 0.0 <= itsct_cell_area < np.inf
+
+                min_area_thresh = (
+                    (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
+
+                if itsct_cell_area < min_area_thresh:
+                    continue
+
+                n_cells_acptd += 1
+
+                x_crds_acptd_idxs.append(x_col_idx)
+                y_crds_acptd_idxs.append(y_row_idx)
+
+                itsct_areas.append(itsct_cell_area)
+                itsct_rel_areas.append(itsct_cell_area / geom_area)
+
+                centroid = poly.Centroid()
+                x_crds_acptd.append(centroid.GetX())
+                y_crds_acptd.append(centroid.GetY())
+
+        assert n_cells_acptd > 0
+        assert n_cells_acptd == len(x_crds_acptd_idxs)
+        assert n_cells_acptd == len(y_crds_acptd_idxs)
+        assert n_cells_acptd == len(itsct_areas)
+        assert n_cells_acptd == len(itsct_rel_areas)
+        assert n_cells_acptd == len(x_crds_acptd)
+        assert n_cells_acptd == len(y_crds_acptd)
 
         return {
             'cols':np.array(x_crds_acptd_idxs, dtype=int),
@@ -332,7 +564,7 @@ class PolyAndCrdsItsctIdxs:
 
         self._itsct_idxs_cmptd_flag = False
 
-        assert self._crds_ndims == 1  # for now
+        assert self._crds_ndims < 3  # for now
 
         itsct_idxs_dict = {}
 
@@ -341,6 +573,9 @@ class PolyAndCrdsItsctIdxs:
 
             if self._crds_ndims == 1:
                 res = self._cmpt_1d_idxs(geom)
+
+            elif self._crds_ndims == 2:
+                res = self._cmpt_2d_idxs(geom)
 
             else:
                 raise NotImplementedError

@@ -7,6 +7,7 @@ Created on May 27, 2019
 from pathlib import Path
 
 import gdal
+import h5py
 import numpy as np
 
 from ..misc import print_sl, print_el
@@ -20,15 +21,14 @@ class ExtractGTiffCoords:
 
         self._vb = verbose
 
-        self._gtiff_path = None
-        self._gtiff_x_crds = None
-        self._gtiff_y_crds = None
+        self._in_path = None
+        self._x_crds = None
+        self._y_crds = None
 
-        self._set_gtiff_path_flag = False
-        self._set_gtiff_data_asm_flag = False
+        self._set_in_flag = False
         return
 
-    def set_path_to_gtiff(self, path_to_gtiff):
+    def set_input(self, path_to_gtiff):
 
         assert isinstance(path_to_gtiff, (str, Path))
 
@@ -36,38 +36,39 @@ class ExtractGTiffCoords:
 
         assert path_to_gtiff.exists()
 
-        self._gtiff_path = path_to_gtiff
+        self._in_path = path_to_gtiff
 
         if self._vb:
             print_sl()
 
             print(f'INFO: Set the following parameters for the GTiff:')
-            print(f'Path: {self._gtiff_path}')
+            print(f'Path: {self._in_path}')
 
             print_el()
 
-        self._set_gtiff_path_flag = True
+        self._set_in_flag = True
+        self._set_crds_extrt_flag = True
         return
 
-    def assemble_gtiff_data(self):
+    def extract_coordinates(self):
 
-        assert self._set_gtiff_path_flag
+        assert self._set_in_flag
 
-        gtiff_hdl = gdal.Open(str(self._gtiff_path))
+        in_hdl = gdal.Open(str(self._in_path))
 
-        assert gtiff_hdl is not None
+        assert in_hdl is not None
 
-        assert gtiff_hdl.GetDriver().ShortName == 'GTiff'
+        assert in_hdl.GetDriver().ShortName == 'GTiff'
 
-        n_rows = gtiff_hdl.RasterYSize
-        n_cols = gtiff_hdl.RasterXSize
+        n_rows = in_hdl.RasterYSize
+        n_cols = in_hdl.RasterXSize
 
         assert n_rows
         assert n_cols
 
-        geotransform = gtiff_hdl.GetGeoTransform()
+        geotransform = in_hdl.GetGeoTransform()
 
-        gtiff_hdl = None
+        in_hdl = None
 
         x_min = geotransform[0]
         y_max = geotransform[3]
@@ -86,46 +87,46 @@ class ExtractGTiffCoords:
 
         assert np.all(np.isfinite([x_min, x_max, y_min, y_max]))
 
-        self._gtiff_x_crds = np.linspace(x_min, x_max, n_cols + 1)
-        self._gtiff_y_crds = np.linspace(y_max, y_min, n_rows + 1)
+        self._x_crds = np.linspace(x_min, x_max, n_cols + 1)
+        self._y_crds = np.linspace(y_max, y_min, n_rows + 1)
 
-        assert self._gtiff_x_crds.shape[0] == (n_cols + 1)
-        assert self._gtiff_y_crds.shape[0] == (n_rows + 1)
+        assert self._x_crds.shape[0] == (n_cols + 1)
+        assert self._y_crds.shape[0] == (n_rows + 1)
 
-        assert np.all(np.isfinite(self._gtiff_x_crds))
-        assert np.all(np.isfinite(self._gtiff_y_crds))
-
-        assert (
-            np.all(np.ediff1d(self._gtiff_x_crds) > 0) or
-            np.all(np.ediff1d(self._gtiff_x_crds[::-1]) > 0))
+        assert np.all(np.isfinite(self._x_crds))
+        assert np.all(np.isfinite(self._y_crds))
 
         assert (
-            np.all(np.ediff1d(self._gtiff_y_crds) > 0) or
-            np.all(np.ediff1d(self._gtiff_y_crds[::-1]) > 0))
+            np.all(np.ediff1d(self._x_crds) > 0) or
+            np.all(np.ediff1d(self._x_crds[::-1]) > 0))
+
+        assert (
+            np.all(np.ediff1d(self._y_crds) > 0) or
+            np.all(np.ediff1d(self._y_crds[::-1]) > 0))
 
         if self._vb:
             print_sl()
 
             print(f'INFO: GTiff coordinates\' properties:')
-            print(f'Shape of X coordinates: {self._gtiff_x_crds.shape}')
-            print(f'Shape of Y coordinates: {self._gtiff_y_crds.shape}')
+            print(f'Shape of X coordinates: {self._x_crds.shape}')
+            print(f'Shape of Y coordinates: {self._y_crds.shape}')
 
             print_el()
 
-        self._set_gtiff_data_asm_flag = True
+        self._set_crds_extrt_flag = True
         return
 
     def get_x_coordinates(self):
 
-        assert self._set_gtiff_data_asm_flag
+        assert self._set_crds_extrt_flag
 
-        return self._gtiff_x_crds
+        return self._x_crds
 
     def get_y_coordinates(self):
 
-        assert self._set_gtiff_data_asm_flag
+        assert self._set_crds_extrt_flag
 
-        return self._gtiff_y_crds
+        return self._y_crds
 
 
 class ExtractGTiffValues:
@@ -134,16 +135,18 @@ class ExtractGTiffValues:
 
         self._vb = verbose
 
-        self._gtiff_path = None
-        self._gtiff_bnds = None
-        self._gtiffs_extrt_data = None
+        self._in_path = None
+        self._extrtd_data = None
 
-        self._set_gtiff_path_flag = False
-        self._set_gtiff_data_asm_flag = False
-        self._gtiff_data_extrt_flag = False
+        self._out_path = None
+        self._out_fmt = None
+
+        self._set_in_flag = False
+        self._set_out_flag = False
+        self._set_data_extrt_flag = False
         return
 
-    def set_path_to_gtiff(self, path_to_gtiff):
+    def set_input(self, path_to_gtiff):
 
         assert isinstance(path_to_gtiff, (str, Path))
 
@@ -151,36 +154,112 @@ class ExtractGTiffValues:
 
         assert path_to_gtiff.exists()
 
-        self._gtiff_path = path_to_gtiff
+        self._in_path = path_to_gtiff
 
         if self._vb:
             print_sl()
 
             print(f'INFO: Set the following parameters for the GTiff:')
-            print(f'Path: {self._gtiff_path}')
+            print(f'Path: {self._in_path}')
 
             print_el()
 
-        self._set_gtiff_path_flag = True
+        self._set_in_flag = True
         return
 
-    def _assemble_data(self):
+    def set_output(self, path_to_output=None):
 
-        assert self._set_gtiff_path_flag
+        if path_to_output is None:
+            self._out_fmt = 'raw'
 
-        gtiff_hdl = gdal.Open(str(self._gtiff_path))
+        else:
+            assert isinstance(path_to_output, (str, Path))
 
-        assert gtiff_hdl is not None
+            path_to_output = Path(path_to_output).absolute()
 
-        assert gtiff_hdl.GetDriver().ShortName == 'GTiff'
+            assert path_to_output.parents[0].exists()
 
-        n_bnds = gtiff_hdl.RasterCount
+            fmt = path_to_output.suffix
+
+            if fmt in ('.h5', '.hdf5'):
+                self._out_fmt = 'h5'
+
+            else:
+                raise NotImplementedError
+
+        self._out_path = path_to_output
+
+        if self._vb:
+            print_sl()
+
+            print(f'INFO: Set the following parameters for the output:')
+            print(f'Path: {self._out_path}')
+            print(f'Format: {self._out_fmt}')
+
+            print_el()
+
+        self._set_out_flag = True
+        return
+
+    def _verf_idxs(self, indicies, save_add_vars_flag):
+
+        add_var_labels_main = set()
+
+#         for label, crds_idxs in indicies.items():
+        for crds_idxs in indicies.values():
+            assert 'cols' in crds_idxs
+            cols_idxs = crds_idxs['cols']
+            assert cols_idxs.ndim == 1
+            assert cols_idxs.size > 0
+            assert np.issubdtype(cols_idxs.dtype, np.integer)
+
+            assert 'rows' in crds_idxs
+            rows_idxs = crds_idxs['rows']
+            assert rows_idxs.ndim == 1
+            assert rows_idxs.size > 0
+            assert np.issubdtype(rows_idxs.dtype, np.integer)
+
+            if not save_add_vars_flag:
+                continue
+
+            if not add_var_labels_main:
+                add_var_labels_main = set(
+                    crds_idxs.keys()) - set(('rows', 'cols'))
+
+            else:
+                assert not (
+                    add_var_labels_main -
+                    set(crds_idxs.keys()) -
+                    set(('rows', 'cols')))
+
+        return add_var_labels_main
+
+    def extract_data_for_indices_and_save(
+            self, indicies, save_add_vars_flag=True):
+
+        assert self._set_in_flag
+        assert self._set_out_flag
+
+        assert isinstance(indicies, dict)
+        assert indicies
+
+        assert isinstance(save_add_vars_flag, bool)
+
+        add_var_labels = self._verf_idxs(indicies, save_add_vars_flag)
+
+        in_hdl = gdal.Open(str(self._in_path))
+
+        assert in_hdl is not None
+
+        assert in_hdl.GetDriver().ShortName == 'GTiff'
+
+        n_bnds = in_hdl.RasterCount
 
         assert n_bnds > 0
 
         gtiff_bnds = {}
         for i in range(1, n_bnds + 1):
-            bnd = gtiff_hdl.GetRasterBand(i)
+            bnd = in_hdl.GetRasterBand(i)
 
             ndv = bnd.GetNoDataValue()
 
@@ -196,11 +275,9 @@ class ExtractGTiffValues:
 
             gtiff_bnds[f'B{i:02d}'] = data
 
-        gtiff_hdl = None
+        in_hdl = None
 
         assert gtiff_bnds
-
-        self._gtiff_bnds = gtiff_bnds
 
         if self._vb:
             print_sl()
@@ -209,64 +286,122 @@ class ExtractGTiffValues:
 
             print_el()
 
-        self._set_gtiff_data_asm_flag = True
-        return
+        path_stem = self._in_path.stem
+        assert path_stem
 
-    def extract_data_for_indices(self, indicies):
+        misc_grp_labs = add_var_labels | set(('rows', 'cols'))
 
-        self._assemble_data()
+        extrtd_data = {}
 
-        assert self._set_gtiff_data_asm_flag
+        if self._out_fmt == 'h5':
+            out_hdl = h5py.File(str(self._out_path), mode='a', driver=None)
 
-        assert isinstance(indicies, dict)
-        assert indicies
+            if 'rows' not in out_hdl:
+                for grp in misc_grp_labs:
+                    assert grp not in out_hdl
+                    out_hdl.create_group(grp)
 
-        idx_chk_keys = ('x', 'y')
+            else:
+                for grp in misc_grp_labs:
+                    assert grp in out_hdl
 
-        gtiffs_extrt_data = {}
+            assert path_stem not in out_hdl
+
+            out_var_grp = out_hdl.create_group(path_stem)
+
+        elif self._out_fmt == 'raw':
+            pass
+
+        else:
+            raise NotImplementedError
+
         for label, crds_idxs in indicies.items():
-            assert all([idx_key in crds_idxs for idx_key in idx_chk_keys])
 
-            x_crds_idxs = crds_idxs['x']
-            assert x_crds_idxs.ndim == 1
-            assert x_crds_idxs.size > 0
+            cols_idxs = crds_idxs['cols']
+            cols_idxs_min = cols_idxs.min()
+            cols_idxs_max = cols_idxs.max()
+            assert (cols_idxs_max > 0) & (cols_idxs_min > 0)
 
-            x_crds_idxs_min = x_crds_idxs.min()
-            x_crds_idxs_max = x_crds_idxs.max()
-            assert (x_crds_idxs_max > 0) & (x_crds_idxs_min > 0)
+            rows_idxs = crds_idxs['rows']
+            rows_idxs_min = rows_idxs.min()
+            rows_idxs_max = rows_idxs.max()
+            assert (rows_idxs_max > 0) & (rows_idxs_min > 0)
 
-            y_crds_idxs = crds_idxs['y']
-            assert y_crds_idxs.ndim == 1
-            assert y_crds_idxs.size > 0
+            assert cols_idxs.shape == rows_idxs.shape
 
-            y_crds_idxs_min = y_crds_idxs.min()
-            y_crds_idxs_max = y_crds_idxs.max()
-            assert (y_crds_idxs_max > 0) & (y_crds_idxs_min > 0)
+            crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
 
-            assert x_crds_idxs.shape == y_crds_idxs.shape
+            assert len(crds_set) == cols_idxs.size
 
             bnds_data = {}
-            for bnd, data in self._gtiff_bnds.items():
-                assert y_crds_idxs_max < data.shape[0]
-                assert x_crds_idxs_max < data.shape[1]
+            for bnd, data in gtiff_bnds.items():
+                assert rows_idxs_max < data.shape[0]
+                assert cols_idxs_max < data.shape[1]
 
-                bnd_data = data[y_crds_idxs, x_crds_idxs]
+                bnd_data = data[rows_idxs, cols_idxs]
 
                 bnds_data[bnd] = bnd_data
 
             assert bnds_data
 
-            gtiffs_extrt_data[label] = bnds_data
+            extrtd_data[label] = bnds_data
 
-        assert gtiffs_extrt_data
+            if self._out_fmt == 'raw':
+                pass
 
-        self._gtiffs_extrt_data = gtiffs_extrt_data
+            elif self._out_fmt == 'h5':
+                label_str = str(label)
 
-        self._gtiff_data_extrt_flag = True
+                assert label_str not in out_var_grp
+
+                for add_var_lab in add_var_labels:
+                    grp_lnk = f'{add_var_lab}/{label_str}'
+
+                    if label_str in out_hdl[add_var_lab]:
+                        assert np.all(np.isclose(
+                            out_hdl[grp_lnk][...],
+                            crds_idxs[add_var_lab]))
+
+                    else:
+                        out_hdl[grp_lnk] = crds_idxs[add_var_lab]
+
+                if label_str in out_hdl['rows']:
+                    assert np.all(
+                        out_hdl[f'rows/{label_str}'][...] == rows_idxs)
+
+                    assert np.all(
+                        out_hdl[f'cols/{label_str}'][...] == cols_idxs)
+
+                else:
+                    out_hdl[f'rows/{label_str}'] = rows_idxs
+                    out_hdl[f'cols/{label_str}'] = cols_idxs
+
+                out_var_grp[label_str] = np.vstack(list(bnds_data.values()))
+
+                out_hdl.flush()
+
+            else:
+                raise NotImplementedError
+
+        gtiff_bnds = None
+
+        if self._out_fmt == 'h5':
+            out_hdl.flush()
+            out_hdl.close()
+            out_hdl = None
+
+        elif self._out_fmt == 'raw':
+            assert extrtd_data
+            self._extrtd_data = extrtd_data
+
+        else:
+            raise NotImplementedError
+
+        self._set_data_extrt_flag = True
         return
 
     def get_extracted_data(self):
 
-        assert self._gtiff_data_extrt_flag
+        assert self._set_data_extrt_flag
 
-        return self._gtiffs_extrt_data
+        return self._extrtd_data
