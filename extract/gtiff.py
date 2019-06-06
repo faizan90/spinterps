@@ -15,6 +15,8 @@ from ..misc import print_sl, print_el
 
 class ExtractGTiffCoords:
 
+    '''Extract the X and Y coordinates of a GeoTiff raster'''
+
     _raster_type_lab = 'gtiff'
 
     def __init__(self, verbose=True):
@@ -29,6 +31,14 @@ class ExtractGTiffCoords:
         return
 
     def set_input(self, path_to_gtiff):
+
+        '''Set the path to input GeoTiff file.
+
+        Parameters
+        ----------
+        path_to_gtiff : string, pathlib.Path
+            Path to the input geotiff file.
+        '''
 
         assert isinstance(path_to_gtiff, (str, Path)), (
             f'Specified path to input ({path_to_gtiff}) is not a string or '
@@ -66,7 +76,7 @@ class ExtractGTiffCoords:
         in_drv_shrt_name = in_hdl.GetDriver().ShortName
 
         assert in_drv_shrt_name == 'GTiff', (
-            f'Input not a GDAL GeoTiff raster rather {in_drv_shrt_name}!')
+            f'Input not a GDAL GeoTiff raster but a {in_drv_shrt_name}!')
 
         n_rows = in_hdl.RasterYSize
         n_cols = in_hdl.RasterXSize
@@ -139,12 +149,36 @@ class ExtractGTiffCoords:
 
     def get_x_coordinates(self):
 
+        '''Return the X coordinates extracted from the specified GeoTiff file
+        in the set_input method.
+
+        Returns
+        -------
+        _x_crds : 1D float64 np.ndarray
+            Left and right raster cell edge X coordinates. The number of the
+            coordinates is one more than the number of cells in the horizontal
+            direction. The spacing is constant i.e. the cell width of the
+            input raster. The coordinates are ascending.
+        '''
+
         assert self._set_crds_extrt_flag, (
             'Call the extract_coordinates method first!')
 
         return self._x_crds
 
     def get_y_coordinates(self):
+
+        '''Return the Y coordinates extracted from the specified GeoTiff file
+        in the set_input method.
+
+        Returns
+        -------
+        _y_crds : 1D float64 np.ndarray
+            Top and bottom raster ceell edge Y coordinates. The number of the
+            coordinates is one more than the number of cells in the vertical
+            direction. The spacing is constant i.e. the cell height of the
+            input raster. The coordinates are descending.
+        '''
 
         assert self._set_crds_extrt_flag, (
             'Call the extract_coordinates method first!')
@@ -153,6 +187,8 @@ class ExtractGTiffCoords:
 
 
 class ExtractGTiffValues:
+
+    '''Extract values from a raster at given indices'''
 
     def __init__(self, verbose=True):
 
@@ -170,6 +206,14 @@ class ExtractGTiffValues:
         return
 
     def set_input(self, path_to_gtiff):
+
+        '''Set the path to input GeoTiff file.
+
+        Parameters
+        ----------
+        path_to_gtiff : string, pathlib.Path
+            Path to the input geotiff file.
+        '''
 
         assert isinstance(path_to_gtiff, (str, Path)), (
             f'Specified path to input {path_to_gtiff} is not a string or '
@@ -194,6 +238,44 @@ class ExtractGTiffValues:
         return
 
     def set_output(self, path_to_output=None):
+
+        '''Set the path to output file.
+
+        Parameters
+        ----------
+        path_to_output : None, string, pathlib.Path
+            Path to the output file. If None, then extracted values can be
+            returned by a call to the get_extracted_data method as a
+            dictionary. See the documentation of the get_extracted_data
+            method for the output format. If the output file extension is
+            h5 or hdf5 then the outputs are written to an HDF5 file.
+            No other output format is defined yet.
+
+            Structure of the output HDF5 is as follows:
+            - X : N 2D np.ndarrays
+                Where X is the stem of the input GeoTiff file name.
+                N is the number of keys of the indices variable passed to
+                the extract_data_for_indices_and_save method. Every key is
+                a dataset.
+                Every dataset holds the extracted values as a 2D array at
+                the given indices from the input GeoTiff. First dimension
+                is the input raster band index and the second is the cell
+                value at corresponding row and column indices in that band.
+            - cols : 1D np.ndarray
+                Column indices of the extracted values in the input GeoTiff.
+                Shape of this variable is equal to the length of the
+                second axis of the variable X.
+            - rows : 1D np.ndarray
+                Row indices of the extracted values in the input GeoTiff.
+                Shape of this variable is equal to the length of the
+                second axis of the variable X.
+
+            Additional variables that might exist based on the value of the
+            save_add_vars_flag variable passed to the
+            extract_data_for_indices_and_save method come from the indices
+            dictionary. There are written as they are to the output file but
+            should be all numpy numeric dtype arrays.
+        '''
 
         if path_to_output is None:
             self._out_fmt = 'raw'
@@ -235,6 +317,25 @@ class ExtractGTiffValues:
     def extract_data_for_indices_and_save(
             self, indicies, save_add_vars_flag=True):
 
+        '''Extract the values at given indices.
+
+        Parameters
+        ----------
+        indicies : dict
+            A dictionary whose keys are labels of polygons they represent.
+            The values are also dictionaries that must have the
+            keys \'cols\' and \'rows\' representing the columns and rows
+            in the raster arrays for each label respectively.
+            Values of keys other than these are written to an HDF5 file
+            specified in the set_output method if path_to_output is not None
+            and save_add_vars_flag is True. All additonal values should be
+            numpy numeric dtype arrays and are written as they are.
+
+        save_add_vars_flag : bool
+            Whether to write variables other than \'cols\' and \'rows\' in the
+            items of the indices dictionary to the output HDF5 file.
+        '''
+
         assert self._set_in_flag, 'Call the set_input method first!'
         assert self._set_out_flag, 'Call the set_ouput method first!'
 
@@ -255,7 +356,7 @@ class ExtractGTiffValues:
         in_drv_shrt_name = in_hdl.GetDriver().ShortName
 
         assert in_drv_shrt_name == 'GTiff', (
-            f'Input not a GDAL GeoTiff raster rather {in_drv_shrt_name}!')
+            f'Input not a GDAL GeoTiff raster but a {in_drv_shrt_name}!')
 
         n_bnds = in_hdl.RasterCount
 
@@ -374,6 +475,14 @@ class ExtractGTiffValues:
                 for add_var_lab in add_var_labels:
                     grp_lnk = f'{add_var_lab}/{label_str}'
 
+                    assert isinstance(crds_idxs[add_var_lab], np.ndarray), (
+                        'Additonal variables can only be numeric arrays!')
+
+                    assert np.issubdtype(
+                        crds_idxs[add_var_lab], np.number), (
+                            'Only numeric datatypes allowed for the '
+                            'additional variables!')
+
                     if label_str in out_hdl[add_var_lab]:
                         assert np.all(np.isclose(
                             out_hdl[grp_lnk][...],
@@ -439,6 +548,24 @@ class ExtractGTiffValues:
 
     def get_extracted_data(self):
 
+        '''Get the data that was extracted by a call to the
+        extract_data_for_indices_and_save method.
+
+        Will only work if the path_to_output was None in the set_output method.
+
+        Return
+        ------
+        _extrtd_data : dict
+            A dictionary with keys as labels of the indices dictionary
+            passed to the extract_data_for_indices_and_save method and
+            values that are also dictionaries with keys in the format B%02d
+            where d is the band number in the output raster.
+            The values are 1D np.float64 arrays having the values at
+            corresponding row and column indices in that band taken from the
+            indices dictionary passed to the extract_data_for_indices_and_save
+            method.
+        '''
+
         assert self._out_fmt == 'raw', (
             'Call to this function allowed only when path_to_output is None!')
 
@@ -454,6 +581,9 @@ class ExtractGTiffValues:
         add_var_labels_main = set()
 
         for crds_idxs in indicies.values():
+
+            assert isinstance(crds_idxs, dict), (
+                'Value in indices not a dictionary!')
 
             assert 'cols' in crds_idxs, (
                 f'\'cols\' is not in the indices dictionary!')

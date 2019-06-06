@@ -472,6 +472,14 @@ class ExtractNetCDFValues:
                 for add_var_lab in add_var_labels:
                     grp_lnk = f'{add_var_lab}/{label_str}'
 
+                    assert isinstance(crds_idxs[add_var_lab], np.ndarray), (
+                        'Additonal variables can only be numeric arrays!')
+
+                    assert np.issubdtype(
+                        crds_idxs[add_var_lab], np.number), (
+                            'Only numeric datatypes allowed for the '
+                            'additional variables!')
+
                     if label_str in out_hdl[add_var_lab]:
                         assert np.all(np.isclose(
                             out_hdl[grp_lnk][...],
