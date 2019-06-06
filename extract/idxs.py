@@ -16,6 +16,8 @@ ogr.UseExceptions()
 
 class PolyAndCrdsItsctIdxs:
 
+    '''Get row and column indices where polygon(s) and raster intersect'''
+
     def __init__(self, verbose=True):
 
         self._vb = verbose
@@ -43,19 +45,24 @@ class PolyAndCrdsItsctIdxs:
         self._itsct_idxs_cmptd_flag = False
         return
 
-    def set_polygons(self, polygon_geometries, labels):
+    def set_polygons(self, polygon_geometries):
+
+        '''Set the polygons for intersection.
+
+        Parameters
+        ----------
+        polygon_geometries : dict
+            A dictionary whose values are gdal/ogr polygon geometries.
+        '''
 
         assert isinstance(polygon_geometries, dict), (
             'polygon_geometries not a dictionary!')
-
-        assert isinstance(labels, tuple), 'labels not a tuple!'
 
         n_polys = len(polygon_geometries)
 
         assert n_polys, 'Empty polygon_geometries!'
 
-        assert n_polys == len(labels), (
-            'Unequal number of values inside polygon_geometries and labels!')
+        labels = tuple(polygon_geometries.keys())
 
         for label in labels:
             assert label in polygon_geometries, (
@@ -93,6 +100,23 @@ class PolyAndCrdsItsctIdxs:
         return
 
     def set_coordinates(self, x_crds, y_crds, raster_type_label):
+
+        '''Set X and Y coordinates for intersection.
+
+        Parameters
+        ----------
+        x_crds : 1D / 2D numeric np.ndarray
+            Array having the x-coordinates. These should all be monotonically
+            ascending or descending. With all unique values in case of 1D.
+        y_crds : 1D / 2D numeric np.ndarray
+            Array having the y-coordinates. These should all be monotonically
+            ascending or descending. With all unique values in case of 1D.
+            Should have the same length as x_crds.
+        raster_type_label : str
+            The type of coordinates. If \'nc\' then coordinates are cell
+            centroid coordinates. If \'gtiff\' then coordinates are cell
+            corners.
+        '''
 
         self._verf_crds(x_crds)
         self._verf_crds(y_crds)
@@ -288,6 +312,9 @@ class PolyAndCrdsItsctIdxs:
     def _verf_crds(self, crds):
 
         assert isinstance(crds, np.ndarray), f'crds not of np.ndarray type!'
+
+        assert np.issubdtype(crds, np.number), (
+            'Only numeric coordinates are allowed!')
 
         assert np.all(np.isfinite(crds)), 'crds has invalid values inside!'
 
