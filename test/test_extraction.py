@@ -31,9 +31,9 @@ def main():
 
     ERP = ExtractReferencePolygons()
 
-    ERP.set_path_to_poly_shp(path_to_shp, label_field)
+    ERP.set_input(path_to_shp, label_field)
 
-    ERP.assemble_polygon_data()
+    ERP.extract_polygon_data()
 
     poly_labels = ERP.get_labels()[:1]
 

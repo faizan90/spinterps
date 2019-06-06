@@ -69,10 +69,13 @@ class PolyAndCrdsItsctIdxs:
             assert geom.GetGeometryType() == 3, (
                 f'Geometry: {label} not a polygon!')
 
+            assert geom.GetGeometryCount() == 1, (
+                'Only one polygon allowed per feature!')
+
             assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
                 f'Polygon: {label} has less than 3 points!')
 
-            assert geom.Area() > 0, f'Polygon: {label}\'s has no area!'
+            assert geom.Area() > 0, f'Polygon: {label} has no area!'
 
         self._poly_geoms = polygon_geometries
         self._poly_labels = labels

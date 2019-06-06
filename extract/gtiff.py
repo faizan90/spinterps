@@ -31,12 +31,13 @@ class ExtractGTiffCoords:
     def set_input(self, path_to_gtiff):
 
         assert isinstance(path_to_gtiff, (str, Path)), (
-            f'Specified path to input {path_to_gtiff} is invalid!')
+            f'Specified path to input ({path_to_gtiff}) is not a string or '
+            f'path-like object!')
 
         path_to_gtiff = Path(path_to_gtiff).absolute()
 
         assert path_to_gtiff.exists(), (
-            f'Specified input ({path_to_gtiff}) does not exist!')
+            f'Specified input file ({path_to_gtiff}) does not exist!')
 
         self._in_path = path_to_gtiff
 
@@ -111,6 +112,9 @@ class ExtractGTiffCoords:
         assert np.all(np.isfinite(self._y_crds)), (
             'Y coordinates are not finite!')
 
+        assert self._x_crds.ndim == self._y_crds.ndim, (
+            'Unequal dimensions of X and Y coordinates!')
+
         assert (
             np.all(np.ediff1d(self._x_crds) > 0) or
             np.all(np.ediff1d(self._x_crds[::-1]) > 0)), (
@@ -168,12 +172,13 @@ class ExtractGTiffValues:
     def set_input(self, path_to_gtiff):
 
         assert isinstance(path_to_gtiff, (str, Path)), (
-            f'Specified path to input {path_to_gtiff} is invalid!')
+            f'Specified path to input {path_to_gtiff} is not a string or '
+            f'path-like object!')
 
         path_to_gtiff = Path(path_to_gtiff).absolute()
 
         assert path_to_gtiff.exists(), (
-            f'Specified input ({path_to_gtiff}) does not exist!')
+            f'Specified input file ({path_to_gtiff}) does not exist!')
 
         self._in_path = path_to_gtiff
 
@@ -195,12 +200,13 @@ class ExtractGTiffValues:
 
         else:
             assert isinstance(path_to_output, (str, Path)), (
-                f'Specified path to output {path_to_output} is invalid!')
+                f'Specified path to output ({path_to_output}) is not '
+                f'a string or path-like object!')
 
             path_to_output = Path(path_to_output).absolute()
 
             assert path_to_output.parents[0].exists(), (
-                f'Parent directory of output file does not exist!')
+                f'Parent directory of the output file does not exist!')
 
             fmt = path_to_output.suffix
 
@@ -208,7 +214,9 @@ class ExtractGTiffValues:
                 self._out_fmt = 'h5'
 
             else:
-                raise NotImplementedError
+                raise NotImplementedError(
+                    'Only configured for file extensions ending in '
+                    'h5 and hdf5 only!')
 
         self._out_path = path_to_output
 
@@ -231,7 +239,7 @@ class ExtractGTiffValues:
         for crds_idxs in indicies.values():
 
             assert 'cols' in crds_idxs, (
-                f'The key \'cols\' is not in the indices dictionary!')
+                f'\'cols\' is not in the indices dictionary!')
 
             cols_idxs = crds_idxs['cols']
 
@@ -245,7 +253,7 @@ class ExtractGTiffValues:
                 'Column indices array values not of integer type!')
 
             assert 'rows' in crds_idxs, (
-                f'The key \'rows\' is not in the indices dictionary!')
+                f'\'rows\' is not in the indices dictionary!')
 
             rows_idxs = crds_idxs['rows']
             assert rows_idxs.ndim == 1, (
@@ -257,6 +265,9 @@ class ExtractGTiffValues:
             assert np.issubdtype(rows_idxs.dtype, np.integer), (
                 'Row indices array values not of integer type!')
 
+            assert cols_idxs.shape == rows_idxs.shape, (
+                'Unequal number of row and column indices!')
+
             if not save_add_vars_flag:
                 continue
 
@@ -265,7 +276,7 @@ class ExtractGTiffValues:
                     crds_idxs.keys()) - set(('rows', 'cols'))
 
             else:
-                # of values is supposed to be twice :)
+                # "of values" is supposed to be twice :)
                 assert not (
                     add_var_labels_main -
                     set(crds_idxs.keys()) -
@@ -347,7 +358,7 @@ class ExtractGTiffValues:
                 for grp in misc_grp_labs:
                     assert grp not in out_hdl, (
                         f'Variable {grp} is not supposed to exist in the '
-                        f'HDF5 file!')
+                        f'output file!')
 
                     out_hdl.create_group(grp)
 
@@ -355,10 +366,10 @@ class ExtractGTiffValues:
                 for grp in misc_grp_labs:
                     assert grp in out_hdl, (
                         f'Variable {grp} was supposed to exist in the '
-                        f'HDF5 file!')
+                        f'output file!')
 
             assert path_stem not in out_hdl, (
-                f'Specified variable {path_stem} exists in the output '
+                f'Specified output variable {path_stem} exists in the output '
                 f'already!')
 
             out_var_grp = out_hdl.create_group(path_stem)
@@ -374,30 +385,27 @@ class ExtractGTiffValues:
             cols_idxs = crds_idxs['cols']
             cols_idxs_min = cols_idxs.min()
             cols_idxs_max = cols_idxs.max()
-            assert (cols_idxs_max > 0) & (cols_idxs_min > 0), (
+            assert (cols_idxs_max >= 0) & (cols_idxs_min >= 0), (
                 'Column indices are not allowed to be negative!')
 
             rows_idxs = crds_idxs['rows']
             rows_idxs_min = rows_idxs.min()
             rows_idxs_max = rows_idxs.max()
-            assert (rows_idxs_max > 0) & (rows_idxs_min > 0), (
+            assert (rows_idxs_max >= 0) & (rows_idxs_min >= 0), (
                 'Row indices are not allowed to be negative!')
-
-            assert cols_idxs.shape == rows_idxs.shape, (
-                'Unequal number of row and column indices!')
 
             crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
 
             assert len(crds_set) == cols_idxs.size, (
-                'Repeating row and column index combinations!')
+                'Repeating row and column index combinations not allowed!')
 
             bnds_data = {}
             for bnd, data in gtiff_bnds.items():
                 assert rows_idxs_max < data.shape[0], (
-                    'Row index is outside bounds!')
+                    'Row index is out of bounds!')
 
                 assert cols_idxs_max < data.shape[1], (
-                    'Column index is outside bounds!')
+                    'Column index is out of bounds!')
 
                 bnd_data = data[rows_idxs, cols_idxs]
 
@@ -414,7 +422,7 @@ class ExtractGTiffValues:
                 label_str = str(label)
 
                 assert label_str not in out_var_grp, (
-                    f'Dataset {label_str} exists in the HDF5 file already!')
+                    f'Dataset {label_str} exists in the output file already!')
 
                 for add_var_lab in add_var_labels:
                     grp_lnk = f'{add_var_lab}/{label_str}'
@@ -484,7 +492,12 @@ class ExtractGTiffValues:
 
     def get_extracted_data(self):
 
+        assert self._out_fmt == 'raw', (
+            'Call to this function allowed only when path_to_output is None!')
+
         assert self._set_data_extrt_flag, (
             'Call the extract_data_for_indices_and_save method first!')
+
+        assert self._extrtd_data is not None, 'This should not have happend!'
 
         return self._extrtd_data
