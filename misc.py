@@ -247,7 +247,6 @@ def add_month(date, months_to_add):
     :param int months_to_add: The number of months to add to the date
     :returns: The final date
     :rtype: *netcdftime.datetime*
-
     """
 
     years_to_add = int((
@@ -279,7 +278,6 @@ def add_year(date, years_to_add):
     :param int years_to_add: The number of years to add to the date
     :returns: The final date
     :rtype: *netcdftime.datetime*
-
     """
 
     new_year = date.year + years_to_add
