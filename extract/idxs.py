@@ -45,27 +45,34 @@ class PolyAndCrdsItsctIdxs:
 
     def set_polygons(self, polygon_geometries, labels):
 
-        assert isinstance(polygon_geometries, dict)
-        assert isinstance(labels, tuple)
+        assert isinstance(polygon_geometries, dict), (
+            'polygon_geometries not a dictionary!')
+
+        assert isinstance(labels, tuple), 'labels not a tuple!'
 
         n_polys = len(polygon_geometries)
 
-        assert n_polys
+        assert n_polys, 'Empty polygon_geometries!'
 
-        assert n_polys == len(labels)
+        assert n_polys == len(labels), (
+            'Unequal number of values inside polygon_geometries and labels!')
 
         for label in labels:
-            assert label in polygon_geometries
+            assert label in polygon_geometries, (
+                f'Label: {label} not in polygon_gemetries!')
 
             geom = polygon_geometries[label]
 
-            assert isinstance(geom, ogr.Geometry)
+            assert isinstance(geom, ogr.Geometry), (
+                f'Geometry: {label} not and ogr.Geometry object!')
 
-            assert geom.GetGeometryType() == 3
+            assert geom.GetGeometryType() == 3, (
+                f'Geometry: {label} not a polygon!')
 
-            assert len(geom.GetGeometryRef(0).GetPoints()) > 2
+            assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
+                f'Polygon: {label} has less than 3 points!')
 
-            assert geom.Area() > 0
+            assert geom.Area() > 0, f'Polygon: {label}\'s has no area!'
 
         self._poly_geoms = polygon_geometries
         self._poly_labels = labels
@@ -87,10 +94,16 @@ class PolyAndCrdsItsctIdxs:
         self._verf_crds(x_crds)
         self._verf_crds(y_crds)
 
-        assert x_crds.ndim == y_crds.ndim
+        assert x_crds.ndim == y_crds.ndim, (
+            f'Unequal dimensions of X ({x_crds.ndim}) and '
+            f'Y ({y_crds.ndim}) coordinates!')
 
-        assert isinstance(raster_type_label, str)
-        assert raster_type_label in self._ras_type_labs
+        assert isinstance(raster_type_label, str), (
+            f'raster_type_label not a string!')
+
+        assert raster_type_label in self._ras_type_labs, (
+            f'raster_type_label only allowed to be one of '
+            f'{self._ras_type_labs}!')
 
         self._x_crds_orig = x_crds
         self._y_crds_orig = y_crds
@@ -114,7 +127,9 @@ class PolyAndCrdsItsctIdxs:
                 self._x_crds_orig, self._y_crds_orig)
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                f'Not configured for raster_type_label: '
+                f'{self._ras_type_lab} and {self._crds_ndims} dimensions!')
 
         if self._vb:
             print_sl()
@@ -141,9 +156,11 @@ class PolyAndCrdsItsctIdxs:
 
     def _verf_crds(self, crds):
 
-        assert isinstance(crds, np.ndarray)
-        assert np.all(np.isfinite(crds))
-        assert np.all(crds.shape)
+        assert isinstance(crds, np.ndarray), f'crds not of np.ndarray type!'
+
+        assert np.all(np.isfinite(crds)), 'crds has invalid values inside!'
+
+        assert np.all(crds.shape), 'Shape of crds not allowed to have a zero!'
 
         if crds.ndim == 1:
             self._verf_crds_1d(crds)
@@ -157,11 +174,12 @@ class PolyAndCrdsItsctIdxs:
 
     def _verf_crds_1d(self, crds):
 
-        assert np.unique(crds).shape == crds.shape
+        assert np.unique(crds).shape == crds.shape, 'None unique crds!'
 
         assert (
             np.all(np.ediff1d(crds) > 0) or
-            np.all(np.ediff1d(crds[::-1]) > 0))
+            np.all(np.ediff1d(crds[::-1]) > 0)), (
+                'crds not monotonically increasing or decreasing!')
         return
 
     def _verf_crds_2d(self, crds):
@@ -173,12 +191,14 @@ class PolyAndCrdsItsctIdxs:
             np.all(diffs_lr > 0) or
             np.all(np.fliplr(diffs_lr) > 0) or
             np.all(diffs_ud > 0) or
-            np.all(np.flipud(diffs_ud) > 0))
+            np.all(np.flipud(diffs_ud) > 0)), (
+                'crds not monotonically increasing or decreasing '
+                'in any direction!')
         return
 
     def _get_rect_crds_1d(self, crds):
 
-        assert crds.ndim == 1
+        assert crds.ndim == 1, 'Configured for 1D crds only!'
 
         crds_rect = np.full(crds.shape[0] + 1, np.nan)
 
@@ -187,18 +207,22 @@ class PolyAndCrdsItsctIdxs:
         crds_rect[+0] = crds[+0] - (0.5 * (crds[+1] - crds[+0]))
         crds_rect[-1] = crds[-1] + (0.5 * (crds[-1] - crds[-2]))
 
-        assert np.all(np.isfinite(crds_rect))
+        assert np.all(np.isfinite(crds_rect)), 'Invalid values in crds_rect!'
 
         assert (
             np.all(np.ediff1d(crds_rect) > 0) or
-            np.all(np.ediff1d(crds_rect[::-1]) > 0))
+            np.all(np.ediff1d(crds_rect[::-1]) > 0)), (
+                'crds_rect not monotonically increasing or decreasing!')
 
         return crds_rect
 
     def _get_rect_crds_2d(self, x_crds, y_crds):
 
-        assert x_crds.ndim == y_crds.ndim
-        assert x_crds.shape == y_crds.shape
+        assert x_crds.ndim == y_crds.ndim, (
+            'Unequal dimension of X and Y coordinates!')
+
+        assert x_crds.shape == y_crds.shape, (
+            'Unequal shape of X and Y coordinates!')
 
         crds_rect_shape = (y_crds.shape[0] + 1, y_crds.shape[1] + 1)
 
@@ -261,8 +285,11 @@ class PolyAndCrdsItsctIdxs:
         x_crds_rect[+1:-1, -1] = x_crds[+1:, -1] + (
             0.5 * (x_crds[:-1, -1] - x_crds[+1:, -2]))
 
-        assert np.all(np.isfinite(x_crds_rect))
-        assert np.all(np.isfinite(y_crds_rect))
+        assert np.all(np.isfinite(x_crds_rect)), (
+            'Invalid values in x_crds_rect!')
+
+        assert np.all(np.isfinite(y_crds_rect)), (
+            'Invalid values in y_crds_rect!')
 
         return x_crds_rect, y_crds_rect
 
@@ -272,13 +299,20 @@ class PolyAndCrdsItsctIdxs:
             maximum_cells_threshold_per_polygon):
 
         assert isinstance(
-            minimum_cell_area_intersection_percentage, (int, float))
+            minimum_cell_area_intersection_percentage, (int, float)), (
+                'minimum_cell_area_intersection_percentage not a float '
+                'or an integer!')
 
-        assert 0 <= minimum_cell_area_intersection_percentage <= 100
+        assert 0 <= minimum_cell_area_intersection_percentage <= 100, (
+            'minimum_cell_area_intersection_percentage can only be between '
+            '0 and 100!')
 
-        assert isinstance(maximum_cells_threshold_per_polygon, int)
+        assert isinstance(maximum_cells_threshold_per_polygon, int), (
+            'maximum_cells_threshold_per_polygon not an integer!')
 
-        assert 0 <= maximum_cells_threshold_per_polygon < np.inf
+        assert 0 <= maximum_cells_threshold_per_polygon < np.inf, (
+            'maximum_cells_threshold_per_polygon can be between 0 '
+            'and infinity only!')
 
         self._min_itsct_area_pct_thresh = (
             minimum_cell_area_intersection_percentage)
@@ -303,8 +337,11 @@ class PolyAndCrdsItsctIdxs:
 
     def verify(self):
 
-        assert self._set_itsct_idxs_polys_flag
-        assert self._set_itsct_idxs_crds_flag
+        assert self._set_itsct_idxs_polys_flag, (
+            'Call the set_polygons method first!')
+
+        assert self._set_itsct_idxs_crds_flag, (
+            'Call the set_coordinates method first!')
 
         x_min = self._x_crds.min()
         x_max = self._x_crds.max()
@@ -317,11 +354,21 @@ class PolyAndCrdsItsctIdxs:
 
             gx_min, gx_max, gy_min, gy_max = geom.GetEnvelope()
 
-            assert gx_min >= x_min
-            assert gx_max <= x_max
+            assert gx_min >= x_min, (
+                f'Minimum X coordinate of the polygon: {label} is less '
+                f'than the minimum X coordinate!')
 
-            assert gy_min >= y_min
-            assert gy_max <= y_max
+            assert gx_max <= x_max, (
+                f'Maximum X coordinate of the polygon: {label} is greater '
+                f'than the maximum X coordinate!')
+
+            assert gy_min >= y_min, (
+                f'Minimum Y coordinate of the polygon: {label} is less '
+                f'than the minimum Y coordinate!')
+
+            assert gy_max <= y_max, (
+                f'Maximum Y coordinate of the polygon: {label} is greater '
+                f'than the maximum Y coordinate!')
 
         if self._vb:
             print_sl()
@@ -335,12 +382,12 @@ class PolyAndCrdsItsctIdxs:
         self._set_itsct_idxs_vrfd_flag = True
         return
 
-    def _cmpt_1d_idxs(self, geom):
+    def _cmpt_1d_idxs(self, geom, label):
 
-        assert self._crds_ndims == 1
+        assert self._crds_ndims == 1, 'Configured for 1D coordinates only!'
 
         geom_area = geom.Area()
-        assert geom_area > 0
+        assert geom_area > 0, f'Polygon: {label} has no area!'
 
         x_crds = self._x_crds
         y_crds = self._y_crds
@@ -352,21 +399,31 @@ class PolyAndCrdsItsctIdxs:
             abs(y_crds[-1] - y_crds[-2]),
             ))
 
-        assert geom_buff is not None
+        assert geom_buff is not None, (
+            f'Buffer operation failed on polygon: {label}')
 
         geom_buff_area = geom_buff.Area()
-        assert geom_buff_area > 0
+        assert geom_buff_area > 0, f'Buffered polygon: {label} has no area!'
+
+        assert geom_buff_area >= geom_area, (
+            f'Buffered polygon: {label} area less than the original one!')
 
         gx_min, gx_max, gy_min, gy_max = geom_buff.GetEnvelope()
 
         tot_x_idxs = np.where((x_crds >= gx_min) & (x_crds <= gx_max))[0]
         tot_y_idxs = np.where((y_crds >= gy_min) & (y_crds <= gy_max))[0]
 
-        assert tot_x_idxs.sum() > 1
-        assert tot_y_idxs.sum() > 1
+        assert tot_x_idxs.size, (
+            f'No X coordinates selected for the polygon: {label}!')
 
-        assert np.all(x_crds.shape)
-        assert np.all(y_crds.shape)
+        assert tot_y_idxs.size, (
+            f'No Y coordinates selected for the polygon: {label}!')
+
+        assert np.all(x_crds.shape), (
+            'Shape of X coordinates not allowed to have a zero!')
+
+        assert np.all(y_crds.shape), (
+            'Shape of Y coordinates not allowed to have a zero!')
 
         n_cells_acptd = 0
         x_crds_acptd_idxs = []
@@ -391,12 +448,14 @@ class PolyAndCrdsItsctIdxs:
 
                 poly_area = poly.Area()
 
-                assert poly_area > 0
+                assert poly_area > 0, 'Area of a cell is zero!'
 
                 itsct_poly = poly.Intersection(geom)
                 itsct_cell_area = itsct_poly.Area()
 
-                assert 0.0 <= itsct_cell_area < np.inf
+                assert 0.0 <= itsct_cell_area < np.inf, (
+                    f'Intersection area between a cell and polygon: '
+                    f'{label} not between zero and infinity!')
 
                 min_area_thresh = (
                     (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
@@ -416,7 +475,7 @@ class PolyAndCrdsItsctIdxs:
                 x_crds_acptd.append(centroid.GetX())
                 y_crds_acptd.append(centroid.GetY())
 
-        assert n_cells_acptd > 0
+        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}'
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
         assert n_cells_acptd == len(itsct_areas)
@@ -432,12 +491,12 @@ class PolyAndCrdsItsctIdxs:
             'x_cen_crds': np.array(x_crds_acptd, dtype=float),
             'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
 
-    def _cmpt_2d_idxs(self, geom):
+    def _cmpt_2d_idxs(self, geom, label):
 
-        assert self._crds_ndims == 2
+        assert self._crds_ndims == 2, 'Configured for 2D coordinates only!'
 
         geom_area = geom.Area()
-        assert geom_area > 0
+        assert geom_area > 0, f'Polygon: {label} has no area!'
 
         x_crds = self._x_crds
         y_crds = self._y_crds
@@ -449,10 +508,14 @@ class PolyAndCrdsItsctIdxs:
             abs(y_crds[-1, -1] - y_crds[-2, -1]),
             ))
 
-        assert geom_buff is not None
+        assert geom_buff is not None, (
+            f'Buffer operation failed on polygon: {label}')
 
         geom_buff_area = geom_buff.Area()
-        assert geom_buff_area > 0
+        assert geom_buff_area > 0, f'Buffered Polygon: {label} has no area!'
+
+        assert geom_buff_area >= geom_area, (
+            f'Buffered polygon: {label} area less than the original one!')
 
         gx_min, gx_max, gy_min, gy_max = geom_buff.GetEnvelope()
 
@@ -468,10 +531,14 @@ class PolyAndCrdsItsctIdxs:
 
         tot_idxs = tot_idxs[keep_idxs].copy('c')
 
-        assert tot_idxs.size > 1
+        assert tot_idxs.size, (
+            f'No cells selected for the polygon: {label}!')
 
-        assert np.all(x_crds.shape)
-        assert np.all(y_crds.shape)
+        assert np.all(x_crds.shape), (
+            'Shape of X coordinates not allowed to have a zero!')
+
+        assert np.all(y_crds.shape), (
+            'Shape of Y coordinates not allowed to have a zero!')
 
         n_cells_acptd = 0
         x_crds_acptd_idxs = []
@@ -509,38 +576,20 @@ class PolyAndCrdsItsctIdxs:
 
             poly_area = poly.Area()
 
-            assert poly_area > 0
+            assert poly_area > 0, 'Area of a cell is zero!'
 
             itsct_poly = poly.Intersection(geom)
             itsct_cell_area = itsct_poly.Area()
 
-            assert 0.0 <= itsct_cell_area < np.inf
+            assert 0.0 <= itsct_cell_area < np.inf, (
+                f'Intersection area between a cell and polygon: '
+                f'{label} not between zero and infinity!')
 
             min_area_thresh = (
                 (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
 
             if itsct_cell_area < min_area_thresh:
                 continue
-
-            print(
-                x_crds[row_idx, col_idx],
-                y_crds[row_idx, col_idx])
-
-            print(
-                x_crds[row_idx + 1, col_idx],
-                y_crds[row_idx + 1, col_idx])
-
-            print(
-                x_crds[row_idx + 1, col_idx + 1],
-                y_crds[row_idx + 1, col_idx + 1])
-
-            print(
-                x_crds[row_idx, col_idx + 1],
-                y_crds[row_idx, col_idx + 1])
-
-            print(
-                x_crds[row_idx, col_idx],
-                y_crds[row_idx, col_idx])
 
             n_cells_acptd += 1
 
@@ -554,15 +603,13 @@ class PolyAndCrdsItsctIdxs:
             x_crds_acptd.append(centroid.GetX())
             y_crds_acptd.append(centroid.GetY())
 
-        assert n_cells_acptd > 0
+        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}'
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
         assert n_cells_acptd == len(itsct_areas)
         assert n_cells_acptd == len(itsct_rel_areas)
         assert n_cells_acptd == len(x_crds_acptd)
         assert n_cells_acptd == len(y_crds_acptd)
-
-        print(f'n_cells_acptd: {n_cells_acptd}')
 
         return {
             'cols':np.array(x_crds_acptd_idxs, dtype=int),
@@ -574,27 +621,30 @@ class PolyAndCrdsItsctIdxs:
 
     def compute_intersect_idxs(self):
 
-        assert self._set_itsct_idxs_vrfd_flag
+        assert self._set_itsct_idxs_vrfd_flag, 'Call the verify method first!'
 
         self._itsct_idxs_cmptd_flag = False
 
-        assert self._crds_ndims < 3
+        assert self._crds_ndims <= 2, (
+            'Intersection configured for 2 or less dimensions of '
+            'coordinates!')
 
         itsct_idxs_dict = {}
-
         for label in self._poly_labels:
             geom = self._poly_geoms[label]
 
             if self._crds_ndims == 1:
-                res = self._cmpt_1d_idxs(geom)
+                res = self._cmpt_1d_idxs(geom, label)
 
             elif self._crds_ndims == 2:
-                res = self._cmpt_2d_idxs(geom)
+                res = self._cmpt_2d_idxs(geom, label)
 
             else:
                 raise NotImplementedError
 
             itsct_idxs_dict[label] = res
+
+        assert itsct_idxs_dict
 
         self._itsct_idxs_dict = itsct_idxs_dict
 
@@ -603,7 +653,8 @@ class PolyAndCrdsItsctIdxs:
 
     def get_intersect_idxs(self):
 
-        assert self._itsct_idxs_cmptd_flag
+        assert self._itsct_idxs_cmptd_flag, (
+            'Call the compute_intersect_idxs method first!')
 
         return self._itsct_idxs_dict
 
