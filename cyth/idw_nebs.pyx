@@ -28,28 +28,28 @@ cdef extern from 'misc.h' nogil:
         DT_D get_sum(const DT_D *x, const DT_L len_x)
 
         void fill_idw_wts_arr(
-                const DT_D *x_arr,
-                      DT_D *wts_arr,
-                const DT_D idw_exp,
-                const DT_L len_x)
+            const DT_D *x_arr,
+                  DT_D *wts_arr,
+            const DT_D idw_exp,
+            const DT_L len_x)
 
         void fill_mult_arr(
-                const DT_D *x,
-                const DT_D *y,
-                      DT_D *mult_arr,
-                const DT_L len_x)
+            const DT_D *x,
+            const DT_D *y,
+                  DT_D *mult_arr,
+            const DT_L len_x)
 
 
 cpdef DT_D get_idw(
-    const DT_D idw_x,
-    const DT_D idw_y,
-    const DT_D[:] xs,
-    const DT_D[:] ys,
-    const DT_D[:] zs,
-    const DT_D idw_exp,
-          DT_D[:] idw_wts,
-          DT_D[:] dists,
-          DT_D[:] mult_arr):
+        const DT_D idw_x,
+        const DT_D idw_y,
+        const DT_D[:] xs,
+        const DT_D[:] ys,
+        const DT_D[:] zs,
+        const DT_D idw_exp,
+              DT_D[:] idw_wts,
+              DT_D[:] dists,
+              DT_D[:] mult_arr):
 
     """
     Get IDW value at a point given distances of other points 
@@ -80,12 +80,12 @@ cpdef DT_D get_idw(
 
 
 cpdef np.ndarray get_idw_arr(
-    DT_D[:] idw_x_arr,
-    DT_D[:] idw_y_arr,
-    DT_D[:] xs,
-    DT_D[:] ys,
-    DT_D[:] zs,
-    DT_D idw_exp):
+        DT_D[:] idw_x_arr,
+        DT_D[:] idw_y_arr,
+        DT_D[:] xs,
+        DT_D[:] ys,
+        DT_D[:] zs,
+        DT_D idw_exp):
 
     cdef:
         Py_ssize_t i
@@ -113,20 +113,20 @@ cpdef np.ndarray get_idw_arr(
 
 
 cpdef void slct_nebrs_cy(
-    const DT_D x,
-    const DT_D y,
-    const DT_D[:] nebrs_x_crds_arr,
-    const DT_D[:] nebrs_y_crds_arr,
-    const DT_UL n_quads,
-    const DT_UL n_per_quad,
-    const DT_D min_dist_thresh,
-    const DT_UL n_nebs,
-          DT_UL[:] prcssed_nebrs_arr,
-          DT_UL[:] slctd_nebrs_arr,
-          long long[:] nebs_idxs_arr,
-          DT_D[:] dists_arr,
-          DT_D[:] slctd_nebrs_dists_arr,
-          DT_UL[:] idxs_fin_arr):
+        const DT_D x,
+        const DT_D y,
+        const DT_D[:] nebrs_x_crds_arr,
+        const DT_D[:] nebrs_y_crds_arr,
+        const DT_UL n_quads,
+        const DT_UL n_per_quad,
+        const DT_D min_dist_thresh,
+        const DT_UL n_nebs,
+              DT_UL[:] prcssed_nebrs_arr,
+              DT_UL[:] slctd_nebrs_arr,
+              long long[:] nebs_idxs_arr,
+              DT_D[:] dists_arr,
+              DT_D[:] slctd_nebrs_dists_arr,
+              DT_UL[:] idxs_fin_arr):
 
     cdef:
         DT_UL i, j, min_dist_idx, nebs_avail_cond

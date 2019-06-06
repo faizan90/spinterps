@@ -1,18 +1,19 @@
 #pragma once
 #include <math.h>
 
-
 typedef double DT_D;
 typedef long DT_L;
 
 
 DT_D get_dist(const DT_D x1, const DT_D y1, const DT_D x2, const DT_D y2) {
-    return pow((((x1 - x2)*(x1 - x2)) + ((y1 - y2)*(y1 - y2))), 0.5);
+
+	return pow((((x1 - x2)*(x1 - x2)) + ((y1 - y2)*(y1 - y2))), 0.5);
 }
 
 
 DT_L get_zero_idx(const DT_D *x_arr, const DT_L len_x) {
-    DT_L i;
+
+	DT_L i;
 
     for (i=0; i<len_x; ++i) {
         if (x_arr[i] == 0.0) {
