@@ -232,59 +232,6 @@ class ExtractGTiffValues:
         self._set_out_flag = True
         return
 
-    def _verf_idxs(self, indicies, save_add_vars_flag):
-
-        add_var_labels_main = set()
-
-        for crds_idxs in indicies.values():
-
-            assert 'cols' in crds_idxs, (
-                f'\'cols\' is not in the indices dictionary!')
-
-            cols_idxs = crds_idxs['cols']
-
-            assert cols_idxs.ndim == 1, (
-                'Column indices allowed to be 1D only!')
-
-            assert cols_idxs.size > 0, (
-                'Column indices must have at least one value!')
-
-            assert np.issubdtype(cols_idxs.dtype, np.integer), (
-                'Column indices array values not of integer type!')
-
-            assert 'rows' in crds_idxs, (
-                f'\'rows\' is not in the indices dictionary!')
-
-            rows_idxs = crds_idxs['rows']
-            assert rows_idxs.ndim == 1, (
-                'Row indices allowed to be 1D only!')
-
-            assert rows_idxs.size > 0, (
-                'Row indices must have at least one value!')
-
-            assert np.issubdtype(rows_idxs.dtype, np.integer), (
-                'Row indices array values not of integer type!')
-
-            assert cols_idxs.shape == rows_idxs.shape, (
-                'Unequal number of row and column indices!')
-
-            if not save_add_vars_flag:
-                continue
-
-            if not add_var_labels_main:
-                add_var_labels_main = set(
-                    crds_idxs.keys()) - set(('rows', 'cols'))
-
-            else:
-                # "of values" is supposed to be twice :)
-                assert not (
-                    add_var_labels_main -
-                    set(crds_idxs.keys()) -
-                    set(('rows', 'cols'))), (
-                        'Non-matching keys of values of values!')
-
-        return add_var_labels_main
-
     def extract_data_for_indices_and_save(
             self, indicies, save_add_vars_flag=True):
 
@@ -501,3 +448,56 @@ class ExtractGTiffValues:
         assert self._extrtd_data is not None, 'This should not have happend!'
 
         return self._extrtd_data
+
+    def _verf_idxs(self, indicies, save_add_vars_flag):
+
+        add_var_labels_main = set()
+
+        for crds_idxs in indicies.values():
+
+            assert 'cols' in crds_idxs, (
+                f'\'cols\' is not in the indices dictionary!')
+
+            cols_idxs = crds_idxs['cols']
+
+            assert cols_idxs.ndim == 1, (
+                'Column indices allowed to be 1D only!')
+
+            assert cols_idxs.size > 0, (
+                'Column indices must have at least one value!')
+
+            assert np.issubdtype(cols_idxs.dtype, np.integer), (
+                'Column indices array values not of integer type!')
+
+            assert 'rows' in crds_idxs, (
+                f'\'rows\' is not in the indices dictionary!')
+
+            rows_idxs = crds_idxs['rows']
+            assert rows_idxs.ndim == 1, (
+                'Row indices allowed to be 1D only!')
+
+            assert rows_idxs.size > 0, (
+                'Row indices must have at least one value!')
+
+            assert np.issubdtype(rows_idxs.dtype, np.integer), (
+                'Row indices array values not of integer type!')
+
+            assert cols_idxs.shape == rows_idxs.shape, (
+                'Unequal number of row and column indices!')
+
+            if not save_add_vars_flag:
+                continue
+
+            if not add_var_labels_main:
+                add_var_labels_main = set(
+                    crds_idxs.keys()) - set(('rows', 'cols'))
+
+            else:
+                # "of values" is supposed to be twice :)
+                assert not (
+                    add_var_labels_main -
+                    set(crds_idxs.keys()) -
+                    set(('rows', 'cols'))), (
+                        'Non-matching keys of values of values!')
+
+        return add_var_labels_main

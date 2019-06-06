@@ -157,6 +157,134 @@ class PolyAndCrdsItsctIdxs:
         self._set_itsct_idxs_crds_flag = True
         return
 
+    def set_intersect_misc_settings(
+            self,
+            minimum_cell_area_intersection_percentage,
+            maximum_cells_threshold_per_polygon):
+
+        assert isinstance(
+            minimum_cell_area_intersection_percentage, (int, float)), (
+                'minimum_cell_area_intersection_percentage not a float '
+                'or an integer!')
+
+        assert 0 <= minimum_cell_area_intersection_percentage <= 100, (
+            'minimum_cell_area_intersection_percentage can only be between '
+            '0 and 100!')
+
+        assert isinstance(maximum_cells_threshold_per_polygon, int), (
+            'maximum_cells_threshold_per_polygon not an integer!')
+
+        assert 0 <= maximum_cells_threshold_per_polygon < np.inf, (
+            'maximum_cells_threshold_per_polygon can be between 0 '
+            'and infinity only!')
+
+        self._min_itsct_area_pct_thresh = (
+            minimum_cell_area_intersection_percentage)
+
+        self._max_itct_cells_thresh = maximum_cells_threshold_per_polygon
+
+        if self._vb:
+            print_sl()
+
+            print(f'INFO: Set the following misc. parameters:')
+
+            print(
+                f'Minimum cell area intersection percentage: '
+                f'{minimum_cell_area_intersection_percentage}')
+
+            print(
+                f'Maximum cells threshold per polygon: '
+                f'{maximum_cells_threshold_per_polygon}')
+
+            print_el()
+        return
+
+    def verify(self):
+
+        assert self._set_itsct_idxs_polys_flag, (
+            'Call the set_polygons method first!')
+
+        assert self._set_itsct_idxs_crds_flag, (
+            'Call the set_coordinates method first!')
+
+        x_min = self._x_crds.min()
+        x_max = self._x_crds.max()
+
+        y_min = self._y_crds.min()
+        y_max = self._y_crds.max()
+
+        for label in self._poly_labels:
+            geom = self._poly_geoms[label]
+
+            gx_min, gx_max, gy_min, gy_max = geom.GetEnvelope()
+
+            assert gx_min >= x_min, (
+                f'Minimum X coordinate of the polygon: {label} is less '
+                f'than the minimum X coordinate!')
+
+            assert gx_max <= x_max, (
+                f'Maximum X coordinate of the polygon: {label} is greater '
+                f'than the maximum X coordinate!')
+
+            assert gy_min >= y_min, (
+                f'Minimum Y coordinate of the polygon: {label} is less '
+                f'than the minimum Y coordinate!')
+
+            assert gy_max <= y_max, (
+                f'Maximum Y coordinate of the polygon: {label} is greater '
+                f'than the maximum Y coordinate!')
+
+        if self._vb:
+            print_sl()
+
+            print(
+                f'INFO: All inputs for polygons\' and coordinates\' '
+                f'intersection verified to be correct')
+
+            print_el()
+
+        self._set_itsct_idxs_vrfd_flag = True
+        return
+
+    def compute_intersect_indices(self):
+
+        assert self._set_itsct_idxs_vrfd_flag, 'Call the verify method first!'
+
+        self._itsct_idxs_cmptd_flag = False
+
+        assert self._crds_ndims <= 2, (
+            'Intersection configured for 2 or less dimensions of '
+            'coordinates!')
+
+        itsct_idxs_dict = {}
+        for label in self._poly_labels:
+            geom = self._poly_geoms[label]
+
+            if self._crds_ndims == 1:
+                res = self._cmpt_1d_idxs(geom, label)
+
+            elif self._crds_ndims == 2:
+                res = self._cmpt_2d_idxs(geom, label)
+
+            else:
+                raise NotImplementedError
+
+            itsct_idxs_dict[label] = res
+
+        assert itsct_idxs_dict
+
+        self._itsct_idxs_dict = itsct_idxs_dict
+
+        self._itsct_idxs_cmptd_flag = True
+        return
+
+    def get_intersect_indices(self):
+
+        assert self._itsct_idxs_cmptd_flag, (
+            'Call the compute_intersect_idxs method first!')
+
+        return self._itsct_idxs_dict
+
     def _verf_crds(self, crds):
 
         assert isinstance(crds, np.ndarray), f'crds not of np.ndarray type!'
@@ -295,95 +423,6 @@ class PolyAndCrdsItsctIdxs:
             'Invalid values in y_crds_rect!')
 
         return x_crds_rect, y_crds_rect
-
-    def set_intersect_misc_settings(
-            self,
-            minimum_cell_area_intersection_percentage,
-            maximum_cells_threshold_per_polygon):
-
-        assert isinstance(
-            minimum_cell_area_intersection_percentage, (int, float)), (
-                'minimum_cell_area_intersection_percentage not a float '
-                'or an integer!')
-
-        assert 0 <= minimum_cell_area_intersection_percentage <= 100, (
-            'minimum_cell_area_intersection_percentage can only be between '
-            '0 and 100!')
-
-        assert isinstance(maximum_cells_threshold_per_polygon, int), (
-            'maximum_cells_threshold_per_polygon not an integer!')
-
-        assert 0 <= maximum_cells_threshold_per_polygon < np.inf, (
-            'maximum_cells_threshold_per_polygon can be between 0 '
-            'and infinity only!')
-
-        self._min_itsct_area_pct_thresh = (
-            minimum_cell_area_intersection_percentage)
-
-        self._max_itct_cells_thresh = maximum_cells_threshold_per_polygon
-
-        if self._vb:
-            print_sl()
-
-            print(f'INFO: Set the following misc. parameters:')
-
-            print(
-                f'Minimum cell area intersection percentage: '
-                f'{minimum_cell_area_intersection_percentage}')
-
-            print(
-                f'Maximum cells threshold per polygon: '
-                f'{maximum_cells_threshold_per_polygon}')
-
-            print_el()
-        return
-
-    def verify(self):
-
-        assert self._set_itsct_idxs_polys_flag, (
-            'Call the set_polygons method first!')
-
-        assert self._set_itsct_idxs_crds_flag, (
-            'Call the set_coordinates method first!')
-
-        x_min = self._x_crds.min()
-        x_max = self._x_crds.max()
-
-        y_min = self._y_crds.min()
-        y_max = self._y_crds.max()
-
-        for label in self._poly_labels:
-            geom = self._poly_geoms[label]
-
-            gx_min, gx_max, gy_min, gy_max = geom.GetEnvelope()
-
-            assert gx_min >= x_min, (
-                f'Minimum X coordinate of the polygon: {label} is less '
-                f'than the minimum X coordinate!')
-
-            assert gx_max <= x_max, (
-                f'Maximum X coordinate of the polygon: {label} is greater '
-                f'than the maximum X coordinate!')
-
-            assert gy_min >= y_min, (
-                f'Minimum Y coordinate of the polygon: {label} is less '
-                f'than the minimum Y coordinate!')
-
-            assert gy_max <= y_max, (
-                f'Maximum Y coordinate of the polygon: {label} is greater '
-                f'than the maximum Y coordinate!')
-
-        if self._vb:
-            print_sl()
-
-            print(
-                f'INFO: All inputs for polygons\' and coordinates\' '
-                f'intersection verified to be correct')
-
-            print_el()
-
-        self._set_itsct_idxs_vrfd_flag = True
-        return
 
     def _cmpt_1d_idxs(self, geom, label):
 
@@ -621,44 +660,5 @@ class PolyAndCrdsItsctIdxs:
             'rel_itsctd_area': np.array(itsct_rel_areas, dtype=float),
             'x_cen_crds': np.array(x_crds_acptd, dtype=float),
             'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
-
-    def compute_intersect_idxs(self):
-
-        assert self._set_itsct_idxs_vrfd_flag, 'Call the verify method first!'
-
-        self._itsct_idxs_cmptd_flag = False
-
-        assert self._crds_ndims <= 2, (
-            'Intersection configured for 2 or less dimensions of '
-            'coordinates!')
-
-        itsct_idxs_dict = {}
-        for label in self._poly_labels:
-            geom = self._poly_geoms[label]
-
-            if self._crds_ndims == 1:
-                res = self._cmpt_1d_idxs(geom, label)
-
-            elif self._crds_ndims == 2:
-                res = self._cmpt_2d_idxs(geom, label)
-
-            else:
-                raise NotImplementedError
-
-            itsct_idxs_dict[label] = res
-
-        assert itsct_idxs_dict
-
-        self._itsct_idxs_dict = itsct_idxs_dict
-
-        self._itsct_idxs_cmptd_flag = True
-        return
-
-    def get_intersect_idxs(self):
-
-        assert self._itsct_idxs_cmptd_flag, (
-            'Call the compute_intersect_idxs method first!')
-
-        return self._itsct_idxs_dict
 
     __verify = verify

@@ -62,9 +62,9 @@ def main():
 
     PCII.verify()
 
-    PCII.compute_intersect_idxs()
+    PCII.compute_intersect_indices()
 
-    nc_itsct_idxs = PCII.get_intersect_idxs()
+    nc_itsct_idxs = PCII.get_intersect_indices()
 
     ENCV = ExtractNetCDFValues()
 
@@ -92,9 +92,9 @@ def main():
 #
 #     PCII.verify()
 #
-#     PCII.compute_intersect_idxs()
+#     PCII.compute_intersect_indices()
 #
-#     gtiff_itsct_idxs = PCII.get_intersect_idxs()
+#     gtiff_itsct_idxs = PCII.get_intersect_indices()
 #
 #     EGTV = ExtractGTiffValues()
 #
