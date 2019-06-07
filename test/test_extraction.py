@@ -30,6 +30,21 @@ def main():
     nc_variable_labels = ['OK', 'SK']
     nc_time_label = 'time'
 
+#     main_dir = Path(r'P:\Downloads\spinterp_2d_nc_crds_test')
+#     os.chdir(main_dir)
+#
+#     path_to_shp = r'01Small.shp'
+#
+#     label_field = r'Id'
+#
+#     path_to_ras = r'pr_SAM-44_ICHEC-EC-EARTH_historical_r12i1p1_SMHI-RCA4_v3_day_19810101-19851231.nc'
+#     input_ras_type = 'nc'
+#
+#     nc_x_crds_label = 'lon'
+#     nc_y_crds_label = 'lat'
+#     nc_variable_labels = ['pr']
+#     nc_time_label = 'time'
+
     path_to_output = 'test.h5'
 
     Ext = Extract(True)

@@ -48,6 +48,11 @@ class ExtractNetCDFCoords:
             Label of the variable representing the Y coordinates array.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print('Setting netCDF coordinates\' extraction input...')
+
         assert isinstance(path_to_nc, (str, Path)), (
             f'Specified path to input ({path_to_nc}) is not a string or '
             f'path-like object!')
@@ -68,7 +73,6 @@ class ExtractNetCDFCoords:
         self._y_crds_lab = y_crds_lab
 
         if self._vb:
-            print_sl()
 
             print(f'INFO: Set the following parameters for the netCDF:')
             print(f'Path: {self._in_path}')
@@ -83,6 +87,11 @@ class ExtractNetCDFCoords:
     def extract_coordinates(self):
 
         '''Run the coordinates extraction algorithm'''
+
+        if self._vb:
+            print_sl()
+
+            print('Extracting netCDF coordinates...')
 
         assert self._set_in_flag, 'Call the set_input method first!'
 
@@ -110,13 +119,9 @@ class ExtractNetCDFCoords:
             self._y_crds = self._y_crds.data
 
             if self._vb:
-                print_sl()
-
                 print(
                     f'INFO: X and Y coordinates array were masked. '
                     f'Took the "data" attribute!')
-
-                print_el()
 
         elif (isinstance(self._x_crds, np.ndarray) and
               isinstance(self._y_crds, np.ndarray)):
@@ -143,6 +148,10 @@ class ExtractNetCDFCoords:
             'Y coordinates are non-numeric!')
 
         if self._vb:
+            print('Done extracting GeoTiff coordinates')
+
+            print_el()
+
             print_sl()
 
             print(f'INFO: netCDF coordinates\' properties:')
@@ -238,6 +247,11 @@ class ExtractNetCDFValues:
             variable.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print('Setting netCDF values\' extraction input...')
+
         assert isinstance(path_to_nc, (str, Path)), (
             f'Specified path to input ({path_to_nc}) is not a string or '
             f'path-like object!')
@@ -258,8 +272,6 @@ class ExtractNetCDFValues:
         self._in_time_lab = time_label
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Set the following parameters for the netCDF:')
             print(f'Path: {self._in_path}')
             print(f'Extraction variable label: {self._in_var_lab}')
@@ -317,6 +329,11 @@ class ExtractNetCDFValues:
             should be all numpy numeric dtype arrays.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print('Setting netCDF values\' extraction output...')
+
         out_fmt = None
 
         if path_to_output is None:
@@ -349,8 +366,6 @@ class ExtractNetCDFValues:
         self._out_path = path_to_output
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Set the following parameters for the output:')
             print(f'Path: {self._out_path}')
             print(f'Format: {self._out_fmt}')
@@ -360,8 +375,7 @@ class ExtractNetCDFValues:
         self._set_out_flag = True
         return
 
-    def extract_data_for_indices_and_save(
-            self, indicies, save_add_vars_flag=True):
+    def extract_values(self, indicies, save_add_vars_flag=True):
 
         '''Extract the values at given indices.
 
@@ -381,6 +395,11 @@ class ExtractNetCDFValues:
             Whether to write variables other than \'cols\' and \'rows\' in the
             items of the indices dictionary to the output HDF5 file.
         '''
+
+        if self._vb:
+            print_sl()
+
+            print('Extracting netCDF values...')
 
         assert self._set_in_flag, 'Call the set_input method first!'
         assert self._set_out_flag, 'Call the set_ouput method first!'
@@ -535,14 +554,10 @@ class ExtractNetCDFValues:
             raise NotImplementedError
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Input netCDF variable\'s properties:')
             print(f'Dimensions of extraction variable: {in_var.ndim}')
             print(f'Shape of extraction variable: {in_var.shape}')
             print(f'Shape of time variable: {in_time.shape}')
-
-            print_el()
 
         in_var_data = in_var[...]
 
@@ -675,10 +690,15 @@ class ExtractNetCDFValues:
         else:
             raise NotImplementedError
 
+        if self._vb:
+            print('Done extracting netCDF values')
+
+            print_el()
+
         self._set_data_extrt_flag = True
         return
 
-    def get_extracted_data(self):
+    def get_values(self):
 
         '''Get the data that was extracted by a call to the
         extract_data_for_indices_and_save method.

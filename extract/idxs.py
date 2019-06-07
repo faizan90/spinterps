@@ -55,6 +55,13 @@ class PolyAndCrdsItsctIdxs:
             A dictionary whose values are gdal/ogr polygon geometries.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print(
+                'Setting polygons as input for polygons\' and '
+                'coordinates\' intersections...')
+
         assert isinstance(polygon_geometries, dict), (
             'polygon_geometries not a dictionary!')
 
@@ -88,7 +95,6 @@ class PolyAndCrdsItsctIdxs:
         self._poly_labels = labels
 
         if self._vb:
-            print_sl()
 
             print(
                 f'INFO: Set {n_polys} polygons for '
@@ -117,6 +123,13 @@ class PolyAndCrdsItsctIdxs:
             centroid coordinates. If \'gtiff\' then coordinates are cell
             corners.
         '''
+
+        if self._vb:
+            print_sl()
+
+            print(
+                'Setting coordinates as input for polygons\' and '
+                'coordinates\' intersections...')
 
         self._verf_crds(x_crds)
         self._verf_crds(y_crds)
@@ -159,8 +172,6 @@ class PolyAndCrdsItsctIdxs:
                 f'{self._ras_type_lab} and {self._crds_ndims} dimensions!')
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Set the following raster coordinate properties:')
             print(f'Shape of X coordinates: {self._x_crds_orig.shape}')
 
@@ -225,6 +236,13 @@ class PolyAndCrdsItsctIdxs:
 
     def verify(self):
 
+        if self._vb:
+            print_sl()
+
+            print(
+                f'Verifying all inputs for polygons\' and coordinates\' '
+                f'intersection...')
+
         assert self._set_itsct_idxs_polys_flag, (
             'Call the set_polygons method first!')
 
@@ -259,8 +277,6 @@ class PolyAndCrdsItsctIdxs:
                 f'than the maximum Y coordinate!')
 
         if self._vb:
-            print_sl()
-
             print(
                 f'INFO: All inputs for polygons\' and coordinates\' '
                 f'intersection verified to be correct')
@@ -271,6 +287,13 @@ class PolyAndCrdsItsctIdxs:
         return
 
     def compute_intersect_indices(self):
+
+        if self._vb:
+            print_sl()
+
+            print(
+                'Computing the intersection indices between polygons '
+                'and coordinates...')
 
         assert self._set_itsct_idxs_vrfd_flag, 'Call the verify method first!'
 
@@ -283,6 +306,9 @@ class PolyAndCrdsItsctIdxs:
         itsct_idxs_dict = {}
         for label in self._poly_labels:
             geom = self._poly_geoms[label]
+
+            if self._vb:
+                print(f'Going through polygon: {label}...')
 
             if self._crds_ndims == 1:
                 res = self._cmpt_1d_idxs(geom, label)
@@ -298,6 +324,13 @@ class PolyAndCrdsItsctIdxs:
         assert itsct_idxs_dict
 
         self._itsct_idxs_dict = itsct_idxs_dict
+
+        if self._vb:
+            print(
+                'Done computing the intersection indices between polygons '
+                'and coordinates')
+
+            print_el()
 
         self._itsct_idxs_cmptd_flag = True
         return

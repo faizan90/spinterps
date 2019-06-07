@@ -11,7 +11,7 @@ import ogr
 from ..misc import print_sl, print_el
 
 
-class ExtractReferencePolygons:
+class ExtractPolygons:
 
     '''Get Polygons, their areas, extents and field values from an ESRI
     Shapefile.
@@ -46,6 +46,11 @@ class ExtractReferencePolygons:
             outputs.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print('Setting polygons\' extraction input...')
+
         assert isinstance(path_to_shp, (str, Path)), (
             f'Specified path to input ({path_to_shp}) is not a string or '
             f'path-like object!')
@@ -62,8 +67,6 @@ class ExtractReferencePolygons:
         self._poly_label_field = label_field
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Set the following polygon shapefile variables:')
             print(f'Path: {self._poly_shp_path}')
             print(f'Label field: {self._poly_label_field}')
@@ -73,9 +76,14 @@ class ExtractReferencePolygons:
         self._set_in_flag = True
         return
 
-    def extract_polygon_data(self):
+    def extract_polygons(self):
 
         '''Run the polygon extraction algorithm'''
+
+        if self._vb:
+            print_sl()
+
+            print('Extracting polygons...')
 
         assert self._set_in_flag, 'Call the set_input method first!'
 
@@ -174,8 +182,6 @@ class ExtractReferencePolygons:
         self._poly_extents = extents
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Found {n_polys} polygons!')
 
             print(f'Label   |       Area       |   Extent')

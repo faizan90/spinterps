@@ -4,7 +4,7 @@ Created on May 27, 2019
 @author: Faizan-Uni
 '''
 
-from .poly import ExtractReferencePolygons
+from .poly import ExtractPolygons
 from .nc import ExtractNetCDFCoords, ExtractNetCDFValues
 from .gtiff import ExtractGTiffCoords, ExtractGTiffValues
 from .idxs import PolyAndCrdsItsctIdxs
@@ -12,7 +12,7 @@ from .idxs import PolyAndCrdsItsctIdxs
 
 class Extract:
 
-    '''A convienience class for using extraction modules in one place.
+    '''A convenience class for using extraction modules in one place.
 
     See the documentation of individual classes for input and output
     specification.
@@ -30,11 +30,11 @@ class Extract:
 
     def _get_poly_cls(self, path_to_shp, label_field):
 
-        poly_cls = ExtractReferencePolygons(verbose=self._vb)
+        poly_cls = ExtractPolygons(verbose=self._vb)
 
         poly_cls.set_input(path_to_shp, label_field)
 
-        poly_cls.extract_polygon_data()
+        poly_cls.extract_polygons()
 
         return poly_cls
 
@@ -71,11 +71,10 @@ class Extract:
         gtiff_vals_cls.set_input(path_to_gtiff)
         gtiff_vals_cls.set_output(path_to_output)
 
-        gtiff_vals_cls.extract_data_for_indices_and_save(
-            itsct_cls.get_intersect_indices())
+        gtiff_vals_cls.extract_values(itsct_cls.get_intersect_indices())
 
         if path_to_output is None:
-            res = gtiff_vals_cls.get_extracted_data()
+            res = gtiff_vals_cls.get_values()
 
         else:
             res = None
@@ -127,11 +126,10 @@ class Extract:
             nc_vals_cls.set_input(path_to_nc, variable_label, time_label)
             nc_vals_cls.set_output(path_to_output)
 
-            nc_vals_cls.extract_data_for_indices_and_save(
-                itsct_cls.get_intersect_indices())
+            nc_vals_cls.extract_values(itsct_cls.get_intersect_indices())
 
             if path_to_output is None:
-                ress[variable_label] = nc_vals_cls.get_extracted_data()
+                ress[variable_label] = nc_vals_cls.get_values()
             else:
                 ress = None
 

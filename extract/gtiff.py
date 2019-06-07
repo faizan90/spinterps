@@ -40,6 +40,11 @@ class ExtractGTiffCoords:
             Path to the input geotiff file.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print('Setting GeoTiff coordinates\' extraction input...')
+
         assert isinstance(path_to_gtiff, (str, Path)), (
             f'Specified path to input ({path_to_gtiff}) is not a string or '
             f'path-like object!')
@@ -52,8 +57,6 @@ class ExtractGTiffCoords:
         self._in_path = path_to_gtiff
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Set the following parameters for the input:')
             print(f'Path: {self._in_path}')
 
@@ -65,6 +68,11 @@ class ExtractGTiffCoords:
     def extract_coordinates(self):
 
         '''Run the coordinates extraction algorithm'''
+
+        if self._vb:
+            print_sl()
+
+            print('Extracting GeoTiff coordinates...')
 
         assert self._set_in_flag, (
             f'Call the set_input method first!')
@@ -138,9 +146,13 @@ class ExtractGTiffCoords:
                 'Y coordinates not monotonically increasing or decreasing!')
 
         if self._vb:
+            print('Done extracting GeoTiff coordinates')
+
+            print_el()
+
             print_sl()
 
-            print(f'INFO: GTiff coordinates\' properties:')
+            print(f'INFO: GeoTiff coordinates\' properties:')
             print(f'Shape of X coordinates: {self._x_crds.shape}')
             print(f'Shape of Y coordinates: {self._y_crds.shape}')
 
@@ -217,6 +229,11 @@ class ExtractGTiffValues:
             Path to the input geotiff file.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print('Setting GeoTiff values\' extraction input...')
+
         assert isinstance(path_to_gtiff, (str, Path)), (
             f'Specified path to input {path_to_gtiff} is not a string or '
             f'path-like object!')
@@ -229,8 +246,6 @@ class ExtractGTiffValues:
         self._in_path = path_to_gtiff
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Set the following parameters for the input:')
             print(f'Path: {self._in_path}')
 
@@ -279,6 +294,11 @@ class ExtractGTiffValues:
             should be all numpy numeric dtype arrays.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print('Setting GeoTiff values\' extraction output...')
+
         if path_to_output is None:
             self._out_fmt = 'raw'
 
@@ -305,8 +325,6 @@ class ExtractGTiffValues:
         self._out_path = path_to_output
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Set the following parameters for the output:')
             print(f'Path: {self._out_path}')
             print(f'Format: {self._out_fmt}')
@@ -316,8 +334,7 @@ class ExtractGTiffValues:
         self._set_out_flag = True
         return
 
-    def extract_data_for_indices_and_save(
-            self, indicies, save_add_vars_flag=True):
+    def extract_values(self, indicies, save_add_vars_flag=True):
 
         '''Extract the values at given indices.
 
@@ -337,6 +354,11 @@ class ExtractGTiffValues:
             Whether to write variables other than \'cols\' and \'rows\' in the
             items of the indices dictionary to the output HDF5 file.
         '''
+
+        if self._vb:
+            print_sl()
+
+            print('Extracting GeoTiff values...')
 
         assert self._set_in_flag, 'Call the set_input method first!'
         assert self._set_out_flag, 'Call the set_ouput method first!'
@@ -388,11 +410,7 @@ class ExtractGTiffValues:
         assert gtiff_bnds, 'This should not have happend!'
 
         if self._vb:
-            print_sl()
-
             print(f'INFO: Read {n_bnds} from the input raster')
-
-            print_el()
 
         path_stem = self._in_path.stem
         assert path_stem, 'Input file has no name?'
@@ -551,10 +569,15 @@ class ExtractGTiffValues:
         else:
             raise NotImplementedError
 
+        if self._vb:
+            print('Done extracting GeoTiff values')
+
+            print_el()
+
         self._set_data_extrt_flag = True
         return
 
-    def get_extracted_data(self):
+    def get_values(self):
 
         '''Get the data that was extracted by a call to the
         extract_data_for_indices_and_save method.
