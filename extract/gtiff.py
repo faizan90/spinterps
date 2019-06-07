@@ -15,7 +15,7 @@ from ..misc import print_sl, print_el
 
 class ExtractGTiffCoords:
 
-    '''Extract the X and Y coordinates of a GeoTiff raster'''
+    '''Extract the X and Y coordinates from GeoTiff raster'''
 
     _raster_type_lab = 'gtiff'
 
@@ -36,7 +36,7 @@ class ExtractGTiffCoords:
 
         Parameters
         ----------
-        path_to_gtiff : string, pathlib.Path
+        path_to_gtiff : str, pathlib.Path
             Path to the input geotiff file.
         '''
 
@@ -63,6 +63,8 @@ class ExtractGTiffCoords:
         return
 
     def extract_coordinates(self):
+
+        '''Run the coordinates extraction algorithm'''
 
         assert self._set_in_flag, (
             f'Call the set_input method first!')
@@ -188,7 +190,7 @@ class ExtractGTiffCoords:
 
 class ExtractGTiffValues:
 
-    '''Extract values from a raster at given indices'''
+    '''Extract values from a GeoTiff raster at given indices'''
 
     def __init__(self, verbose=True):
 
@@ -211,7 +213,7 @@ class ExtractGTiffValues:
 
         Parameters
         ----------
-        path_to_gtiff : string, pathlib.Path
+        path_to_gtiff : str, pathlib.Path
             Path to the input geotiff file.
         '''
 
@@ -252,7 +254,7 @@ class ExtractGTiffValues:
             No other output format is defined yet.
 
             Structure of the output HDF5 is as follows:
-            - X : N 2D np.ndarrays
+            - X : N 2D numeric np.ndarrays
                 Where X is the stem of the input GeoTiff file name.
                 N is the number of keys of the indices variable passed to
                 the extract_data_for_indices_and_save method. Every key is
@@ -261,11 +263,11 @@ class ExtractGTiffValues:
                 the given indices from the input GeoTiff. First dimension
                 is the input raster band index and the second is the cell
                 value at corresponding row and column indices in that band.
-            - cols : 1D np.ndarray
+            - cols : 1D int np.ndarray
                 Column indices of the extracted values in the input GeoTiff.
                 Shape of this variable is equal to the length of the
                 second axis of the variable X.
-            - rows : 1D np.ndarray
+            - rows : 1D int np.ndarray
                 Row indices of the extracted values in the input GeoTiff.
                 Shape of this variable is equal to the length of the
                 second axis of the variable X.
@@ -325,11 +327,11 @@ class ExtractGTiffValues:
             A dictionary whose keys are labels of polygons they represent.
             The values are also dictionaries that must have the
             keys \'cols\' and \'rows\' representing the columns and rows
-            in the raster arrays for each label respectively.
+            in the raster array for each label respectively.
             Values of keys other than these are written to an HDF5 file
             specified in the set_output method if path_to_output is not None
             and save_add_vars_flag is True. All additonal values should be
-            numpy numeric dtype arrays and are written as they are.
+            numpy numeric arrays and are written as they are.
 
         save_add_vars_flag : bool
             Whether to write variables other than \'cols\' and \'rows\' in the

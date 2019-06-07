@@ -477,7 +477,11 @@ class PolyAndCrdsItsctIdxs:
         assert geom_buff_area >= geom_area, (
             f'Buffered polygon: {label} area less than the original one!')
 
-        gx_min, gx_max, gy_min, gy_max = geom_buff.GetEnvelope()
+        extents = geom_buff.GetEnvelope()
+
+        assert len(extents) == 4, 'Configured for 2D extents only!'
+
+        gx_min, gx_max, gy_min, gy_max = extents
 
         tot_x_idxs = np.where((x_crds >= gx_min) & (x_crds <= gx_max))[0]
         tot_y_idxs = np.where((y_crds >= gy_min) & (y_crds <= gy_max))[0]
@@ -586,7 +590,11 @@ class PolyAndCrdsItsctIdxs:
         assert geom_buff_area >= geom_area, (
             f'Buffered polygon: {label} area less than the original one!')
 
-        gx_min, gx_max, gy_min, gy_max = geom_buff.GetEnvelope()
+        extents = geom_buff.GetEnvelope()
+
+        assert len(extents) == 4, 'Configured for 2D extents only!'
+
+        gx_min, gx_max, gy_min, gy_max = extents
 
         tot_idxs = np.vstack(np.where(
             (x_crds >= gx_min) &

@@ -16,6 +16,8 @@ from ..misc import print_sl, print_el, num2date
 
 class ExtractNetCDFCoords:
 
+    '''Extract the X and Y coordinates from netCDF'''
+
     _raster_type_lab = 'nc'
 
     def __init__(self, verbose=True):
@@ -33,6 +35,18 @@ class ExtractNetCDFCoords:
         return
 
     def set_input(self, path_to_nc, x_crds_lab, y_crds_lab):
+
+        '''Set the path to input netCDF file.
+
+        Parameters
+        ----------
+        path_to_nc : str, pathlib.Path
+            Path to the input netCDF file.
+        x_crds_lab : str
+            Label of the variable representing the X coordinates array.
+        y_crds_lab : str
+            Label of the variable representing the Y coordinates array.
+        '''
 
         assert isinstance(path_to_nc, (str, Path)), (
             f'Specified path to input ({path_to_nc}) is not a string or '
@@ -67,6 +81,8 @@ class ExtractNetCDFCoords:
         return
 
     def extract_coordinates(self):
+
+        '''Run the coordinates extraction algorithm'''
 
         assert self._set_in_flag, 'Call the set_input method first!'
 
@@ -120,6 +136,12 @@ class ExtractNetCDFCoords:
         assert self._x_crds.ndim == self._y_crds.ndim, (
             'Unequal dimensions of X and Y coordinates!')
 
+        assert np.issubdtype(self._x_crds.dtype, np.number), (
+            'X coordinates are non-numeric!')
+
+        assert np.issubdtype(self._y_crds.dtype, np.number), (
+            'Y coordinates are non-numeric!')
+
         if self._vb:
             print_sl()
 
@@ -138,20 +160,45 @@ class ExtractNetCDFCoords:
 
     def get_x_coordinates(self):
 
+        '''Return the X coordinates extracted from the specified netCDF file
+        in the set_input method.
+
+        Returns
+        -------
+        _x_crds : nD numeric np.ndarray
+            X coordinates from the netCDF file.
+            Dimensions depend on the input.
+        '''
+
         assert self._set_crds_extrt_flag, (
             'Call the extract_coordinates method first!')
+
+        assert self._x_crds is not None, 'This should not have happend!'
 
         return self._x_crds
 
     def get_y_coordinates(self):
 
+        '''Return the Y coordinates extracted from the specified netCDF file
+        in the set_input method.
+
+        Returns
+        -------
+        _y_crds : nD numeric np.ndarray
+            Y coordinates from the netCDF file.
+            Dimensions depend on the input.
+        '''
+
         assert self._set_crds_extrt_flag, (
             'Call the extract_coordinates method first!')
+        assert self._y_crds is not None, 'This should not have happend!'
 
         return self._y_crds
 
 
 class ExtractNetCDFValues:
+
+    '''Extract values from a netCDF at given indices'''
 
     def __init__(self, verbose=True):
 
@@ -174,6 +221,22 @@ class ExtractNetCDFValues:
         return
 
     def set_input(self, path_to_nc, variable_label, time_label):
+
+        '''Set the path to input netCDF file.
+
+        Parameters
+        ----------
+        path_to_nc : str, pathlib.Path
+            Path to the input netCDF file.
+        variable_label : str
+            Label of the variable that has to be extracted. The variable has
+            to be 3D and numeric. with axes 0, 1, 2 representing time, X and
+            Y coordinates respectively.
+        time_label : str
+            Label of the variable that represents time. It should be 1D and
+            numeric with the same length as the first axis of the extraction
+            variable.
+        '''
 
         assert isinstance(path_to_nc, (str, Path)), (
             f'Specified path to input ({path_to_nc}) is not a string or '
@@ -208,6 +271,51 @@ class ExtractNetCDFValues:
         return
 
     def set_output(self, path_to_output=None):
+
+        '''Set the path to output file.
+
+        Parameters
+        ----------
+        path_to_output : None, str, pathlib.Path
+            Path to the output file. If None, then extracted values can be
+            returned by a call to the get_extracted_data method as a
+            dictionary. See the documentation of the get_extracted_data
+            method for the output format. If the output file extension is
+            h5 or hdf5 then the outputs are written to an HDF5 file.
+            No other output format is defined yet.
+
+            Structure of the output HDF5 is as follows:
+            - X : N 2D numeric np.ndarrays
+                Where X is the stem of the input netCDF file name.
+                N is the number of keys of the indices variable passed to
+                the extract_data_for_indices_and_save method. Every key is
+                a dataset.
+                Every dataset holds the extracted values as a 2D array at
+                the given indices from the input netCDF. First dimension
+                is time and the second is the cell value at corresponding
+                row and column indices at a given time step.
+            - cols : 1D int np.ndarray
+                Column indices of the extracted values in the input netCDF.
+                Shape of this variable is equal to the length of the
+                second axis of the variable X.
+            - rows : 1D int np.ndarray
+                Row indices of the extracted values in the input GeoTiff.
+                Shape of this variable is equal to the length of the
+                second axis of the variable X.
+            - time : 1D numeric np.ndarray
+                The time variable as is in the netCDF. Values of the
+                extraction variable is taken at all time steps.
+            - time_strs : 1D object np.ndarray
+                String representation of the time variable. If time has units
+                and a calendar. The format is taken from the variable
+                self._time_strs_fmt.
+
+            Additional variables that might exist based on the value of the
+            save_add_vars_flag variable passed to the
+            extract_data_for_indices_and_save method come from the indices
+            dictionary. There are written as they are to the output file but
+            should be all numpy numeric dtype arrays.
+        '''
 
         out_fmt = None
 
@@ -254,6 +362,25 @@ class ExtractNetCDFValues:
 
     def extract_data_for_indices_and_save(
             self, indicies, save_add_vars_flag=True):
+
+        '''Extract the values at given indices.
+
+        Parameters
+        ----------
+        indicies : dict
+            A dictionary whose keys are labels of polygons they represent.
+            The values are also dictionaries that must have the
+            keys \'cols\' and \'rows\' representing the columns and rows
+            in the netCDF array for each label respectively.
+            Values of keys other than these are written to an HDF5 file
+            specified in the set_output method if path_to_output is not None
+            and save_add_vars_flag is True. All additonal values should be
+            numpy numeric arrays and are written as they are.
+
+        save_add_vars_flag : bool
+            Whether to write variables other than \'cols\' and \'rows\' in the
+            items of the indices dictionary to the output HDF5 file.
+        '''
 
         assert self._set_in_flag, 'Call the set_input method first!'
         assert self._set_out_flag, 'Call the set_ouput method first!'
@@ -546,6 +673,25 @@ class ExtractNetCDFValues:
         return
 
     def get_extracted_data(self):
+
+        '''Get the data that was extracted by a call to the
+        extract_data_for_indices_and_save method.
+
+        Will only work if the path_to_output was None in the set_output method.
+
+        Return
+        ------
+        _extrtd_data : dict
+            A dictionary with keys as labels of the indices dictionary
+            passed to the extract_data_for_indices_and_save method and
+            values that are also dictionaries with keys in the time format
+            given by the _time_strs_fmt variable if the netCDF time had units
+            and a calendar. Otherwise it is the value in the time array.
+            The values are 1D np.float64 arrays having the values at
+            corresponding row and column indices in that band taken from the
+            indices dictionary passed to the extract_data_for_indices_and_save
+            method.
+        '''
 
         assert self._out_fmt == 'raw', (
             'Call to this function allowed only when path_to_output is None!')

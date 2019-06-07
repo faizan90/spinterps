@@ -13,6 +13,10 @@ from ..misc import print_sl, print_el
 
 class ExtractReferencePolygons:
 
+    '''Get Polygons, their areas, extents and field values from an ESRI
+    Shapefile.
+    '''
+
     def __init__(self, verbose=True):
 
         self._vb = verbose
@@ -30,6 +34,17 @@ class ExtractReferencePolygons:
         return
 
     def set_input(self, path_to_shp, label_field):
+
+        '''Set the path to input ESRI Shapefile and a field name.
+
+        Parameters
+        ----------
+        path_to_shp : str, pathlib.Path
+            Path to the input shapefile.
+        label_field : str
+            Name of the field whose values will serve as labels for the
+            outputs.
+        '''
 
         assert isinstance(path_to_shp, (str, Path)), (
             f'Specified path to input ({path_to_shp}) is not a string or '
@@ -59,6 +74,8 @@ class ExtractReferencePolygons:
         return
 
     def extract_polygon_data(self):
+
+        '''Run the polygon extraction algorithm'''
 
         assert self._set_in_flag, 'Call the set_input method first!'
 
@@ -175,6 +192,14 @@ class ExtractReferencePolygons:
 
     def get_labels(self):
 
+        '''Get the field values corresponding to the extracted polygons
+
+        Returns
+        -------
+        _poly_labels : tuple
+            Field values as strings corresponding to the extracted polygons.
+        '''
+
         assert self._set_poly_data_extrt_flag, (
             'Call the extract_polygon_data method first!')
 
@@ -183,6 +208,16 @@ class ExtractReferencePolygons:
         return self._poly_labels
 
     def get_polygons(self):
+
+        '''Get the extracted polygons
+
+        Returns
+        -------
+        _poly_geoms : dict
+            A dictionary whose values are the extracted polygons and keys
+            are the corresponding field values as strings that was
+            specified in the set_input method i.e. label_field.
+        '''
 
         assert self._set_poly_data_extrt_flag, (
             'Call the extract_polygon_data method first!')
@@ -193,6 +228,16 @@ class ExtractReferencePolygons:
 
     def get_areas(self):
 
+        '''Get the areas corresponding to the extracted polygons
+
+        Returns
+        -------
+        _poly_areas : dict
+            A dictionary whose values are the extracted polygons\' areas
+            and keys are the corresponding field values as strings that was
+            specified in the set_input method i.e. label_field.
+        '''
+
         assert self._set_poly_data_extrt_flag, (
             'Call the extract_polygon_data method first!')
 
@@ -201,6 +246,17 @@ class ExtractReferencePolygons:
         return self._poly_areas
 
     def get_extents(self):
+
+        '''Get the extents corresponding to the extracted polygons
+
+        Returns
+        -------
+        _poly_extents : dict
+            A dictionary whose values are the extracted polygons\' extents
+            as a tuple with the format (x_min, x_max, y_min, y_max)
+            and keys are the corresponding field values as strings that was
+            specified in the set_input method i.e. label_field.
+        '''
 
         assert self._set_poly_data_extrt_flag, (
             'Call the extract_polygon_data method first!')
