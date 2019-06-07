@@ -407,7 +407,7 @@ class ExtractGTiffValues:
             if 'rows' not in out_hdl:
                 for grp in misc_grp_labs:
                     assert grp not in out_hdl, (
-                        f'Variable {grp} is not supposed to exist in the '
+                        f'Variable {grp} was not supposed to exist in the '
                         f'output file!')
 
                     out_hdl.create_group(grp)
@@ -481,11 +481,17 @@ class ExtractGTiffValues:
                         'Additonal variables can only be numeric arrays!')
 
                     assert np.issubdtype(
-                        crds_idxs[add_var_lab], np.number), (
+                        crds_idxs[add_var_lab].dtype, np.number), (
                             'Only numeric datatypes allowed for the '
                             'additional variables!')
 
                     if label_str in out_hdl[add_var_lab]:
+                        assert (out_hdl[grp_lnk].shape ==
+                            crds_idxs[add_var_lab].shape), (
+                                f'Shape of existing variable: {add_var_lab} '
+                                f'inside the HDF5 and current ones is '
+                                f'unequal!')
+
                         assert np.all(np.isclose(
                             out_hdl[grp_lnk][...],
                             crds_idxs[add_var_lab])), (
@@ -633,3 +639,29 @@ class ExtractGTiffValues:
                         'Non-matching keys of values of values!')
 
         return add_var_labels_main
+
+#     def _save_csv(self,):
+#
+#         for label in itsct_idxs:
+#     #         x_crds_label = x_crds[itsct_idxs[label]['cols']]
+#     #         y_crds_label = y_crds[itsct_idxs[label]['rows']]
+#
+#             x_crds_label = x_crds[
+#                 itsct_idxs[label]['rows'], itsct_idxs[label]['cols']]
+#
+#             y_crds_label = y_crds[
+#                 itsct_idxs[label]['rows'], itsct_idxs[label]['cols']]
+#
+#             crds_df = DataFrame(data=
+#                 {'x': x_crds_label,
+#                  'y': y_crds_label,
+#                  'rows':itsct_idxs[label]['rows'],
+#                  'cols':itsct_idxs[label]['cols'],
+#                  'itsctd_area':itsct_idxs[label]['itsctd_area'],
+#                  'rel_itsctd_area':itsct_idxs[label]['rel_itsctd_area'],
+#                  'x_cen_crds':itsct_idxs[label]['x_cen_crds'],
+#                  'y_cen_crds':itsct_idxs[label]['y_cen_crds'],
+#                  **extracted_values[label]})
+#
+#             crds_df.to_csv(f'{label}.csv', sep=';', index=False)
+#         return

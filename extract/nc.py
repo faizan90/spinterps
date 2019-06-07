@@ -468,7 +468,7 @@ class ExtractNetCDFValues:
 
                 for grp in misc_grp_labs:
                     assert grp not in out_hdl, (
-                        f'Variable {grp} is not supposed to exist in the '
+                        f'Variable {grp} was not supposed to exist in the '
                         f'HDF5 file!')
 
                     out_hdl.create_group(grp)
@@ -603,11 +603,17 @@ class ExtractNetCDFValues:
                         'Additonal variables can only be numeric arrays!')
 
                     assert np.issubdtype(
-                        crds_idxs[add_var_lab], np.number), (
+                        crds_idxs[add_var_lab].dtype, np.number), (
                             'Only numeric datatypes allowed for the '
                             'additional variables!')
 
                     if label_str in out_hdl[add_var_lab]:
+                        assert (out_hdl[grp_lnk].shape ==
+                            crds_idxs[add_var_lab].shape), (
+                                f'Shape of existing variable: {add_var_lab} '
+                                f'inside the HDF5 and current ones is '
+                                f'unequal!')
+
                         assert np.all(np.isclose(
                             out_hdl[grp_lnk][...],
                             crds_idxs[add_var_lab])), (

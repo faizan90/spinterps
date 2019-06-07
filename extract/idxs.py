@@ -313,7 +313,7 @@ class PolyAndCrdsItsctIdxs:
 
         assert isinstance(crds, np.ndarray), f'crds not of np.ndarray type!'
 
-        assert np.issubdtype(crds, np.number), (
+        assert np.issubdtype(crds.dtype, np.number), (
             'Only numeric coordinates are allowed!')
 
         assert np.all(np.isfinite(crds)), 'crds has invalid values inside!'
