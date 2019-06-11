@@ -492,7 +492,7 @@ class ExtractNetCDFValues:
         path_stem = self._in_path.stem
         assert path_stem, 'Input file has no name?'
 
-        misc_grp_labs = add_var_labels | set(('rows', 'cols', path_stem))
+        misc_grp_labs = add_var_labels | set(('rows', 'cols'))
 
         if self._out_fmt == 'h5':
             out_hdl = h5py.File(str(self._out_path), mode='a', driver=None)
@@ -506,13 +506,6 @@ class ExtractNetCDFValues:
 
                 if hasattr(in_time, 'calendar'):
                     out_time_grp.attrs['calendar'] = in_time.calendar
-
-                for grp in misc_grp_labs:
-                    assert grp not in out_hdl, (
-                        f'Variable {grp} was not supposed to exist in the '
-                        f'HDF5 file!')
-
-                    out_hdl.create_group(grp)
 
                 if in_time_strs is not None:
                     in_time_strs_ds = out_time_grp.create_dataset(
@@ -541,11 +534,6 @@ class ExtractNetCDFValues:
                 if hasattr(in_time, 'calendar'):
                     assert out_time_grp.attrs['calendar'] == in_time.calendar
 
-                for grp in misc_grp_labs:
-                    assert grp in out_hdl, (
-                        f'Variable {grp} was supposed to exist in the '
-                        f'output file!')
-
                 if (('time_strs' in out_time_grp) and
                     (in_time_strs is not None)):
 
@@ -560,11 +548,33 @@ class ExtractNetCDFValues:
                             f'Unequal corresponding values of the variable: '
                             f'time_strs in input and output files!')
 
-            assert self._in_var_lab not in out_hdl[path_stem], (
-                f'Specified output variable {path_stem} exists in the output '
+            misc_grps_flags = [grp in out_hdl for grp in misc_grp_labs]
+            if any(misc_grps_flags):
+                for grp in misc_grp_labs:
+                    assert grp in out_hdl, (
+                        f'Variable {grp} was supposed to exist in the '
+                        f'output file!')
+
+            else:
+                for grp in misc_grp_labs:
+                    assert grp not in out_hdl, (
+                        f'Variable {grp} was not supposed to exist in the '
+                        f'HDF5 file!')
+
+                    out_hdl.create_group(grp)
+
+            if path_stem not in out_hdl:
+                out_stem_grp = out_hdl.create_group(path_stem)
+
+            else:
+                out_stem_grp = out_hdl[path_stem]
+
+            assert self._in_var_lab not in out_stem_grp, (
+                f'Specified output variable {self._in_var_lab} exists '
+                f'in the {path_stem} group of the output '
                 f'already!')
 
-            out_var_grp = out_hdl[path_stem].create_group(self._in_var_lab)
+            out_var_grp = out_stem_grp.create_group(self._in_var_lab)
 
             if hasattr(in_var, 'units'):
                 out_var_grp.attrs['units'] = in_var.units

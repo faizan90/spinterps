@@ -58,6 +58,7 @@ def main():
     assert all([isinstance(x, str) for x in nc_variable_labels]), (
         'variable_labels can only be a list or tuple having strings!')
 
+    ##########################################################################
     nc_crds_cls = ExtractNetCDFCoords(verbose=verbose)
 
     nc_crds_cls.set_input(path_to_nc, nc_x_crds_label, nc_y_crds_label)
@@ -135,6 +136,86 @@ def main():
     gtiff_vals_cls.extract_values(
         ras_idxs,
         ignore_rows_cols_equality=ignore_rows_cols_equality)
+
+    ##########################################################################
+#     gtiff_crds_cls = ExtractGTiffCoords(verbose=verbose)
+#
+#     gtiff_crds_cls.set_input(path_to_ras)
+#
+#     gtiff_crds_cls.extract_coordinates()
+#
+#     ras_itsct_cls = PolyAndCrdsItsctIdxs()
+#
+#     ras_itsct_cls.set_polygons(poly_cls.get_polygons())
+#
+#     ras_itsct_cls.set_coordinates(
+#         gtiff_crds_cls.get_x_coordinates(),
+#         gtiff_crds_cls.get_y_coordinates(),
+#         gtiff_crds_cls._raster_type_lab)
+#
+#     ras_itsct_cls.verify()
+#
+#     ras_itsct_cls.compute_intersect_indices()
+#
+#     if save_xy_crds_txt_flag:
+#         for label in ras_itsct_cls.get_intersect_indices():
+#             x = ras_itsct_cls.get_intersect_indices()[label]['x_cen_crds']
+#             y = ras_itsct_cls.get_intersect_indices()[label]['y_cen_crds']
+#
+#             pd.DataFrame(data={'x': x, 'y': y}).to_csv(
+#                 f'{label}.csv', index=False, sep=';')
+#
+#     gtiff_vals_cls = ExtractGTiffValues(verbose=verbose)
+#
+#     gtiff_vals_cls.set_input(path_to_ras)
+#     gtiff_vals_cls.set_output(path_to_h5_output)
+#
+#     gtiff_vals_cls.extract_values(ras_itsct_cls.get_intersect_indices())
+#
+#     nc_crds_cls = ExtractNetCDFCoords(verbose=verbose)
+#
+#     nc_crds_cls.set_input(path_to_nc, nc_x_crds_label, nc_y_crds_label)
+#
+#     nc_crds_cls.extract_coordinates()
+#
+#     nc_itsct_cls = PolyAndCrdsItsctIdxs(verbose=verbose)
+#
+#     nc_itsct_cls.set_polygons(poly_cls.get_polygons())
+#
+#     nc_itsct_cls.set_coordinates(
+#         nc_crds_cls.get_x_coordinates(),
+#         nc_crds_cls.get_y_coordinates(),
+#         nc_crds_cls._raster_type_lab)
+#
+#     nc_itsct_cls.verify()
+#
+#     nc_itsct_cls.compute_intersect_indices()
+#
+#     reorder_idxs_cls = ReOrderIdxs(verbose=verbose)
+#
+#     reorder_idxs_cls.set_reference(ras_itsct_cls.get_intersect_indices())
+#     reorder_idxs_cls.set_destination(nc_itsct_cls.get_intersect_indices())
+#
+#     reorder_idxs_cls.reorder(maximum_theshold_distance)
+#
+#     # without rordering
+# #     ras_idxs = ras_itsct_cls.get_intersect_indices()
+# #     ignore_rows_cols_equality = False
+#
+#     # with reordering
+#     nc_idxs = reorder_idxs_cls.get_reordered_destination()
+#     ignore_rows_cols_equality = True
+#
+#     for nc_variable_label in nc_variable_labels:
+#         nc_vals_cls = ExtractNetCDFValues(verbose=verbose)
+#
+#         nc_vals_cls.set_input(path_to_nc, nc_variable_label, nc_time_label)
+#         nc_vals_cls.set_output(path_to_h5_output)
+#
+#         nc_vals_cls.extract_values(
+#             nc_idxs,
+#             ignore_rows_cols_equality=ignore_rows_cols_equality)
+
     return
 
 
