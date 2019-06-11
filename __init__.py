@@ -11,4 +11,5 @@ from .extract import (
     ExtractGTiffCoords,
     ExtractGTiffValues,
     PolyAndCrdsItsctIdxs,
+    ReOrderIdxs,
     Extract)

@@ -7,7 +7,7 @@ Created on May 27, 2019
 from .poly import ExtractPolygons
 from .nc import ExtractNetCDFCoords, ExtractNetCDFValues
 from .gtiff import ExtractGTiffCoords, ExtractGTiffValues
-from .idxs import PolyAndCrdsItsctIdxs
+from .idxs import PolyAndCrdsItsctIdxs, ReOrderIdxs
 
 
 class Extract:

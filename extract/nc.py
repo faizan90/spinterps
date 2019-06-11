@@ -120,7 +120,7 @@ class ExtractNetCDFCoords:
 
             if self._vb:
                 print(
-                    f'INFO: X and Y coordinates array were masked. '
+                    f'INFO: X and Y coordinates arrays were masked. '
                     f'Took the "data" attribute!')
 
         elif (isinstance(self._x_crds, np.ndarray) and
@@ -375,13 +375,17 @@ class ExtractNetCDFValues:
         self._set_out_flag = True
         return
 
-    def extract_values(self, indicies, save_add_vars_flag=True):
+    def extract_values(
+            self,
+            indices,
+            save_add_vars_flag=True,
+            ignore_rows_cols_equality=False):
 
         '''Extract the values at given indices.
 
         Parameters
         ----------
-        indicies : dict
+        indices : dict
             A dictionary whose keys are labels of polygons they represent.
             The values are also dictionaries that must have the
             keys \'cols\' and \'rows\' representing the columns and rows
@@ -390,10 +394,17 @@ class ExtractNetCDFValues:
             specified in the set_output method if path_to_output is not None
             and save_add_vars_flag is True. All additonal values should be
             numpy numeric arrays and are written as they are.
-
         save_add_vars_flag : bool
             Whether to write variables other than \'cols\' and \'rows\' in the
             items of the indices dictionary to the output HDF5 file.
+        ignore_rows_cols_equality : bool
+            Whether to ignore equality of rows/cols array in case it
+            exists already. This happens when the output HDF5 was written
+            to before using another input whose extents were different than
+            the current raster but cell sizes are equal and hence the number
+            cells. The other variables in indices should match the previously
+            written values. save_add_vars_flag is set to False is
+            ignore_rows_cols_equality is True.
         '''
 
         if self._vb:
@@ -404,13 +415,24 @@ class ExtractNetCDFValues:
         assert self._set_in_flag, 'Call the set_input method first!'
         assert self._set_out_flag, 'Call the set_ouput method first!'
 
-        assert isinstance(indicies, dict), 'indices not a dictionary!'
-        assert indicies, 'Empty indices dictionary!'
+        assert isinstance(indices, dict), 'indices not a dictionary!'
+        assert indices, 'Empty indices dictionary!'
 
         assert isinstance(save_add_vars_flag, bool), (
             'save_add_vars_flag not a boolean!')
 
-        add_var_labels = self._verf_idxs(indicies, save_add_vars_flag)
+        assert isinstance(ignore_rows_cols_equality, bool), (
+            'ignore_rows_cols_equality not a boolean!')
+
+        if ignore_rows_cols_equality and save_add_vars_flag:
+            save_add_vars_flag = False
+
+            if self._vb:
+                print(
+                    'INFO: save_add_vars_flag set to False because '
+                    'ignore_rows_cols_equality is True!')
+
+        add_var_labels = self._verf_idxs(indices, save_add_vars_flag)
 
         in_hdl = nc.Dataset(str(self._in_path))
 
@@ -567,7 +589,7 @@ class ExtractNetCDFValues:
         else:
             in_time_data = in_time[...]
 
-        for label, crds_idxs in indicies.items():
+        for label, crds_idxs in indices.items():
 
             cols_idxs = crds_idxs['cols']
             cols_idxs_min = cols_idxs.min()
@@ -648,20 +670,21 @@ class ExtractNetCDFValues:
                             'Shape of existing row indices inside the '
                             'HDF5 and current ones is unequal!')
 
-                    assert np.all(
-                        out_hdl[f'rows/{label_str}'][...] == rows_idxs), (
-                            f'Existing values of rows in the HDF5 '
-                            f'and the current ones are unequal!')
-
                     assert (out_hdl[f'cols/{label_str}'].shape ==
                         cols_idxs.shape), (
                             'Shape of existing column indices inside the '
                             'HDF5 and current ones is unequal!')
 
-                    assert np.all(
-                        out_hdl[f'cols/{label_str}'][...] == cols_idxs), (
-                            f'Existing values of columns in the HDF5 '
-                            f'and the current ones are unequal!')
+                    if not ignore_rows_cols_equality:
+                        assert np.all(
+                            out_hdl[f'rows/{label_str}'][...] == rows_idxs), (
+                                f'Existing values of rows in the HDF5 '
+                                f'and the current ones are unequal!')
+
+                        assert np.all(
+                            out_hdl[f'cols/{label_str}'][...] == cols_idxs), (
+                                f'Existing values of columns in the HDF5 '
+                                f'and the current ones are unequal!')
 
                 else:
                     out_hdl[f'rows/{label_str}'] = rows_idxs
@@ -729,11 +752,11 @@ class ExtractNetCDFValues:
 
         return self._extrtd_data
 
-    def _verf_idxs(self, indicies, save_add_vars_flag):
+    def _verf_idxs(self, indices, save_add_vars_flag):
 
         add_var_labels_main = set()
 
-        for crds_idxs in indicies.values():
+        for crds_idxs in indices.values():
 
             assert 'cols' in crds_idxs, (
                 f'\'cols\' is not in the indices dictionary!')

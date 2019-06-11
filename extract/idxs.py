@@ -308,6 +308,7 @@ class PolyAndCrdsItsctIdxs:
             geom = self._poly_geoms[label]
 
             if self._vb:
+                print('\n')
                 print(f'Going through polygon: {label}...')
 
             if self._crds_ndims == 1:
@@ -365,7 +366,7 @@ class PolyAndCrdsItsctIdxs:
 
     def _verf_crds_1d(self, crds):
 
-        assert np.unique(crds).shape == crds.shape, 'None unique crds!'
+        assert np.unique(crds).shape == crds.shape, 'Non-unique crds!'
 
         assert (
             np.all(np.ediff1d(crds) > 0) or
@@ -389,7 +390,7 @@ class PolyAndCrdsItsctIdxs:
 
     def _get_rect_crds_1d(self, crds):
 
-        assert crds.ndim == 1, 'Configured for 1D crds only!'
+        assert crds.ndim == 1, 'Configured for 1D coordinates only!'
 
         crds_rect = np.full(crds.shape[0] + 1, np.nan)
 
@@ -410,7 +411,7 @@ class PolyAndCrdsItsctIdxs:
     def _get_rect_crds_2d(self, x_crds, y_crds):
 
         assert x_crds.ndim == y_crds.ndim, (
-            'Unequal dimension of X and Y coordinates!')
+            'Unequal dimensions of X and Y coordinates!')
 
         assert x_crds.shape == y_crds.shape, (
             'Unequal shape of X and Y coordinates!')
@@ -502,7 +503,7 @@ class PolyAndCrdsItsctIdxs:
             ))
 
         assert geom_buff is not None, (
-            f'Buffer operation failed on polygon: {label}')
+            f'Buffer operation failed on polygon: {label}!')
 
         geom_buff_area = geom_buff.Area()
         assert geom_buff_area > 0, f'Buffered polygon: {label} has no area!'
@@ -520,10 +521,10 @@ class PolyAndCrdsItsctIdxs:
         tot_y_idxs = np.where((y_crds >= gy_min) & (y_crds <= gy_max))[0]
 
         assert tot_x_idxs.size, (
-            f'No X coordinates selected for the polygon: {label}!')
+            f'No X coordinate selected for the polygon: {label}!')
 
         assert tot_y_idxs.size, (
-            f'No Y coordinates selected for the polygon: {label}!')
+            f'No Y coordinate selected for the polygon: {label}!')
 
         assert np.all(x_crds.shape), (
             'Shape of X coordinates not allowed to have a zero!')
@@ -538,6 +539,11 @@ class PolyAndCrdsItsctIdxs:
         itsct_rel_areas = []
         x_crds_acptd = []
         y_crds_acptd = []
+
+        if self._vb:
+            print(
+                f'Testing {tot_x_idxs.size * tot_y_idxs.size} cells '
+                f'for containment/proximity...')
 
         for x_idx in tot_x_idxs:
             for y_idx in tot_y_idxs:
@@ -581,13 +587,19 @@ class PolyAndCrdsItsctIdxs:
                 x_crds_acptd.append(centroid.GetX())
                 y_crds_acptd.append(centroid.GetY())
 
-        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}'
+        assert n_cells_acptd <= (tot_x_idxs.size * tot_y_idxs.size), (
+            'This should not have happend!')
+
+        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
         assert n_cells_acptd == len(itsct_areas)
         assert n_cells_acptd == len(itsct_rel_areas)
         assert n_cells_acptd == len(x_crds_acptd)
         assert n_cells_acptd == len(y_crds_acptd)
+
+        if self._vb:
+            print(f'{n_cells_acptd} cells contained/in proximity')
 
         return {
             'cols':np.array(x_crds_acptd_idxs, dtype=int),
@@ -615,7 +627,7 @@ class PolyAndCrdsItsctIdxs:
             ))
 
         assert geom_buff is not None, (
-            f'Buffer operation failed on polygon: {label}')
+            f'Buffer operation failed on polygon: {label}!')
 
         geom_buff_area = geom_buff.Area()
         assert geom_buff_area > 0, f'Buffered Polygon: {label} has no area!'
@@ -642,7 +654,7 @@ class PolyAndCrdsItsctIdxs:
         tot_idxs = tot_idxs[keep_idxs].copy('c')
 
         assert tot_idxs.size, (
-            f'No cells selected for the polygon: {label}!')
+            f'No cell selected for the polygon: {label}!')
 
         assert np.all(x_crds.shape), (
             'Shape of X coordinates not allowed to have a zero!')
@@ -713,7 +725,9 @@ class PolyAndCrdsItsctIdxs:
             x_crds_acptd.append(centroid.GetX())
             y_crds_acptd.append(centroid.GetY())
 
-        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}'
+        assert n_cells_acptd <= tot_idxs.size, 'This should not have happend!'
+
+        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
         assert n_cells_acptd == len(itsct_areas)
@@ -730,3 +744,285 @@ class PolyAndCrdsItsctIdxs:
             'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
 
     __verify = verify
+
+
+class ReOrderIdxs:
+
+    '''
+    Reorder destination cell values based on their proximity to reference
+    '''
+
+    def __init__(self, verbose=True):
+
+        self._vb = verbose
+
+        self.show_ref_dst_crds_flag = False
+
+        self._cmn_keys = ('cols', 'rows', 'x_cen_crds', 'y_cen_crds')
+
+        self._ref_idxs = None
+        self._dst_idxs = None
+
+        self._rord_dst_idxs = None
+
+        self._set_ref_flag = False
+        self._set_dst_flag = False
+        self._reordd_flag = False
+        return
+
+    def set_reference(self, indices):
+
+        '''
+        Set the indices dictionary of the reference dataset
+
+        Parameters
+        ----------
+        indices : dict
+            A dictionary with labels whose values are also dictionaries.
+            Its format and contents are the same as the dictionary
+            returned by get_intersect_indices of PolyAndCrdsItsctIdxs.
+            These are used as the reference values. Values for each label
+            in the dictionary set in the set_destination method are
+            moved from their positions such that they follow the
+            same order as the x_cen_crds and y_cen_crds in indices set
+            in this method. All arrays should be 1D.
+        '''
+
+        if self._vb:
+            print_sl()
+            print('Setting reference indices for reordering...')
+
+        assert isinstance(indices, dict), 'indices not a dictionary!'
+        assert indices, 'Empty indices dictionary!'
+
+        self._ref_idxs = indices
+
+        if self._vb:
+            print(
+                f'Set reference indices for reordering with '
+                f'{len(self._ref_idxs)} labels')
+
+            print_el()
+
+        self._set_ref_flag = True
+        return
+
+    def set_destination(self, indices):
+
+        '''
+        Set the indices dictionary of the destination dataset
+
+        Parameters
+        ----------
+        indices : dict
+            A dictionary with labels whose values are also dictionaries.
+            Its format and contents are the same as the dictionary
+            returned by get_intersect_indices of PolyAndCrdsItsctIdxs.
+            These are used as the destination values. Values for each label
+            in the dictionary set in this method are
+            moved from their positions such that they follow the
+            same order as the x_cen_crds and y_cen_crds in indices set
+            in the set_reference method. Each array in the corresponding
+            reference array should have the same number of items with only
+            one dimension.
+        '''
+
+        if self._vb:
+            print_sl()
+            print('Setting destination indices for reordering...')
+
+        assert isinstance(indices, dict), 'indices not a dictionary!'
+        assert indices, 'Empty indices dictionary!'
+
+        self._dst_idxs = indices
+
+        if self._vb:
+            print(
+                f'Set destination indices for reordering with '
+                f'{len(self._dst_idxs)} labels')
+
+            print_el()
+
+        self._set_dst_flag = True
+        return
+
+    def reorder(self, maximum_distance):
+
+        '''Reorder the entries in the destination array such that they follow
+        the same order as the reference in space.
+
+        For example, reference indices are coming from a netCDF and
+        destination indices are coming from a GeoTiff for the same
+        polygons. In this case the row and column indices of the netCDF
+        and the GeoTiff are not the same even if the extents are the
+        same because GeoTiffs start counting from the top left corner while
+        the netCDF from the bottom left (usually). Assuming that the cells
+        of both the raster align, with a consequence that centroids of each
+        cell in both the datasets have a matching one in the other but only
+        the order is different. Calling the reorder create a new indices
+        dictionary that has the same values as the destination but with the
+        correct order. This allows for writing this dictionary to the HDF5
+        dataset that already has the netCDF values by passing the
+        ignore_rows_cols_equality as True to the extract_values method in
+        the ExtractGTiffValues class. Same can be done for the netCDF if
+        GeoTiff is used as reference.
+
+        Parameters
+        ----------
+        maximum_distance : int/float
+            The maximum distance allowed between a point in reference
+            and the nearest cell in the destination.
+            An AssertionError is raised if at least one point\'s distance
+            is greater than this.
+        '''
+
+        if self._vb:
+            print_sl()
+            print('Reordrering...')
+
+        assert self._set_ref_flag, 'Call the set_reference method first!'
+        assert self._set_dst_flag, 'Call the set_destination method first!'
+
+        assert isinstance(maximum_distance, (int, float)), (
+            'maximum_distance neither an integer nor a float!')
+
+        assert 0 <= maximum_distance < np.inf, (
+            'maximum_distance can only be between zero and infinity!')
+
+        reordd_idxs = {}
+        for label in self._ref_idxs:
+            print(f'Going through label: {label}')
+
+            assert label in self._dst_idxs, (
+                f'Label: {label} not in destination!')
+
+            ref_label_dict = self._ref_idxs[label]
+            dst_label_dict = self._dst_idxs[label]
+
+            assert all([key in ref_label_dict for key in self._cmn_keys]), (
+                f'One of the required keys {self._cmn_keys} is missing '
+                f'in the reference!')
+
+            assert all([key in dst_label_dict for key in self._cmn_keys]), (
+                f'One of the required keys {self._cmn_keys} is missing '
+                f'in the destination!')
+
+            ref_shape = None
+
+            reordd_idxs[label] = {}
+
+            reord_label_idxs = reordd_idxs[label]
+
+            for key in ref_label_dict:
+                assert isinstance(ref_label_dict[key], np.ndarray), (
+                    f'Value of the key: {key} '
+                    f'not a np.ndarray in reference!')
+
+                assert isinstance(dst_label_dict[key], np.ndarray), (
+                    f'Value of the key: {key} '
+                    f'not a np.ndarray in destination!')
+
+                if ref_shape is None:
+                    ref_shape = ref_label_dict[key].shape
+
+                assert ref_label_dict[key].shape == ref_shape, (
+                    f'Shape of array of key: {key} '
+                    f'in reference not matching the first\'s shape!')
+
+                assert dst_label_dict[key].shape == ref_shape, (
+                    f'Shape of array of key: {key} '
+                    f'in destination not matching the reference\'s shape!')
+
+                assert ref_label_dict[key].ndim == 1, (
+                    f'Reference array with key: {key} not 1D!')
+                assert dst_label_dict[key].ndim == 1, (
+                    f'Destination array with key: {key} not 1D!')
+
+            print(f'Label: {label} has {ref_shape[0]} points')
+
+            reord_idxs_arr = np.full(ref_shape, np.nan, dtype=float)
+            min_dists = np.full(ref_shape, np.nan, dtype=float)
+
+            ref_x_crds = ref_label_dict['x_cen_crds']
+            ref_y_crds = ref_label_dict['y_cen_crds']
+
+            dst_x_crds = dst_label_dict['x_cen_crds']
+            dst_y_crds = dst_label_dict['y_cen_crds']
+
+            if self.show_ref_dst_crds_flag:
+                print(
+                    f'i   |      RX      |      RY      |      DX      |'
+                    f'      DY      |   Distance')
+
+            for i in range(ref_shape[0]):
+                ref_x_crd = ref_x_crds[i]
+                ref_y_crd = ref_y_crds[i]
+
+                x_sq_diff = (ref_x_crd - dst_x_crds) ** 2
+                y_sq_diff = (ref_y_crd - dst_y_crds) ** 2
+
+                ref_dst_dists = (x_sq_diff + y_sq_diff) ** 0.5
+
+                min_dist_idx = np.argmin(ref_dst_dists)
+
+                min_dists[i] = ref_dst_dists[min_dist_idx]
+
+                reord_idxs_arr[i] = min_dist_idx
+
+                if self.show_ref_dst_crds_flag:
+                    print(
+                        f'{i:<4d}|{ref_x_crd:^14.5f}|{ref_y_crd:^14.5f}|'
+                        f'{dst_x_crds[min_dist_idx]:^14.5f}|'
+                        f'{dst_x_crds[min_dist_idx]:^14.5f}|   '
+                        f'{min_dists[i]}')
+
+            assert np.all(np.isfinite(reord_idxs_arr)), (
+                'Invalid values in the reordered index array!')
+
+            reord_idxs_arr = reord_idxs_arr.astype(int)
+
+            assert np.unique(reord_idxs_arr).shape == reord_idxs_arr.shape, (
+                'Non-unique indices in the reordered indices array!')
+
+            assert np.all(np.isfinite(min_dists)), (
+                'Invalid values in the minimum distance array!')
+
+            ge_dist_idxs = min_dists > maximum_distance
+            n_ge_dist_idxs = ge_dist_idxs.sum()
+
+            if n_ge_dist_idxs:
+                raise AssertionError(
+                    f'{n_ge_dist_idxs} have minimum distance greater '
+                    f'than the limit: {maximum_distance}!')
+
+            for key in dst_label_dict:
+                reord_label_idxs[key] = dst_label_dict[key][reord_idxs_arr]
+
+        assert reordd_idxs, 'This should not have happend!'
+
+        self._rord_dst_idxs = reordd_idxs
+
+        if self._vb:
+            print('Done reordrering')
+            print_el()
+
+        self._reordd_flag = True
+        return
+
+    def get_reordered_destination(self):
+
+        '''Get the reorder destination indices
+
+        Returns
+        -------
+        _rord_dst_idxs : dict
+            A dictionary same as the one specifed in the set_destination
+            method but with the order changed for every label in
+            accordance with the indices set in the set_reference method.
+        '''
+
+        assert self._reordd_flag, 'Call the reorder method first!'
+
+        assert self._rord_dst_idxs is not None, 'This should not have happend!'
+
+        return self._rord_dst_idxs
