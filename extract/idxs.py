@@ -14,16 +14,19 @@ gdal.PushErrorHandler(gdal_err_hdlr)
 ogr.UseExceptions()
 
 
-class PolyAndCrdsItsctIdxs:
+class GeomAndCrdsItsctIdxs:
 
-    '''Get row and column indices where polygon(s) and raster intersect'''
+    '''Get row and column indices where geometries and raster intersect'''
 
     def __init__(self, verbose=True):
 
         self._vb = verbose
 
-        self._poly_geoms = None
-        self._poly_labels = None
+        self._geom_types = (1, 3)
+
+        self._geoms = None
+        self._labels = None
+        self._geom_type = None
 
         self._ras_type_labs = ('nc', 'gtiff')
 
@@ -39,70 +42,105 @@ class PolyAndCrdsItsctIdxs:
 
         self._itsct_idxs_dict = None
 
-        self._set_itsct_idxs_polys_flag = False
+        self._set_itsct_idxs_geoms_flag = False
         self._set_itsct_idxs_crds_flag = False
         self._set_itsct_idxs_vrfd_flag = False
         self._itsct_idxs_cmptd_flag = False
         return
 
-    def set_polygons(self, polygon_geometries):
+    def set_geometries(self, geometries, geometry_type):
 
-        '''Set the polygons for intersection.
+        '''Set the geometries for intersection.
 
         Parameters
         ----------
-        polygon_geometries : dict
-            A dictionary whose values are gdal/ogr polygon geometries.
+        geometries : dict
+            A dictionary whose values are gdal/ogr point/polygon geometries.
+        geometry_type : int
+            An integer corresponding to the geometry types of ogr.
+            Currently supported are points (geometry_type=1) and polygons
+            (geometry_type=3).
         '''
 
         if self._vb:
             print_sl()
 
             print(
-                'Setting polygons as input for polygons\' and '
+                'Setting geometries as input for geometries\' and '
                 'coordinates\' intersections...')
 
-        assert isinstance(polygon_geometries, dict), (
-            'polygon_geometries not a dictionary!')
+        assert isinstance(geometries, dict), (
+            'geometries not a dictionary!')
 
-        n_polys = len(polygon_geometries)
+        assert isinstance(geometry_type, int), (
+            'geometry_type can only be an input!')
 
-        assert n_polys, 'Empty polygon_geometries!'
+        assert geometry_type in self._geom_types, (
+            f'geometry_type can be one of {self._geom_types} only!')
 
-        labels = tuple(polygon_geometries.keys())
+        n_geoms = len(geometries)
+
+        assert n_geoms, 'Empty geometries!'
+
+        labels = tuple(geometries.keys())
 
         for label in labels:
-            assert label in polygon_geometries, (
-                f'Label: {label} not in polygon_gemetries!')
+            assert label in geometries, (
+                f'Label: {label} not in geometries!')
 
-            geom = polygon_geometries[label]
+            geom = geometries[label]
 
             assert isinstance(geom, ogr.Geometry), (
                 f'Geometry: {label} not and ogr.Geometry object!')
 
-            assert geom.GetGeometryType() == 3, (
-                f'Geometry: {label} not a polygon!')
+            geom_type = geom.GetGeometryType()
+            geom_name = geom.GetGeometryName()
 
-            assert geom.GetGeometryCount() == 1, (
-                'Only one polygon allowed per feature!')
+            if geometry_type == 1:
+                assert geom_type == 1, (
+                    f'Unsupported geometry type, name: '
+                    f'{geom_type}, {geom_name}!')
 
-            assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
-                f'Polygon: {label} has less than 3 points!')
+                assert geom.GetGeometryCount() == 0, (
+                    'Only one point allowed per feature!')
 
-            assert geom.Area() > 0, f'Polygon: {label} has no area!'
+            elif geometry_type == 3:
+                assert geom.GetGeometryType() == 3, (
+                    f'Geometry: {label} not a polygon!')
 
-        self._poly_geoms = polygon_geometries
-        self._poly_labels = labels
+                assert geom.GetGeometryCount() == 1, (
+                    'Only one polygon allowed per feature!')
+
+                assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
+                    f'Polygon: {label} has less than 3 points!')
+
+                assert geom.Area() > 0, f'Polygon: {label} has no area!'
+
+            else:
+                raise NotImplementedError
+
+        self._geoms = geometries
+        self._labels = labels
+        self._geom_type = geometry_type
 
         if self._vb:
 
             print(
-                f'INFO: Set {n_polys} polygons for '
+                f'INFO: Set {n_geoms} geometries for '
                 f'intersection with coordinates')
+
+            if self._geom_type == 1:
+                print('Geometry type is POINT')
+
+            elif self._geom_type == 3:
+                print('Geometry type is POLYGON')
+
+            else:
+                raise NotImplementedError
 
             print_el()
 
-        self._set_itsct_idxs_polys_flag = True
+        self._set_itsct_idxs_geoms_flag = True
         return
 
     def set_coordinates(self, x_crds, y_crds, raster_type_label):
@@ -128,7 +166,7 @@ class PolyAndCrdsItsctIdxs:
             print_sl()
 
             print(
-                'Setting coordinates as input for polygons\' and '
+                'Setting coordinates as input for geometries\' and '
                 'coordinates\' intersections...')
 
         self._verf_crds(x_crds)
@@ -153,23 +191,6 @@ class PolyAndCrdsItsctIdxs:
 
         self._x_crds_orig.flags.writeable = False
         self._y_crds_orig.flags.writeable = False
-
-        if (self._ras_type_lab == 'nc') and (self._crds_ndims == 1):
-            self._x_crds = self._get_rect_crds_1d(self._x_crds_orig)
-            self._y_crds = self._get_rect_crds_1d(self._y_crds_orig)
-
-        elif (self._ras_type_lab == 'gtiff') and (self._crds_ndims == 1):
-            self._x_crds, self._y_crds = (
-                self._x_crds_orig.copy(), self._y_crds_orig.copy())
-
-        elif (self._ras_type_lab == 'nc') and (self._crds_ndims == 2):
-            self._x_crds, self._y_crds = self._get_rect_crds_2d(
-                self._x_crds_orig, self._y_crds_orig)
-
-        else:
-            raise NotImplementedError(
-                f'Not configured for raster_type_label: '
-                f'{self._ras_type_lab} and {self._crds_ndims} dimensions!')
 
         if self._vb:
             print(f'INFO: Set the following raster coordinate properties:')
@@ -240,14 +261,62 @@ class PolyAndCrdsItsctIdxs:
             print_sl()
 
             print(
-                f'Verifying all inputs for polygons\' and coordinates\' '
+                f'Verifying all inputs for geometries\' and coordinates\' '
                 f'intersection...')
 
-        assert self._set_itsct_idxs_polys_flag, (
-            'Call the set_polygons method first!')
+        assert self._set_itsct_idxs_geoms_flag, (
+            'Call the set_geometries method first!')
 
         assert self._set_itsct_idxs_crds_flag, (
             'Call the set_coordinates method first!')
+
+        if ((self._ras_type_lab == 'nc') and
+            (self._crds_ndims == 1) and
+            (self._geom_type == 1)):
+
+            self._x_crds, self._y_crds = (
+                self._x_crds_orig.copy(), self._y_crds_orig.copy())
+
+        elif ((self._ras_type_lab == 'gtiff') and
+              (self._crds_ndims == 1) and
+              (self._geom_type == 1)):
+
+            self._x_crds = self._get_rect_crds_1d(self._x_crds_orig)
+            self._y_crds = self._get_rect_crds_1d(self._y_crds_orig)
+
+        elif ((self._ras_type_lab == 'nc') and
+              (self._crds_ndims == 2) and
+              (self._geom_type == 1)):
+
+            self._x_crds, self._y_crds = (
+                self._x_crds_orig.copy(), self._y_crds_orig.copy())
+
+        elif ((self._ras_type_lab == 'nc') and
+              (self._crds_ndims == 1) and
+              (self._geom_type == 3)):
+
+            self._x_crds = self._get_rect_crds_1d(self._x_crds_orig)
+            self._y_crds = self._get_rect_crds_1d(self._y_crds_orig)
+
+        elif ((self._ras_type_lab == 'gtiff') and
+              (self._crds_ndims == 1) and
+              (self._geom_type == 3)):
+
+            self._x_crds, self._y_crds = (
+                self._x_crds_orig.copy(), self._y_crds_orig.copy())
+
+        elif ((self._ras_type_lab == 'nc') and
+              (self._crds_ndims == 2) and
+              (self._geom_type == 3)):
+
+            self._x_crds, self._y_crds = self._get_rect_crds_2d(
+                self._x_crds_orig, self._y_crds_orig)
+
+        else:
+            raise NotImplementedError(
+                f'Not configured for raster_type_label: '
+                f'{self._ras_type_lab}, {self._crds_ndims} '
+                f'dimensions and geometry type: {self._geom_type}!')
 
         x_min = self._x_crds.min()
         x_max = self._x_crds.max()
@@ -255,30 +324,55 @@ class PolyAndCrdsItsctIdxs:
         y_min = self._y_crds.min()
         y_max = self._y_crds.max()
 
-        for label in self._poly_labels:
-            geom = self._poly_geoms[label]
+        if self._geom_type == 1:
+            for label in self._labels:
+                geom = self._geoms[label]
 
-            gx_min, gx_max, gy_min, gy_max = geom.GetEnvelope()
+                pt_x = geom.GetX()
+                pt_y = geom.GetY()
 
-            assert gx_min >= x_min, (
-                f'Minimum X coordinate of the polygon: {label} is less '
-                f'than the minimum X coordinate!')
+                assert np.isfinite(pt_x), (
+                    f'Label: {label} has invalid X coordinate!')
 
-            assert gx_max <= x_max, (
-                f'Maximum X coordinate of the polygon: {label} is greater '
-                f'than the maximum X coordinate!')
+                assert np.isfinite(pt_y), (
+                    f'Label: {label} has invalid Y coordinate!')
 
-            assert gy_min >= y_min, (
-                f'Minimum Y coordinate of the polygon: {label} is less '
-                f'than the minimum Y coordinate!')
+                assert x_min <= pt_x <= x_max, (
+                    f'X coordinate of the point: {label} is not '
+                    f'within the bounds of the X coordinates!')
 
-            assert gy_max <= y_max, (
-                f'Maximum Y coordinate of the polygon: {label} is greater '
-                f'than the maximum Y coordinate!')
+                assert y_min <= pt_y <= y_max, (
+                    f'Y coordinate of the point: {label} is not '
+                    f'within the bounds of the Y coordinates!')
+
+        elif self._geom_type == 3:
+            for label in self._labels:
+                geom = self._geoms[label]
+
+                gx_min, gx_max, gy_min, gy_max = geom.GetEnvelope()
+
+                assert gx_min >= x_min, (
+                    f'Minimum X coordinate of the polygon: {label} is less '
+                    f'than the minimum X coordinate!')
+
+                assert gx_max <= x_max, (
+                    f'Maximum X coordinate of the polygon: {label} is greater '
+                    f'than the maximum X coordinate!')
+
+                assert gy_min >= y_min, (
+                    f'Minimum Y coordinate of the polygon: {label} is less '
+                    f'than the minimum Y coordinate!')
+
+                assert gy_max <= y_max, (
+                    f'Maximum Y coordinate of the polygon: {label} is greater '
+                    f'than the maximum Y coordinate!')
+
+        else:
+            raise NotImplementedError
 
         if self._vb:
             print(
-                f'INFO: All inputs for polygons\' and coordinates\' '
+                f'INFO: All inputs for geometries\' and coordinates\' '
                 f'intersection verified to be correct')
 
             print_el()
@@ -292,7 +386,7 @@ class PolyAndCrdsItsctIdxs:
             print_sl()
 
             print(
-                'Computing the intersection indices between polygons '
+                'Computing the intersection indices between geometries '
                 'and coordinates...')
 
         assert self._set_itsct_idxs_vrfd_flag, 'Call the verify method first!'
@@ -303,24 +397,32 @@ class PolyAndCrdsItsctIdxs:
             'Intersection configured for 2 or less dimensions of '
             'coordinates!')
 
-        itsct_idxs_dict = {}
-        for label in self._poly_labels:
-            geom = self._poly_geoms[label]
+        if self._geom_type == 1:
+            itsct_idxs_dict = self._cmpt_1d_pt_idxs()
 
-            if self._vb:
-                print('\n')
-                print(f'Going through polygon: {label}...')
+        elif self._geom_type == 3:
+            itsct_idxs_dict = {}
 
-            if self._crds_ndims == 1:
-                res = self._cmpt_1d_idxs(geom, label)
+            for label in self._labels:
+                geom = self._geoms[label]
 
-            elif self._crds_ndims == 2:
-                res = self._cmpt_2d_idxs(geom, label)
+                if self._vb:
+                    print('\n')
+                    print(f'Going through polygon: {label}...')
 
-            else:
-                raise NotImplementedError
+                if self._crds_ndims == 1:
+                    res = self._cmpt_1d_idxs(geom, label)
 
-            itsct_idxs_dict[label] = res
+                elif self._crds_ndims == 2:
+                    res = self._cmpt_2d_idxs(geom, label)
+
+                else:
+                    raise NotImplementedError
+
+                itsct_idxs_dict[label] = res
+
+        else:
+            raise NotImplementedError
 
         assert itsct_idxs_dict
 
@@ -328,7 +430,7 @@ class PolyAndCrdsItsctIdxs:
 
         if self._vb:
             print(
-                'Done computing the intersection indices between polygons '
+                'Done computing the intersection indices between geometries '
                 'and coordinates')
 
             print_el()
@@ -392,12 +494,21 @@ class PolyAndCrdsItsctIdxs:
 
         assert crds.ndim == 1, 'Configured for 1D coordinates only!'
 
-        crds_rect = np.full(crds.shape[0] + 1, np.nan)
+        if self._ras_type_lab == 'nc':
+            crds_rect = np.full(crds.shape[0] + 1, np.nan)
 
-        crds_rect[1:-1] = (crds[:-1] + crds[1:]) * 0.5
+            crds_rect[1:-1] = (crds[:-1] + crds[1:]) * 0.5
 
-        crds_rect[+0] = crds[+0] - (0.5 * (crds[+1] - crds[+0]))
-        crds_rect[-1] = crds[-1] + (0.5 * (crds[-1] - crds[-2]))
+            crds_rect[+0] = crds[+0] - (0.5 * (crds[+1] - crds[+0]))
+            crds_rect[-1] = crds[-1] + (0.5 * (crds[-1] - crds[-2]))
+
+        elif self._ras_type_lab == 'gtiff':
+            crds_rect = np.full(crds.shape[0] - 1, np.nan)
+
+            crds_rect[:] = (crds[:-1] + crds[1:]) * 0.5
+
+        else:
+            raise NotImplementedError
 
         assert np.all(np.isfinite(crds_rect)), 'Invalid values in crds_rect!'
 
@@ -416,66 +527,70 @@ class PolyAndCrdsItsctIdxs:
         assert x_crds.shape == y_crds.shape, (
             'Unequal shape of X and Y coordinates!')
 
-        crds_rect_shape = (y_crds.shape[0] + 1, y_crds.shape[1] + 1)
+        if self._ras_type_lab == 'nc':
+            crds_rect_shape = (y_crds.shape[0] + 1, y_crds.shape[1] + 1)
 
-        y_crds_rect = np.full(crds_rect_shape, np.nan)
-        x_crds_rect = np.full(crds_rect_shape, np.nan)
+            y_crds_rect = np.full(crds_rect_shape, np.nan)
+            x_crds_rect = np.full(crds_rect_shape, np.nan)
 
-        for i in range(1, crds_rect_shape[0] - 1):
-            for j in range(1, crds_rect_shape[1] - 1):
-                y_crds_rect[i, j] = y_crds[i, j] - (
-                    0.5 * (y_crds[i, j] - y_crds[i - 1, j - 1]))
+            for i in range(1, crds_rect_shape[0] - 1):
+                for j in range(1, crds_rect_shape[1] - 1):
+                    y_crds_rect[i, j] = y_crds[i, j] - (
+                        0.5 * (y_crds[i, j] - y_crds[i - 1, j - 1]))
 
-                x_crds_rect[i, j] = x_crds[i, j] - (
-                    0.5 * (x_crds[i, j] - x_crds[i - 1, j - 1]))
+                    x_crds_rect[i, j] = x_crds[i, j] - (
+                        0.5 * (x_crds[i, j] - x_crds[i - 1, j - 1]))
 
-        y_crds_rect[+0, +0] = y_crds[+0, +0] + (
-            0.5 * (y_crds[+0, +0] - y_crds[+1, +0]))
+            y_crds_rect[+0, +0] = y_crds[+0, +0] + (
+                0.5 * (y_crds[+0, +0] - y_crds[+1, +0]))
 
-        y_crds_rect[-1, -1] = y_crds[-1, -1] + (
-            0.5 * (y_crds[-1, -1] - y_crds[-2, -1]))
+            y_crds_rect[-1, -1] = y_crds[-1, -1] + (
+                0.5 * (y_crds[-1, -1] - y_crds[-2, -1]))
 
-        y_crds_rect[-1, +0] = y_crds[-1, +0] + (
-            0.5 * (y_crds[-1, +0] - y_crds[-2, +0]))
+            y_crds_rect[-1, +0] = y_crds[-1, +0] + (
+                0.5 * (y_crds[-1, +0] - y_crds[-2, +0]))
 
-        y_crds_rect[+0, -1] = y_crds[+0, -1] + (
-            0.5 * (y_crds[+0, -1] - y_crds[+1, -1]))
+            y_crds_rect[+0, -1] = y_crds[+0, -1] + (
+                0.5 * (y_crds[+0, -1] - y_crds[+1, -1]))
 
-        y_crds_rect[+0, +1:-1] = y_crds[+0, +1:] - (
-            0.5 * (y_crds[+1, +1:] - y_crds[+0, :-1]))
+            y_crds_rect[+0, +1:-1] = y_crds[+0, +1:] - (
+                0.5 * (y_crds[+1, +1:] - y_crds[+0, :-1]))
 
-        y_crds_rect[-1, +1:-1] = y_crds[-1, +1:] + (
-            0.5 * (y_crds[-1, :-1] - y_crds[-2, +1:]))
+            y_crds_rect[-1, +1:-1] = y_crds[-1, +1:] + (
+                0.5 * (y_crds[-1, :-1] - y_crds[-2, +1:]))
 
-        y_crds_rect[+1:-1, +0] = y_crds[+1:, +0] - (
-            0.5 * (y_crds[+1:, +0] - y_crds[:-1, +0]))
+            y_crds_rect[+1:-1, +0] = y_crds[+1:, +0] - (
+                0.5 * (y_crds[+1:, +0] - y_crds[:-1, +0]))
 
-        y_crds_rect[+1:-1, -1] = y_crds[+1:, -1] - (
-            0.5 * (y_crds[+1:, -1] - y_crds[:-1, -1]))
+            y_crds_rect[+1:-1, -1] = y_crds[+1:, -1] - (
+                0.5 * (y_crds[+1:, -1] - y_crds[:-1, -1]))
 
-        x_crds_rect[+0, +0] = x_crds[+0, +0] + (
-            0.5 * (x_crds[+0, +0] - x_crds[+0, +1]))
+            x_crds_rect[+0, +0] = x_crds[+0, +0] + (
+                0.5 * (x_crds[+0, +0] - x_crds[+0, +1]))
 
-        x_crds_rect[-1, -1] = x_crds[-1, -1] + (
-            0.5 * (x_crds[-1, -1] - x_crds[-1, -2]))
+            x_crds_rect[-1, -1] = x_crds[-1, -1] + (
+                0.5 * (x_crds[-1, -1] - x_crds[-1, -2]))
 
-        x_crds_rect[-1, +0] = x_crds[-1, +0] + (
-            0.5 * (x_crds[-1, +0] - x_crds[-1, +1]))
+            x_crds_rect[-1, +0] = x_crds[-1, +0] + (
+                0.5 * (x_crds[-1, +0] - x_crds[-1, +1]))
 
-        x_crds_rect[+0, -1] = x_crds[+0, -1] + (
-            0.5 * (x_crds[+0, -1] - x_crds[+0, -2]))
+            x_crds_rect[+0, -1] = x_crds[+0, -1] + (
+                0.5 * (x_crds[+0, -1] - x_crds[+0, -2]))
 
-        x_crds_rect[+0, +1:-1] = x_crds[+0, +1:] - (
-            0.5 * (x_crds[+0, +1:] - x_crds[+0, :-1]))
+            x_crds_rect[+0, +1:-1] = x_crds[+0, +1:] - (
+                0.5 * (x_crds[+0, +1:] - x_crds[+0, :-1]))
 
-        x_crds_rect[-1, +1:-1] = x_crds[-1, +1:] - (
-            0.5 * (x_crds[-1, +1:] - x_crds[-1, :-1]))
+            x_crds_rect[-1, +1:-1] = x_crds[-1, +1:] - (
+                0.5 * (x_crds[-1, +1:] - x_crds[-1, :-1]))
 
-        x_crds_rect[+1:-1, +0] = x_crds[+1:, +0] + (
-            0.5 * (x_crds[:-1, +0] - x_crds[+1:, +1]))
+            x_crds_rect[+1:-1, +0] = x_crds[+1:, +0] + (
+                0.5 * (x_crds[:-1, +0] - x_crds[+1:, +1]))
 
-        x_crds_rect[+1:-1, -1] = x_crds[+1:, -1] + (
-            0.5 * (x_crds[:-1, -1] - x_crds[+1:, -2]))
+            x_crds_rect[+1:-1, -1] = x_crds[+1:, -1] + (
+                0.5 * (x_crds[:-1, -1] - x_crds[+1:, -2]))
+
+        else:
+            raise NotImplementedError
 
         assert np.all(np.isfinite(x_crds_rect)), (
             'Invalid values in x_crds_rect!')
@@ -485,15 +600,274 @@ class PolyAndCrdsItsctIdxs:
 
         return x_crds_rect, y_crds_rect
 
-    def _cmpt_1d_idxs(self, geom, label):
+    def _cmpt_1d_pt_idxs(self):
 
         assert self._crds_ndims == 1, 'Configured for 1D coordinates only!'
-
-        geom_area = geom.Area()
-        assert geom_area > 0, f'Polygon: {label} has no area!'
+        assert self._geom_type == 1, 'Configured for point geometries only!'
 
         x_crds = self._x_crds
         y_crds = self._y_crds
+
+        n_pts = len(self._labels)
+
+        pt_crds = np.full((n_pts, 2), np.nan)
+
+        gx_min, gx_max, gy_min, gy_max = np.inf, -np.inf, np.inf, -np.inf
+        for i, label in enumerate(self._labels):
+            pt_x = self._geoms[label].GetX()
+            pt_y = self._geoms[label].GetY()
+
+            if pt_x < gx_min:
+                gx_min = pt_x
+
+            if pt_x > gx_max:
+                gx_max = pt_x
+
+            if pt_y < gy_min:
+                gy_min = pt_y
+
+            if pt_y > gy_max:
+                gy_max = pt_y
+
+            pt_crds[i] = pt_x, pt_y
+
+        assert np.all(np.isfinite([gx_min, gx_max, gy_min, gy_max])), (
+            'Invalid spatial bounds of points!')
+
+        assert np.all(np.isfinite(pt_crds)), 'Invalid points in pt_crds!'
+
+        geom_buff = max(
+            abs(x_crds[+1] - x_crds[+0]),
+            abs(x_crds[-1] - x_crds[-2]),
+            abs(y_crds[+1] - y_crds[+0]),
+            abs(y_crds[-1] - y_crds[-2]),
+            )
+
+        max_cell_dist = 2 * ((((0.5 * geom_buff) ** 2) * 2) ** 0.5)
+
+        gx_min, gx_max, gy_min, gy_max = (
+            gx_min - geom_buff,
+            gx_max + geom_buff,
+            gy_min - geom_buff,
+            gy_max + geom_buff)
+
+        x_idxs = np.where(
+            (self._x_crds >= gx_min) & (self._x_crds <= gx_max))[0]
+
+        y_idxs = np.where(
+            (self._y_crds >= gy_min) & (self._y_crds <= gy_max))[0]
+
+        n_x_idxs = x_idxs.size
+        n_y_idxs = y_idxs.size
+
+        assert n_x_idxs, (
+            f'No X coordinate selected for the point: {label}!')
+
+        assert n_y_idxs, (
+            f'No Y coordinate selected for the point: {label}!')
+
+        x_crds = np.tile(self._x_crds[x_idxs], n_y_idxs)
+        y_crds = np.repeat(self._y_crds[y_idxs], n_x_idxs)
+
+        assert x_crds.size == y_crds.size, (
+            'x_crds and y_crds not having same length!')
+
+        idxs = np.full((n_pts, 2), np.nan)
+
+        show_crds_flag = True
+
+        if show_crds_flag:
+            print(
+                f'   i, Label   |      RX      |      RY      |      DX      |'
+                f'      DY      |   Distance')
+
+        itsct_idxs_dict = {}
+        for i, label in enumerate(self._labels):
+            pt_x, pt_y = pt_crds[i]
+
+            x_sq_diff = (pt_x - x_crds) ** 2
+            y_sq_diff = (pt_y - y_crds) ** 2
+
+            dists = (x_sq_diff + y_sq_diff) ** 0.5
+
+            min_dist_idx = np.argmin(dists)
+
+            min_x_crd_idx = x_idxs[(min_dist_idx % n_x_idxs)]
+            min_y_crd_idx = y_idxs[(min_dist_idx // n_x_idxs)]
+
+            idxs[i] = min_x_crd_idx, min_y_crd_idx
+
+            min_dist = (
+                ((pt_x - self._x_crds[min_x_crd_idx]) ** 2) +
+                ((pt_y - self._y_crds[min_y_crd_idx]) ** 2)) ** 0.5
+
+            if show_crds_flag:
+                print(
+                    f'{i:4d}, {label:<9s}|{pt_x:^14.5f}|{pt_y:^14.5f}|'
+                    f'{self._x_crds[min_x_crd_idx]:^14.5f}|'
+                    f'{self._y_crds[min_y_crd_idx]:^14.5f}|   '
+                    f'{min_dist}')
+
+            assert min_dist <= max_cell_dist, (
+                f'Label: {label} have a distance greater than the limit'
+                f'to the centroid of the nearest cell!')
+
+            itsct_idxs_dict[label] = {
+                'cols':np.array([min_x_crd_idx], dtype=int),
+                'rows': np.array([min_y_crd_idx], dtype=int),
+                'itsctd_area': np.array([0.0], dtype=float),
+                'rel_itsctd_area': np.array([0.0], dtype=float),
+                'x_cen_crds': np.array(
+                    [self._x_crds[min_x_crd_idx]], dtype=float),
+                'y_cen_crds': np.array(
+                    [self._y_crds[min_y_crd_idx]], dtype=float), }
+
+        return itsct_idxs_dict
+
+    def _cmpt_2d_pt_idxs(self):
+
+        print_sl()
+
+        print(
+            'WARNING: Call to an untested method '
+            '"GeomAndCrdsItsctIdxs._cmpt_2d_pt_idxs"!')
+
+        print_el()
+
+        assert self._crds_ndims == 2, 'Configured for 2D coordinates only!'
+        assert self._geom_type == 1, 'Configured for point geometries only!'
+
+        x_crds = self._x_crds
+        y_crds = self._y_crds
+
+        n_pts = len(self._labels)
+
+        pt_crds = np.full((n_pts, 2), np.nan)
+
+        gx_min, gx_max, gy_min, gy_max = np.inf, -np.inf, np.inf, -np.inf
+        for i, label in enumerate(self._labels):
+            pt_x = self._geoms[label].GetX()
+            pt_y = self._geoms[label].GetY()
+
+            if pt_x < gx_min:
+                gx_min = pt_x
+
+            if pt_x > gx_max:
+                gx_max = pt_x
+
+            if pt_y < gy_min:
+                gy_min = pt_y
+
+            if pt_y > gy_max:
+                gy_max = pt_y
+
+            pt_crds[i] = pt_x, pt_y
+
+        assert np.all(np.isfinite([gx_min, gx_max, gy_min, gy_max])), (
+            'Invalid spatial bounds of points!')
+
+        assert np.all(np.isfinite(pt_crds)), 'Invalid points in pt_crds!'
+
+        geom_buff = max(
+            abs(x_crds[+1, +0] - x_crds[+0, +0]),
+            abs(x_crds[-1, -1] - x_crds[-2, -1]),
+            abs(y_crds[+1, +0] - y_crds[+0, 0]),
+            abs(y_crds[-1, -1] - y_crds[-2, -1]),
+            )
+
+        max_cell_dist = 2 * ((((0.5 * geom_buff) ** 2) * 2) ** 0.5)
+
+        gx_min, gx_max, gy_min, gy_max = (
+            gx_min - geom_buff,
+            gx_max + geom_buff,
+            gy_min - geom_buff,
+            gy_max + geom_buff)
+
+        tot_idxs = np.vstack(np.where(
+            (x_crds >= gx_min) &
+            (x_crds <= gx_max) &
+            (y_crds >= gy_min) &
+            (y_crds <= gy_max))).T
+
+        keep_idxs = ~(
+            (tot_idxs[:, 0] >= (x_crds.shape[0] - 1)) |
+            (tot_idxs[:, 1] >= (x_crds.shape[1] - 1)))
+
+        tot_idxs = tot_idxs[keep_idxs].copy('c')
+
+        n_tot_idxs = tot_idxs.size
+
+        assert n_tot_idxs, (
+            f'No XY coordinate selected for the point: {label}!')
+
+        x_crds = x_crds[tot_idxs[:, 0], tot_idxs[:, 1]]
+        y_crds = y_crds[tot_idxs[:, 0], tot_idxs[:, 1]]
+
+        assert x_crds.size == y_crds.size, (
+            'x_crds and y_crds not having same length!')
+
+        idxs = np.full((n_pts, 2), np.nan)
+
+        show_crds_flag = True
+
+        if show_crds_flag:
+            print(
+                f'   i, Label   |      RX      |      RY      |      DX      |'
+                f'      DY      |   Distance')
+
+        itsct_idxs_dict = {}
+        for i, label in enumerate(self._labels):
+            pt_x, pt_y = pt_crds[i]
+
+            x_sq_diff = (pt_x - x_crds) ** 2
+            y_sq_diff = (pt_y - y_crds) ** 2
+
+            dists = (x_sq_diff + y_sq_diff) ** 0.5
+
+            min_dist_idx = np.argmin(dists)
+
+            min_row_crd_idx, min_col_crd_idx = tot_idxs[min_dist_idx]
+
+            idxs[i] = min_row_crd_idx, min_col_crd_idx
+
+            min_dist = (
+                ((pt_x - self._x_crds[min_row_crd_idx, min_col_crd_idx]) ** 2) +
+                ((pt_y - self._y_crds[min_row_crd_idx, min_col_crd_idx]) ** 2)) ** 0.5
+
+            if show_crds_flag:
+
+                print(
+                    f'{i:4d}, {label:<9s}|{pt_x:^14.5f}|{pt_y:^14.5f}|'
+                    f'{self._x_crds[min_row_crd_idx, min_col_crd_idx]:^14.5f}|'
+                    f'{self._y_crds[min_row_crd_idx, min_col_crd_idx]:^14.5f}|   '
+                    f'{min_dist}')
+
+            assert min_dist <= max_cell_dist, (
+                f'Label: {label} have a distance greater than the limit'
+                f'to the centroid of the nearest cell!')
+
+            itsct_idxs_dict[label] = {
+                'cols':np.array([min_col_crd_idx], dtype=int),
+                'rows': np.array([min_row_crd_idx], dtype=int),
+                'itsctd_area': np.array([0.0], dtype=float),
+                'rel_itsctd_area': np.array([0.0], dtype=float),
+                'x_cen_crds': np.array(
+                    [self._x_crds[min_row_crd_idx, min_col_crd_idx]], dtype=float),
+                'y_cen_crds': np.array(
+                    [self._y_crds[min_row_crd_idx, min_col_crd_idx]], dtype=float), }
+
+        return itsct_idxs_dict
+
+    def _cmpt_1d_poly_idxs(self, geom, label):
+
+        assert self._crds_ndims == 1, 'Configured for 1D coordinates only!'
+        assert self._geom_type == 3, 'Configured for polygon geometries only!'
+
+        x_crds = self._x_crds
+        y_crds = self._y_crds
+
+        geom_area = geom.Area()
+        assert geom_area > 0, f'Polygon: {label} has no area!'
 
         geom_buff = geom.Buffer(max(
             abs(x_crds[+1] - x_crds[+0]),
@@ -525,12 +899,6 @@ class PolyAndCrdsItsctIdxs:
 
         assert tot_y_idxs.size, (
             f'No Y coordinate selected for the polygon: {label}!')
-
-        assert np.all(x_crds.shape), (
-            'Shape of X coordinates not allowed to have a zero!')
-
-        assert np.all(y_crds.shape), (
-            'Shape of Y coordinates not allowed to have a zero!')
 
         n_cells_acptd = 0
         x_crds_acptd_idxs = []
@@ -609,7 +977,7 @@ class PolyAndCrdsItsctIdxs:
             'x_cen_crds': np.array(x_crds_acptd, dtype=float),
             'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
 
-    def _cmpt_2d_idxs(self, geom, label):
+    def _cmpt_2d_poly_idxs(self, geom, label):
 
         assert self._crds_ndims == 2, 'Configured for 2D coordinates only!'
 

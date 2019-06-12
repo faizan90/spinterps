@@ -17,6 +17,8 @@ class ExtractPolygons:
     Shapefile.
     '''
 
+    _geom_type = 3
+
     def __init__(self, verbose=True):
 
         self._vb = verbose
@@ -191,6 +193,7 @@ class ExtractPolygons:
                 extent = self._poly_extents[label]
                 print(f'{label:<8s}|{area:^18.3f}|   {extent}')
 
+            print('Done extracting polygons')
             print_el()
 
         self._set_poly_data_extrt_flag = True

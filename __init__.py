@@ -6,10 +6,11 @@ from .interp import SpInterpMain
 
 from .extract import (
     ExtractPolygons,
+    ExtractPoints,
     ExtractNetCDFCoords,
     ExtractNetCDFValues,
     ExtractGTiffCoords,
     ExtractGTiffValues,
-    PolyAndCrdsItsctIdxs,
+    GeomAndCrdsItsctIdxs,
     ReOrderIdxs,
     Extract)

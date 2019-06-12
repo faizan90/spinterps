@@ -5,9 +5,10 @@ Created on May 27, 2019
 '''
 
 from .poly import ExtractPolygons
+from .point import ExtractPoints
 from .nc import ExtractNetCDFCoords, ExtractNetCDFValues
 from .gtiff import ExtractGTiffCoords, ExtractGTiffValues
-from .idxs import PolyAndCrdsItsctIdxs, ReOrderIdxs
+from .idxs import GeomAndCrdsItsctIdxs, ReOrderIdxs
 
 
 class Extract:
@@ -53,7 +54,7 @@ class Extract:
 
         gtiff_crds_cls.extract_coordinates()
 
-        itsct_cls = PolyAndCrdsItsctIdxs()
+        itsct_cls = GeomAndCrdsItsctIdxs()
 
         itsct_cls.set_polygons(poly_cls.get_polygons())
 
@@ -106,7 +107,7 @@ class Extract:
 
         nc_crds_cls.extract_coordinates()
 
-        itsct_cls = PolyAndCrdsItsctIdxs(verbose=self._vb)
+        itsct_cls = GeomAndCrdsItsctIdxs(verbose=self._vb)
 
         itsct_cls.set_polygons(poly_cls.get_polygons())
 
