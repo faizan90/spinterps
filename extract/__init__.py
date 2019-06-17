@@ -56,7 +56,7 @@ class Extract:
 
         itsct_cls = GeomAndCrdsItsctIdxs()
 
-        itsct_cls.set_polygons(poly_cls.get_polygons())
+        itsct_cls.set_geometries(poly_cls.get_polygons(), poly_cls._geom_type)
 
         itsct_cls.set_coordinates(
             gtiff_crds_cls.get_x_coordinates(),
@@ -109,7 +109,7 @@ class Extract:
 
         itsct_cls = GeomAndCrdsItsctIdxs(verbose=self._vb)
 
-        itsct_cls.set_polygons(poly_cls.get_polygons())
+        itsct_cls.set_geometries(poly_cls.get_polygons(), poly_cls._geom_type)
 
         itsct_cls.set_coordinates(
             nc_crds_cls.get_x_coordinates(),

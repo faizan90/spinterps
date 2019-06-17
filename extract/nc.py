@@ -224,6 +224,8 @@ class ExtractNetCDFValues:
 
         self._extrtd_data = None
 
+        self.raise_on_duplicate_row_col_flag = True
+
         self._set_in_flag = False
         self._set_out_flag = False
         self._set_data_extrt_flag = False
@@ -402,8 +404,8 @@ class ExtractNetCDFValues:
             exists already. This happens when the output HDF5 was written
             to before using another input whose extents were different than
             the current raster but cell sizes are equal and hence the number
-            cells. The other variables in indices should match the previously
-            written values. save_add_vars_flag is set to False is
+            of cells. The other variables in indices should match the
+            previously written values. save_add_vars_flag is set to False is
             ignore_rows_cols_equality is True.
         '''
 
@@ -619,10 +621,11 @@ class ExtractNetCDFValues:
             assert cols_idxs_max < in_var_data.shape[2], (
                 'One or more column indices are out of bounds!')
 
-            crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
+            if self.raise_on_duplicate_row_col_flag:
+                crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
 
-            assert len(crds_set) == cols_idxs.size, (
-                'Repeating row and column index combinations not allowed!')
+                assert len(crds_set) == cols_idxs.size, (
+                    'Repeating row and column index combinations not allowed!')
 
             if self._out_fmt == 'raw':
 

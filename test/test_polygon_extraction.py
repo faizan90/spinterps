@@ -22,7 +22,7 @@ def main():
     path_to_ras = r'tem_spinterp.nc'
     input_ras_type = 'nc'
 
-#     path_to_ras = r'lower_de_gauss_z3_1km_atkis_19_extended_hydmod_lulc_ratios.tif'
+#     path_to_ras = r'lower_de_gauss_z3_2km_atkis_19_extended_hydmod_lulc_ratios.tif'
 #     input_ras_type = 'gtiff'
 
     nc_x_crds_label = 'X'

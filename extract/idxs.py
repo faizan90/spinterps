@@ -73,7 +73,7 @@ class GeomAndCrdsItsctIdxs:
             'geometries not a dictionary!')
 
         assert isinstance(geometry_type, int), (
-            'geometry_type can only be an input!')
+            'geometry_type can only be an integer!')
 
         assert geometry_type in self._geom_types, (
             f'geometry_type can be one of {self._geom_types} only!')
@@ -398,7 +398,11 @@ class GeomAndCrdsItsctIdxs:
             'coordinates!')
 
         if self._geom_type == 1:
-            itsct_idxs_dict = self._cmpt_1d_pt_idxs()
+            if self._crds_ndims == 1:
+                itsct_idxs_dict = self._cmpt_1d_pt_idxs()
+
+            else:
+                raise NotImplementedError
 
         elif self._geom_type == 3:
             itsct_idxs_dict = {}
@@ -411,10 +415,10 @@ class GeomAndCrdsItsctIdxs:
                     print(f'Going through polygon: {label}...')
 
                 if self._crds_ndims == 1:
-                    res = self._cmpt_1d_idxs(geom, label)
+                    res = self._cmpt_1d_poly_idxs(geom, label)
 
                 elif self._crds_ndims == 2:
-                    res = self._cmpt_2d_idxs(geom, label)
+                    res = self._cmpt_2d_poly_idxs(geom, label)
 
                 else:
                     raise NotImplementedError
@@ -674,11 +678,12 @@ class GeomAndCrdsItsctIdxs:
 
         idxs = np.full((n_pts, 2), np.nan)
 
-        show_crds_flag = True
+        show_crds_flag = False
 
         if show_crds_flag:
             print(
-                f'   i, Label   |      RX      |      RY      |      DX      |'
+                f'   i, Label    |      RX      |      RY      |'
+                f'      DX      |'
                 f'      DY      |   Distance')
 
         itsct_idxs_dict = {}

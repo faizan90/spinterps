@@ -214,6 +214,8 @@ class ExtractGTiffValues:
         self._out_path = None
         self._out_fmt = None
 
+        self.raise_on_duplicate_row_col_flag = True
+
         self._set_in_flag = False
         self._set_out_flag = False
         self._set_data_extrt_flag = False
@@ -362,7 +364,7 @@ class ExtractGTiffValues:
             to before using another input whose extents were different than
             the current raster but cell sizes are equal and hence the number
             of cells. Shape of rows and cols should match though.
-            save_add_vars_flag is set to False if ignore_rows_cols_equality 
+            save_add_vars_flag is set to False if ignore_rows_cols_equality
             is True.
         '''
 
@@ -484,10 +486,11 @@ class ExtractGTiffValues:
             assert (rows_idxs_max >= 0) & (rows_idxs_min >= 0), (
                 'Row indices are not allowed to be negative!')
 
-            crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
+            if self.raise_on_duplicate_row_col_flag:
+                crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
 
-            assert len(crds_set) == cols_idxs.size, (
-                'Repeating row and column index combinations not allowed!')
+                assert len(crds_set) == cols_idxs.size, (
+                    'Repeating row and column index combinations not allowed!')
 
             bnds_data = {}
             for bnd, data in gtiff_bnds.items():
