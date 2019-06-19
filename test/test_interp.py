@@ -13,6 +13,8 @@ import pandas as pd
 
 from spinterps import SpInterpMain
 
+# raise Exception
+
 
 def main():
 
@@ -35,7 +37,7 @@ def main():
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp_new_alg_5_nebs_edk'
+    out_dir = r'test_spinterp_new_alg_quad_neb_selection_01'
     var_units = 'C'  # u'\u2103'  # 'centigrade'
     var_name = 'temperature'
 

@@ -386,8 +386,8 @@ class SpInterpSteps:
         for grp_idx in range(grps_ctr):
             same_grp_idxs = np.where(full_neb_idxs_grps[:, 0] == grp_idx)[0]
 
-#             if same_grp_idxs.size != 1:
-#                 print(f'grp_idx: {grp_idx}, N: {same_grp_idxs.size}')
+            if same_grp_idxs.size != 1:
+                print(f'grp_idx: {grp_idx}, N: {same_grp_idxs.size}')
 
             grp_dst_x_crds = self._interp_x_crds_msh[same_grp_idxs]
             grp_dst_y_crds = self._interp_y_crds_msh[same_grp_idxs]
@@ -483,7 +483,101 @@ class SpInterpSteps:
 
         return krige_cls.zk
 
-    @traceback_wrapper
+#     def _get_pt_neb_idxs(
+#             self, curr_x_coords, curr_y_coords, n_nebs=None, neb_range=None):
+#
+#         # this can be done in two ways:
+#             # First: fixed number of nebors
+#             # Second: Number of nebors depends on range
+#             # In the second case the value of -1 will show where
+#             # to stop while reading the nebor indices.
+#
+#         # write more checks
+#         assert any([n_nebs is None, neb_range is None])
+#         assert any([n_nebs is not None, neb_range is not None])
+#
+#         if n_nebs is None:
+#             raise NotImplementedError
+#
+#         n_neb_idxs_cols = None
+#
+#         if n_nebs is not None:
+#             n_neb_idxs_cols = n_nebs
+#
+#         elif neb_range is not None:
+#             n_neb_idxs_cols = curr_x_coords.size
+#
+#         else:
+#             raise NotImplementedError
+#
+#         full_neb_idxs = np.full(
+#             (self._interp_x_crds_msh.size, n_neb_idxs_cols),
+#             -1,
+#             dtype=int)
+#
+#         for i in range(self._interp_x_crds_msh.size):
+#             interp_x_crd = self._interp_x_crds_msh[i]
+#             interp_y_crd = self._interp_y_crds_msh[i]
+#
+#             dists = (
+#                 ((interp_x_crd - curr_x_coords) ** 2) +
+#                 ((interp_y_crd - curr_y_coords) ** 2)) ** 0.5
+#
+#             if n_nebs is not None:
+#                 full_neb_idxs[i, :] = np.argsort(np.argsort(dists)[:n_nebs])
+#
+#             elif neb_range is not None:
+#                 neb_idxs = np.where(dists <= neb_range)[0]
+#                 full_neb_idxs[i, :neb_idxs.size] = neb_idxs
+#
+#             else:
+#                 raise NotImplementedError
+#
+#         assert np.all(np.any(full_neb_idxs > -1, axis=0))
+#
+#         if n_nebs is not None:
+#             assert np.all(full_neb_idxs > -1)
+#
+#         elif neb_range is not None:
+#             pass
+#
+#         else:
+#             raise NotImplementedError
+#
+#         # col 1: grp index
+#         # col 2: index in all similar config grps
+#         # col 3: N grps that share the same config
+#         full_neb_idxs_grps = np.full(
+#             (self._interp_x_crds_msh.size, 3), -1, dtype=int)
+#
+#         grps_ctr = 0
+#         for i in range(self._interp_x_crds_msh.size):
+#             if full_neb_idxs_grps[i, 0] != -1:
+#                 continue
+#
+#             neb_idxs = full_neb_idxs[i]
+#
+#             equal_idxs = np.all(full_neb_idxs == neb_idxs, axis=1)
+#
+#             n_equal_idxs = int(equal_idxs.sum())
+#
+#             full_neb_idxs_grps[equal_idxs, 0] = grps_ctr
+#             full_neb_idxs_grps[equal_idxs, 1] = np.arange(1, n_equal_idxs + 1)
+#             full_neb_idxs_grps[equal_idxs, 2] = n_equal_idxs
+#
+#             grps_ctr += 1
+#
+#         if n_nebs is not None:
+#             assert np.all(full_neb_idxs_grps > -1)
+#
+#         elif neb_range is not None:
+#             pass
+#
+#         else:
+#             raise NotImplementedError
+#
+#         return full_neb_idxs, grps_ctr, full_neb_idxs_grps
+
     def _get_pt_neb_idxs(
             self, curr_x_coords, curr_y_coords, n_nebs=None, neb_range=None):
 
@@ -496,6 +590,8 @@ class SpInterpSteps:
         # write more checks
         assert any([n_nebs is None, neb_range is None])
         assert any([n_nebs is not None, neb_range is not None])
+
+        n_nebs_tot = curr_x_coords.size
 
         if n_nebs is None:
             raise NotImplementedError
@@ -511,6 +607,16 @@ class SpInterpSteps:
         else:
             raise NotImplementedError
 
+        n_quads = 8
+        n_per_quad = 2
+        min_dist_thresh = 0
+        dists_arr = np.zeros(n_nebs_tot, dtype=np.float64)
+        prcssed_nebrs_arr = np.zeros(n_nebs_tot, dtype=np.uint32)
+        slctd_nebrs_arr = np.zeros(n_nebs_tot, dtype=np.uint32)
+        slctd_nebrs_dists_arr = np.zeros(n_nebs_tot, dtype=np.float64)
+        nebs_idxs_arr = np.zeros(n_nebs_tot, dtype=np.int64)
+        fin_nebs_idxs_arr = np.zeros(n_nebs_tot, dtype=np.uint32)
+
         full_neb_idxs = np.full(
             (self._interp_x_crds_msh.size, n_neb_idxs_cols),
             -1,
@@ -525,7 +631,26 @@ class SpInterpSteps:
                 ((interp_y_crd - curr_y_coords) ** 2)) ** 0.5
 
             if n_nebs is not None:
-                full_neb_idxs[i, :] = np.argsort(np.argsort(dists)[:n_nebs])
+                slct_nebrs_cy(
+                    interp_x_crd,
+                    interp_y_crd,
+                    curr_x_coords,
+                    curr_y_coords,
+                    n_quads,
+                    n_per_quad,
+                    min_dist_thresh,
+                    n_nebs_tot,
+                    prcssed_nebrs_arr,
+                    slctd_nebrs_arr,
+                    nebs_idxs_arr,
+                    dists_arr,
+                    slctd_nebrs_dists_arr,
+                    fin_nebs_idxs_arr)
+
+                fin_nebs_idxs_wh_arr = np.where(fin_nebs_idxs_arr)[0]
+
+                full_neb_idxs[i, :] = np.argsort(fin_nebs_idxs_wh_arr[:n_nebs])
+                # full_neb_idxs[i, :] = np.argsort(np.argsort(dists)[:n_nebs])
 
             elif neb_range is not None:
                 neb_idxs = np.where(dists <= neb_range)[0]

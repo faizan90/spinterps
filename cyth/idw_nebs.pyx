@@ -168,8 +168,13 @@ cpdef void slct_nebrs_cy(
         return
 
     for i in range(n_quads):
+#         print('i_quad:', i + 1)
+        
         curr_min_ang = quad_ang_incr * i * 2 * M_PI
         curr_max_ang = quad_ang_incr * (i + 1) * 2 * M_PI
+        
+#         print('curr_min_ang:', curr_min_ang)
+#         print('curr_max_ang:', curr_max_ang)
 
         nebs_avail_cond = 0
 
@@ -189,22 +194,19 @@ cpdef void slct_nebrs_cy(
 
             nebr_ang = atan(y_dist / x_dist)
 
-            if (x_dist > 0) and (y_dist > 0):
-                pass
-
-            elif (x_dist < 0) and (y_dist > 0):
-                nebr_ang -= (0.5 * M_PI)
+            if (x_dist < 0) and (y_dist > 0):
+                nebr_ang = (0.5 * M_PI) - nebr_ang
 
             elif (x_dist < 0) and (y_dist < 0):
-                nebr_ang -= (1.5 * M_PI)
+                nebr_ang = (1.5 * M_PI) - nebr_ang
 
             elif (x_dist > 0) and (y_dist < 0):
-                nebr_ang -= (1.5 * M_PI)
+                nebr_ang = (1.5 * M_PI) - nebr_ang
 
             if (nebr_ang >= curr_min_ang) and (nebr_ang < curr_max_ang):
                 slctd_nebrs_arr[j] = 1
                 prcssed_nebrs_arr[j] = 1
-                slctd_nebrs_dists_arr[j] = dists_arr[i]
+                slctd_nebrs_dists_arr[j] = dists_arr[j]
 
         for j in range(n_nebs):
             if slctd_nebrs_arr[j]:
@@ -216,4 +218,5 @@ cpdef void slct_nebrs_cy(
 
             for j in range(n_per_quad):
                 idxs_fin_arr[nebs_idxs_arr[j]] = 1
+#                 print('Selected:', nebs_idxs_arr[j])
     return
