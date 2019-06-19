@@ -1,4 +1,8 @@
-# cython: linetrace=True, nonecheck=False, boundscheck=False, wraparound=False
+# cython: nonecheck=False
+# cython: boundscheck=False
+# cython: wraparound=False
+# cython: cdivision=True
+# cython: embedsignature=True
 
 from __future__ import division
 import numpy as np

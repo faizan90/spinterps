@@ -21,12 +21,12 @@ def main():
 
     in_data_file = os.path.join(
             r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-            r'Mulde_preciptiation_infilling_1950_2015',
+            r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
             r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns.csv')
 
     in_vgs_file = os.path.join(
-        r'Mulde_precipitation_kriging_20190417',
+        r'Q:\Synchronize_LDs\Mulde_temperature_avg_kriging_20190417',
         r'vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
@@ -35,15 +35,15 @@ def main():
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp'
-    var_units = 'mm'  # u'\u2103'  # 'centigrade'
-    var_name = 'precipitation'
+    out_dir = r'test_spinterp_new_alg_5_nebs_edk'
+    var_units = 'C'  # u'\u2103'  # 'centigrade'
+    var_name = 'temperature'
 
     out_krig_net_cdf_file = r'mulde_precipitation_kriging_%s_to_%s_1km_test.nc'
 
     freq = 'D'
     strt_date = r'1950-01-01'
-    end_date = r'1950-12-31'
+    end_date = r'1950-01-31'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
@@ -59,13 +59,13 @@ def main():
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_ppt_thresh = 1  # -float('inf') # 1
+    min_ppt_thresh = -float('inf')  # 1
 
-    min_var_val = 0
+    min_var_val = None
     max_var_val = None
 
     idw_exps = [1, 3, 5]
-    n_cpus = 7
+    n_cpus = 1
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
@@ -80,10 +80,10 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-#     ord_krige_flag = False
-#     sim_krige_flag = False
+    ord_krige_flag = False
+    sim_krige_flag = False
 #     edk_krige_flag = False
-#     idw_flag = False
+    idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False
@@ -107,8 +107,15 @@ def main():
         index_col=0,
         encoding='utf-8')
 
-    in_data_df.index = pd.to_datetime(in_data_df.index, format=in_date_fmt)
-    in_vgs_df.index = pd.to_datetime(in_vgs_df.index, format=in_date_fmt)
+    if index_type == 'date':
+        in_data_df.index = pd.to_datetime(in_data_df.index, format=in_date_fmt)
+        in_vgs_df.index = pd.to_datetime(in_vgs_df.index, format=in_date_fmt)
+
+    elif index_type == 'obj':
+        pass
+
+    else:
+        raise ValueError(f'Incorrect index_type: {index_type}!')
 
     spinterp_cls = SpInterpMain(verbose)
 

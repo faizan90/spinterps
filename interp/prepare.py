@@ -68,7 +68,7 @@ class SpInterpPrepare(SIBD, KDT):
             print('Minimum X:', self._x_min)
             print('Maximum X:', self._x_max)
             print('Minimum Y:', self._y_min)
-            print('Maximum X:', self._x_max)
+            print('Maximum Y:', self._y_max)
             print('Cell size:', self._cell_size)
             print('#' * 10)
 

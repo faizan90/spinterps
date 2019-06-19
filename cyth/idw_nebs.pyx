@@ -1,4 +1,11 @@
-#cython: nonecheck=False, boundscheck=False, wraparound=False
+# cython: nonecheck=False
+# cython: boundscheck=False
+# cython: wraparound=False
+# cython: cdivision=True
+# cython: language_level=3
+# cython: infer_types=False
+# cython: embedsignature=True
+
 import numpy as np
 cimport numpy as np
 
@@ -149,10 +156,8 @@ cpdef void slct_nebrs_cy(
         dists_arr[i] = get_dist(
             x, 
             y, 
-            nebrs_x_crds_arr[i], 
+            nebrs_x_crds_arr[i],
             nebrs_y_crds_arr[i])
-
-        idxs_fin_arr[i] = 0
 
         if (dists_arr[i] <= min_dist_thresh) and (dists_arr[i] < min_dist):
             min_dist_idx = i
@@ -173,7 +178,7 @@ cpdef void slct_nebrs_cy(
             slctd_nebrs_dists_arr[j] = INF
 
         for j in range(n_nebs):
-            if prcssed_nebrs_arr[j] == 1:
+            if prcssed_nebrs_arr[j]:
                 continue
 
             x_dist = nebrs_x_crds_arr[j] - x
@@ -188,30 +193,27 @@ cpdef void slct_nebrs_cy(
                 pass
 
             elif (x_dist < 0) and (y_dist > 0):
-                nebr_ang = (0.5 * M_PI) - nebr_ang
+                nebr_ang -= (0.5 * M_PI)
 
             elif (x_dist < 0) and (y_dist < 0):
-                nebr_ang = (1.5 * M_PI) - nebr_ang
+                nebr_ang -= (1.5 * M_PI)
 
             elif (x_dist > 0) and (y_dist < 0):
-                nebr_ang = (1.5 * M_PI) - nebr_ang
+                nebr_ang -= (1.5 * M_PI)
 
             if (nebr_ang >= curr_min_ang) and (nebr_ang < curr_max_ang):
                 slctd_nebrs_arr[j] = 1
                 prcssed_nebrs_arr[j] = 1
-                slctd_nebrs_dists_arr[j] = get_dist(
-                    x,
-                    y,
-                    nebrs_x_crds_arr[j],
-                    nebrs_y_crds_arr[j])
+                slctd_nebrs_dists_arr[j] = dists_arr[i]
 
         for j in range(n_nebs):
-            if slctd_nebrs_arr[j] == 1:
+            if slctd_nebrs_arr[j]:
                 nebs_avail_cond = 1
                 break
 
-        if nebs_avail_cond == 1:
+        if nebs_avail_cond:
             nebs_idxs_arr = np.argsort(slctd_nebrs_dists_arr)
+
             for j in range(n_per_quad):
                 idxs_fin_arr[nebs_idxs_arr[j]] = 1
     return

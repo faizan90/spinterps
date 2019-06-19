@@ -1,5 +1,9 @@
 from .cyth import (
-    get_idw_arr, OrdinaryKriging, SimpleKriging, ExternalDriftKriging_MD)
+    get_idw_arr,
+    slct_nebrs_cy,
+    OrdinaryKriging,
+    SimpleKriging,
+    ExternalDriftKriging_MD)
 
 from .variograms import FitVariograms
 from .interp import SpInterpMain

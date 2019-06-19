@@ -14,7 +14,8 @@ from ..cyth import (
     OrdinaryKriging,
     SimpleKriging,
     ExternalDriftKriging_MD,
-    get_idw_arr)
+    get_idw_arr,
+    slct_nebrs_cy)
 
 plt.ioff()
 
@@ -68,11 +69,11 @@ class SpInterpSteps:
 
         if interp_type == 'IDW':
             idw_exp = interp_arg[3]
-
             krg_flag = False
 
         else:
             krg_flag = True
+            idw_exp = None
 
         if self._plot_figs_flag:
             out_figs_dir = interp_arg[1]
@@ -107,49 +108,35 @@ class SpInterpSteps:
             else:
                 model = None
 
-            interp_vals = None
+#             self._interp(
+#                 curr_data_vals,
+#                 model,
+#                 curr_stns,
+#                 interp_time,
+#                 krg_flag,
+#                 curr_x_coords,
+#                 curr_y_coords,
+#                 curr_drift_vals,
+#                 interp_type,
+#                 drft_arrs,
+#                 idw_exp,
+#                 interp_flds,
+#                 i)
 
-            # TODO: another ratio for this.
-            if np.all(curr_data_vals < self._min_var_thr):
-                interp_vals = np.full(
-                    self._interp_x_crds_msh.shape[0], curr_data_vals.mean())
-
-            elif (model == 'nan') or (not curr_stns.shape[0]):
-                print('No interpolation on:', interp_time)
-                continue
-
-            elif krg_flag:
-                try:
-                    interp_vals = self._get_krgd_fld(
-                        curr_x_coords,
-                        curr_y_coords,
-                        curr_data_vals,
-                        curr_drift_vals,
-                        model,
-                        interp_type,
-                        drft_arrs)
-
-                except Exception as msg:
-                    time_str = interp_time.strftime('%Y-%m-%dT%H:%M:%S')
-                    print('Error on %s:' % time_str, msg)
-
-            else:
-                interp_vals = get_idw_arr(
-                    self._interp_x_crds_msh,
-                    self._interp_y_crds_msh,
-                    curr_x_coords,
-                    curr_y_coords,
-                    curr_data_vals,
-                    idw_exp)
-
-            if self._cntn_idxs is not None:
-                interp_flds[i].ravel()[self._cntn_idxs] = interp_vals
-
-            else:
-                interp_flds[i] = interp_vals.reshape(
-                    self._interp_crds_orig_shape)
-
-            self._mod_min_max(interp_flds[i])
+            self._interp_new(
+                curr_data_vals,
+                model,
+                curr_stns,
+                interp_time,
+                krg_flag,
+                curr_x_coords,
+                curr_y_coords,
+                curr_drift_vals,
+                interp_type,
+                drft_arrs,
+                idw_exp,
+                interp_flds,
+                i)
 
             if self._plot_figs_flag:
                 self._plot_interp(
@@ -176,7 +163,125 @@ class SpInterpSteps:
             nc_hdl.close()
 
             interp_flds = None
+        return
 
+    def _interp(
+            self,
+            curr_data_vals,
+            model,
+            curr_stns,
+            interp_time,
+            krg_flag,
+            curr_x_coords,
+            curr_y_coords,
+            curr_drift_vals,
+            interp_type,
+            drft_arrs,
+            idw_exp,
+            interp_flds,
+            interp_fld_idx):
+
+        interp_vals = None
+
+        # TODO: another ratio for this.
+        if np.all(curr_data_vals < self._min_var_thr):
+            interp_vals = np.full(
+                self._interp_x_crds_msh.shape[0], curr_data_vals.mean())
+
+        elif (model == 'nan') or (not curr_stns.shape[0]):
+            print('No interpolation on:', interp_time)
+            return
+
+        elif krg_flag:
+            try:
+                interp_vals = self._get_krgd_fld(
+                    curr_x_coords,
+                    curr_y_coords,
+                    curr_data_vals,
+                    curr_drift_vals,
+                    self._interp_x_crds_msh,
+                    self._interp_y_crds_msh,
+                    drft_arrs,
+                    model,
+                    interp_type)
+
+            except Exception as msg:
+                if hasattr(interp_time, 'strftime'):
+                    time_str = interp_time.strftime('%Y-%m-%dT%H:%M:%S')
+
+                else:
+                    time_str = interp_time
+
+                print('Error in kriging on %s:' % time_str, msg)
+
+                raise Exception
+
+        else:
+            interp_vals = get_idw_arr(
+                self._interp_x_crds_msh,
+                self._interp_y_crds_msh,
+                curr_x_coords,
+                curr_y_coords,
+                curr_data_vals,
+                idw_exp)
+
+        if self._cntn_idxs is not None:
+            interp_flds[interp_fld_idx].ravel()[self._cntn_idxs] = interp_vals
+
+        else:
+            interp_flds[interp_fld_idx] = interp_vals.reshape(
+                self._interp_crds_orig_shape)
+
+        self._mod_min_max(interp_flds[interp_fld_idx])
+        return
+
+    def _interp_new(
+            self,
+            curr_data_vals,
+            model,
+            curr_stns,
+            interp_time,
+            krg_flag,
+            curr_x_coords,
+            curr_y_coords,
+            curr_drift_vals,
+            interp_type,
+            drft_arrs,
+            idw_exp,
+            interp_flds,
+            interp_fld_idx):
+
+        interp_vals = None
+
+        # TODO: another ratio for this.
+        if np.all(curr_data_vals < self._min_var_thr):
+            interp_vals = np.full(
+                self._interp_x_crds_msh.shape[0], curr_data_vals.mean())
+
+        elif (model == 'nan') or (not curr_stns.shape[0]):
+            print('No interpolation on:', interp_time)
+            return
+
+        else:
+            interp_vals = self._get_interp_fld_new(
+                curr_x_coords,
+                curr_y_coords,
+                curr_data_vals,
+                curr_drift_vals,
+                model,
+                interp_type,
+                drft_arrs,
+                krg_flag,
+                idw_exp)
+
+        if self._cntn_idxs is not None:
+            interp_flds[interp_fld_idx].ravel()[self._cntn_idxs] = interp_vals
+
+        else:
+            interp_flds[interp_fld_idx] = interp_vals.reshape(
+                self._interp_crds_orig_shape)
+
+        self._mod_min_max(interp_flds[interp_fld_idx])
         return
 
     def _plot_interp(
@@ -258,7 +363,7 @@ class SpInterpSteps:
 
         return
 
-    def _get_krgd_fld(
+    def _get_interp_fld_new(
             self,
             curr_x_coords,
             curr_y_coords,
@@ -266,15 +371,89 @@ class SpInterpSteps:
             curr_drift_vals,
             model,
             interp_type,
-            drft_arrs):
+            drft_arrs,
+            krg_flag,
+            idw_exp):
+
+        # configured for n_nebs only!
+        n_nebs = 5
+
+        full_neb_idxs, grps_ctr, full_neb_idxs_grps = self._get_pt_neb_idxs(
+            curr_x_coords, curr_y_coords, n_nebs=n_nebs, neb_range=None)
+
+        interp_vals = np.full(self._interp_x_crds_msh.size, np.nan)
+
+        for grp_idx in range(grps_ctr):
+            same_grp_idxs = np.where(full_neb_idxs_grps[:, 0] == grp_idx)[0]
+
+#             if same_grp_idxs.size != 1:
+#                 print(f'grp_idx: {grp_idx}, N: {same_grp_idxs.size}')
+
+            grp_dst_x_crds = self._interp_x_crds_msh[same_grp_idxs]
+            grp_dst_y_crds = self._interp_y_crds_msh[same_grp_idxs]
+
+            grp_ref_x_crds = curr_x_coords[full_neb_idxs[same_grp_idxs[0]]]
+            grp_ref_y_crds = curr_y_coords[full_neb_idxs[same_grp_idxs[0]]]
+            grp_ref_z_crds = curr_data_vals[full_neb_idxs[same_grp_idxs[0]]]
+
+            if drft_arrs is None:
+                grp_dst_drift_crds = None
+                grp_ref_drift_crds = None
+
+            else:
+                grp_dst_drift_crds = drft_arrs[:, same_grp_idxs]
+                grp_ref_drift_crds = (
+                    curr_drift_vals[:, full_neb_idxs[same_grp_idxs[0]]])
+
+            if krg_flag:
+                grp_interp_vals = self._get_krgd_fld(
+                    grp_ref_x_crds,
+                    grp_ref_y_crds,
+                    grp_ref_z_crds,
+                    grp_ref_drift_crds,
+                    grp_dst_x_crds,
+                    grp_dst_y_crds,
+                    grp_dst_drift_crds,
+                    model,
+                    interp_type)
+
+            else:
+                grp_interp_vals = get_idw_arr(
+                    grp_dst_x_crds,
+                    grp_dst_y_crds,
+                    grp_ref_x_crds,
+                    grp_ref_y_crds,
+                    grp_ref_z_crds,
+                    idw_exp)
+
+            assert np.all(np.isnan(interp_vals[same_grp_idxs])), (
+                'All pts should be NaN!')
+
+            interp_vals[same_grp_idxs] = grp_interp_vals
+
+        assert np.all(np.isfinite(interp_vals)), 'Some points not interpolated!'
+        return interp_vals
+
+    def _get_krgd_fld(
+            self,
+            curr_x_coords,
+            curr_y_coords,
+            curr_data_vals,
+            curr_drift_vals,
+            dst_x_crds,
+            dst_y_crds,
+            dst_drift_crds,
+            model,
+            interp_type
+            ):
 
         if interp_type == 'OK':
             krige_cls = OrdinaryKriging(
                 xi=curr_x_coords,
                 yi=curr_y_coords,
                 zi=curr_data_vals,
-                xk=self._interp_x_crds_msh,
-                yk=self._interp_y_crds_msh,
+                xk=dst_x_crds,
+                yk=dst_y_crds,
                 model=model)
 
         elif interp_type == 'SK':
@@ -282,8 +461,8 @@ class SpInterpSteps:
                 xi=curr_x_coords,
                 yi=curr_y_coords,
                 zi=curr_data_vals,
-                xk=self._interp_x_crds_msh,
-                yk=self._interp_y_crds_msh,
+                xk=dst_x_crds,
+                yk=dst_y_crds,
                 model=model)
 
         elif interp_type == 'EDK':
@@ -292,9 +471,9 @@ class SpInterpSteps:
                 yi=curr_y_coords,
                 zi=curr_data_vals,
                 si=curr_drift_vals,
-                xk=self._interp_x_crds_msh,
-                yk=self._interp_y_crds_msh,
-                sk=drft_arrs,
+                xk=dst_x_crds,
+                yk=dst_y_crds,
+                sk=dst_drift_crds,
                 model=model)
 
         else:
@@ -303,3 +482,99 @@ class SpInterpSteps:
         krige_cls.krige()
 
         return krige_cls.zk
+
+    @traceback_wrapper
+    def _get_pt_neb_idxs(
+            self, curr_x_coords, curr_y_coords, n_nebs=None, neb_range=None):
+
+        # this can be done in two ways:
+            # First: fixed number of nebors
+            # Second: Number of nebors depends on range
+            # In the second case the value of -1 will show where
+            # to stop while reading the nebor indices.
+
+        # write more checks
+        assert any([n_nebs is None, neb_range is None])
+        assert any([n_nebs is not None, neb_range is not None])
+
+        if n_nebs is None:
+            raise NotImplementedError
+
+        n_neb_idxs_cols = None
+
+        if n_nebs is not None:
+            n_neb_idxs_cols = n_nebs
+
+        elif neb_range is not None:
+            n_neb_idxs_cols = curr_x_coords.size
+
+        else:
+            raise NotImplementedError
+
+        full_neb_idxs = np.full(
+            (self._interp_x_crds_msh.size, n_neb_idxs_cols),
+            -1,
+            dtype=int)
+
+        for i in range(self._interp_x_crds_msh.size):
+            interp_x_crd = self._interp_x_crds_msh[i]
+            interp_y_crd = self._interp_y_crds_msh[i]
+
+            dists = (
+                ((interp_x_crd - curr_x_coords) ** 2) +
+                ((interp_y_crd - curr_y_coords) ** 2)) ** 0.5
+
+            if n_nebs is not None:
+                full_neb_idxs[i, :] = np.argsort(np.argsort(dists)[:n_nebs])
+
+            elif neb_range is not None:
+                neb_idxs = np.where(dists <= neb_range)[0]
+                full_neb_idxs[i, :neb_idxs.size] = neb_idxs
+
+            else:
+                raise NotImplementedError
+
+        assert np.all(np.any(full_neb_idxs > -1, axis=0))
+
+        if n_nebs is not None:
+            assert np.all(full_neb_idxs > -1)
+
+        elif neb_range is not None:
+            pass
+
+        else:
+            raise NotImplementedError
+
+        # col 1: grp index
+        # col 2: index in all similar config grps
+        # col 3: N grps that share the same config
+        full_neb_idxs_grps = np.full(
+            (self._interp_x_crds_msh.size, 3), -1, dtype=int)
+
+        grps_ctr = 0
+        for i in range(self._interp_x_crds_msh.size):
+            if full_neb_idxs_grps[i, 0] != -1:
+                continue
+
+            neb_idxs = full_neb_idxs[i]
+
+            equal_idxs = np.all(full_neb_idxs == neb_idxs, axis=1)
+
+            n_equal_idxs = int(equal_idxs.sum())
+
+            full_neb_idxs_grps[equal_idxs, 0] = grps_ctr
+            full_neb_idxs_grps[equal_idxs, 1] = np.arange(1, n_equal_idxs + 1)
+            full_neb_idxs_grps[equal_idxs, 2] = n_equal_idxs
+
+            grps_ctr += 1
+
+        if n_nebs is not None:
+            assert np.all(full_neb_idxs_grps > -1)
+
+        elif neb_range is not None:
+            pass
+
+        else:
+            raise NotImplementedError
+
+        return full_neb_idxs, grps_ctr, full_neb_idxs_grps

@@ -58,9 +58,9 @@ class SpInterpBoundaryPolygons:
 
             geom_type = geom.GetGeometryType()
 
-#             if geom_type == 6:
-#                 for sub_geom in geom:
-#                     temp_geoms.append(sub_geom.Clone())
+            if geom_type == 6:
+                for sub_geom in geom:
+                    temp_geoms.append(sub_geom.Clone())
 
             if geom_type == 3:
                 temp_geoms.append(geom)

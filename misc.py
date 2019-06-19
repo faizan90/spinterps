@@ -90,7 +90,7 @@ def cnvt_to_pt(x, y):
 
 def chk_cntmt(pt, bbx):
 
-    """Containment check of points in a given polygon"""
+    """Containment check of a point in a given polygon"""
 
     return bbx.Contains(pt)
 
