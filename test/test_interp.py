@@ -37,7 +37,7 @@ def main():
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp_new_alg_quad_neb_selection_01'
+    out_dir = r'test_spinterp_new_alg_quad_neb_selection_05_old_alg'
     var_units = 'C'  # u'\u2103'  # 'centigrade'
     var_name = 'temperature'
 
@@ -82,13 +82,13 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    ord_krige_flag = False
-    sim_krige_flag = False
+#     ord_krige_flag = False
+#     sim_krige_flag = False
 #     edk_krige_flag = False
-    idw_flag = False
+#     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
-#     interp_around_polys_flag = False
+    interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,

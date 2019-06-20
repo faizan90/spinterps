@@ -119,104 +119,192 @@ cpdef np.ndarray get_idw_arr(
     return np.asarray(idw_z_arr)
 
 
-cpdef void slct_nebrs_cy(
-        const DT_D x,
-        const DT_D y,
-        const DT_D[:] nebrs_x_crds_arr,
-        const DT_D[:] nebrs_y_crds_arr,
-        const DT_UL n_quads,
-        const DT_UL n_per_quad,
+cpdef void sel_equidist_refs(
+        const DT_D dst_x,
+        const DT_D dst_y,
+        const DT_D[::1] ref_xs,
+        const DT_D[::1] ref_ys,
+        const DT_UL n_pies,
+        const DT_UL n_refs_per_pie,
         const DT_D min_dist_thresh,
-        const DT_UL n_nebs,
-              DT_UL[:] prcssed_nebrs_arr,
-              DT_UL[:] slctd_nebrs_arr,
-              long long[:] nebs_idxs_arr,
-              DT_D[:] dists_arr,
-              DT_D[:] slctd_nebrs_dists_arr,
-              DT_UL[:] idxs_fin_arr):
+#               long long[::1] srtd_tem_ref_sel_dist_idxs,
+              DT_D[::1] dists,
+              DT_D[::1] tem_ref_sel_dists,
+              long long[::1] ref_sel_pie_idxs,
+              DT_UL[::1] ref_pie_idxs,
+              DT_UL[::1] ref_pie_cts):
 
     cdef:
-        DT_UL i, j, min_dist_idx, nebs_avail_cond
-        DT_D min_dist, curr_min_ang, curr_max_ang
-        DT_D quad_ang_incr, x_dist, y_dist, nebr_ang
+        DT_UL i, j, min_dist_idx, refs_in_pie_flag
+        DT_UL n_refs = ref_xs.size, ref_pie_idx
+        DT_D min_dist = INF, two_pi = 2 * M_PI
+        DT_D x_dist, y_dist, ref_dst_ang
 
-    # initiate doubles here
-    min_dist = INF
-    quad_ang_incr = 1. / n_quads
+        long long[::1] srtd_tem_ref_sel_dist_idxs
 
-    for i in range(n_nebs):
-        dists_arr[i] = 0
-        prcssed_nebrs_arr[i] = 0
-        slctd_nebrs_arr[i] = 0
-        slctd_nebrs_dists_arr[i] = 0
-        nebs_idxs_arr[i] = 0
-        idxs_fin_arr[i] = 0
+    for i in range(n_refs):
+        ref_sel_pie_idxs[i] = -1
 
-    for i in range(n_nebs):
-        dists_arr[i] = get_dist(
-            x, 
-            y, 
-            nebrs_x_crds_arr[i],
-            nebrs_y_crds_arr[i])
+    for i in range(n_refs):
+        dists[i] = get_dist(
+            dst_x,
+            dst_y,
+            ref_xs[i],
+            ref_ys[i])
 
-        if (dists_arr[i] <= min_dist_thresh) and (dists_arr[i] < min_dist):
+        if (dists[i] <= min_dist_thresh) and (dists[i] < min_dist):
             min_dist_idx = i
-            min_dist = dists_arr[i]
+            min_dist = dists[i]
 
     if min_dist < INF:
-        idxs_fin_arr[min_dist_idx] = 1
-        return
+        ref_sel_pie_idxs[min_dist_idx] = 1
 
-    for i in range(n_quads):
-#         print('i_quad:', i + 1)
-        
-        curr_min_ang = quad_ang_incr * i * 2 * M_PI
-        curr_max_ang = quad_ang_incr * (i + 1) * 2 * M_PI
-        
-#         print('curr_min_ang:', curr_min_ang)
-#         print('curr_max_ang:', curr_max_ang)
+    else:
+        for j in range(n_pies):
+            ref_pie_cts[j] = 0
 
-        nebs_avail_cond = 0
-
-        for j in range(n_nebs):
-            slctd_nebrs_arr[j] = 0
-            slctd_nebrs_dists_arr[j] = INF
-
-        for j in range(n_nebs):
-            if prcssed_nebrs_arr[j]:
-                continue
-
-            x_dist = nebrs_x_crds_arr[j] - x
-            y_dist = nebrs_y_crds_arr[j] - y
+        for j in range(n_refs):
+            x_dist = ref_xs[j] - dst_x
+            y_dist = ref_ys[j] - dst_y
 
             if not x_dist:
-                x_dist = 1e-7
+                ref_dst_ang = 0.0
 
-            nebr_ang = atan(y_dist / x_dist)
+            else:
+                ref_dst_ang = atan(y_dist / x_dist)
 
-            if (x_dist < 0) and (y_dist > 0):
-                nebr_ang = (0.5 * M_PI) - nebr_ang
+                if (x_dist < 0) and (y_dist > 0):
+                    ref_dst_ang = M_PI + ref_dst_ang
+    
+                elif (x_dist < 0) and (y_dist < 0):
+                    ref_dst_ang = M_PI + ref_dst_ang
+    
+                elif (x_dist > 0) and (y_dist < 0):
+                    ref_dst_ang = two_pi + ref_dst_ang
 
-            elif (x_dist < 0) and (y_dist < 0):
-                nebr_ang = (1.5 * M_PI) - nebr_ang
+            ref_pie_idx = int(ref_dst_ang * n_pies / two_pi)
+            ref_pie_idxs[j] = ref_pie_idx
+            ref_pie_cts[ref_pie_idx] += 1
 
-            elif (x_dist > 0) and (y_dist < 0):
-                nebr_ang = (1.5 * M_PI) - nebr_ang
+        for j in range(n_pies):
+            if not ref_pie_cts[j]:
+                continue
 
-            if (nebr_ang >= curr_min_ang) and (nebr_ang < curr_max_ang):
-                slctd_nebrs_arr[j] = 1
-                prcssed_nebrs_arr[j] = 1
-                slctd_nebrs_dists_arr[j] = dists_arr[j]
+            for i in range(n_refs):
+                if ref_pie_idxs[i] == j:
+                    tem_ref_sel_dists[i] = dists[i]
 
-        for j in range(n_nebs):
-            if slctd_nebrs_arr[j]:
-                nebs_avail_cond = 1
-                break
+                else:
+                    tem_ref_sel_dists[i] = INF
 
-        if nebs_avail_cond:
-            nebs_idxs_arr = np.argsort(slctd_nebrs_dists_arr)
+            srtd_tem_ref_sel_dist_idxs = np.argsort(tem_ref_sel_dists)
+            
+#             print(np.asarray(srtd_tem_ref_sel_dist_idxs))
 
-            for j in range(n_per_quad):
-                idxs_fin_arr[nebs_idxs_arr[j]] = 1
-#                 print('Selected:', nebs_idxs_arr[j])
+            for i in range(n_refs_per_pie):
+#                 if tem_ref_sel_dists[srtd_tem_ref_sel_dist_idxs[i]] == INF:
+#                     break
+
+                ref_sel_pie_idxs[srtd_tem_ref_sel_dist_idxs[i]] = i
     return
+
+# cpdef void slct_nebrs_cy_old(
+#         const DT_D x,
+#         const DT_D y,
+#         const DT_D[:] nebrs_x_crds_arr,
+#         const DT_D[:] nebrs_y_crds_arr,
+#         const DT_UL n_quads,
+#         const DT_UL n_per_quad,
+#         const DT_D min_dist_thresh,
+#         const DT_UL n_nebs,
+#               DT_UL[:] prcssed_nebrs_arr,
+#               DT_UL[:] slctd_nebrs_arr,
+#               long long[:] nebs_idxs_arr,
+#               DT_D[:] dists_arr,
+#               DT_D[:] slctd_nebrs_dists_arr,
+#               DT_UL[:] idxs_fin_arr):
+# 
+#     cdef:
+#         DT_UL i, j, min_dist_idx, nebs_avail_cond, n_prcssed_nebrs = 0
+#         DT_D min_dist, curr_min_ang, curr_max_ang
+#         DT_D quad_ang_incr, x_dist, y_dist, nebr_ang
+# 
+#     min_dist = INF
+#     quad_ang_incr = 1. / n_quads
+# 
+#     for i in range(n_nebs):
+#         dists_arr[i] = 0
+#         prcssed_nebrs_arr[i] = 0
+#         slctd_nebrs_arr[i] = 0
+#         slctd_nebrs_dists_arr[i] = 0
+#         nebs_idxs_arr[i] = 0
+#         idxs_fin_arr[i] = 0
+# 
+#     for i in range(n_nebs):
+#         dists_arr[i] = get_dist(
+#             x, 
+#             y, 
+#             nebrs_x_crds_arr[i],
+#             nebrs_y_crds_arr[i])
+# 
+#         if (dists_arr[i] <= min_dist_thresh) and (dists_arr[i] < min_dist):
+#             min_dist_idx = i
+#             min_dist = dists_arr[i]
+# 
+#     if min_dist < INF:
+#         idxs_fin_arr[min_dist_idx] = 1
+#         return
+# 
+#     for i in range(n_quads):
+#         if n_prcssed_nebrs == n_nebs:
+#             break
+# 
+#         curr_min_ang = quad_ang_incr * i * 2 * M_PI
+#         curr_max_ang = quad_ang_incr * (i + 1) * 2 * M_PI
+# 
+#         for j in range(n_nebs):
+#             slctd_nebrs_arr[j] = 0
+#             slctd_nebrs_dists_arr[j] = INF
+# 
+#         nebs_avail_cond = 0
+#         for j in range(n_nebs):
+#             if prcssed_nebrs_arr[j]:
+#                 continue
+# 
+#             x_dist = nebrs_x_crds_arr[j] - x
+#             y_dist = nebrs_y_crds_arr[j] - y
+# 
+#             if not x_dist:
+#                 nebr_ang = 0.0
+# 
+#             else:
+#                 nebr_ang = atan(y_dist / x_dist)
+# 
+#             if (x_dist < 0) and (y_dist > 0):
+#                 nebr_ang = M_PI + nebr_ang
+# 
+#             elif (x_dist < 0) and (y_dist < 0):
+#                 nebr_ang = M_PI + nebr_ang
+# 
+#             elif (x_dist > 0) and (y_dist < 0):
+#                 nebr_ang = (2.0 * M_PI) + nebr_ang
+# 
+#             if (nebr_ang >= curr_min_ang) and (nebr_ang < curr_max_ang):
+#                 slctd_nebrs_arr[j] = 1
+#                 prcssed_nebrs_arr[j] = 1
+#                 slctd_nebrs_dists_arr[j] = dists_arr[j]
+# 
+#                 n_prcssed_nebrs += 1
+# 
+#         for j in range(n_nebs):
+#             if slctd_nebrs_arr[j]:
+#                 nebs_avail_cond = 1
+#                 break
+# 
+#         if nebs_avail_cond:
+#             nebs_idxs_arr = np.argsort(slctd_nebrs_dists_arr)
+# 
+#             for j in range(n_per_quad):
+# 
+#                 idxs_fin_arr[nebs_idxs_arr[j]] = 1
+#     return

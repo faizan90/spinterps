@@ -15,7 +15,7 @@ from ..cyth import (
     SimpleKriging,
     ExternalDriftKriging_MD,
     get_idw_arr,
-    slct_nebrs_cy)
+    sel_equidist_refs)
 
 plt.ioff()
 
@@ -108,22 +108,7 @@ class SpInterpSteps:
             else:
                 model = None
 
-#             self._interp(
-#                 curr_data_vals,
-#                 model,
-#                 curr_stns,
-#                 interp_time,
-#                 krg_flag,
-#                 curr_x_coords,
-#                 curr_y_coords,
-#                 curr_drift_vals,
-#                 interp_type,
-#                 drft_arrs,
-#                 idw_exp,
-#                 interp_flds,
-#                 i)
-
-            self._interp_new(
+            self._interp(
                 curr_data_vals,
                 model,
                 curr_stns,
@@ -137,6 +122,21 @@ class SpInterpSteps:
                 idw_exp,
                 interp_flds,
                 i)
+
+#             self._interp_new(
+#                 curr_data_vals,
+#                 model,
+#                 curr_stns,
+#                 interp_time,
+#                 krg_flag,
+#                 curr_x_coords,
+#                 curr_y_coords,
+#                 curr_drift_vals,
+#                 interp_type,
+#                 drft_arrs,
+#                 idw_exp,
+#                 interp_flds,
+#                 i)
 
             if self._plot_figs_flag:
                 self._plot_interp(
@@ -376,7 +376,7 @@ class SpInterpSteps:
             idw_exp):
 
         # configured for n_nebs only!
-        n_nebs = 5
+        n_nebs = 30
 
         full_neb_idxs, grps_ctr, full_neb_idxs_grps = self._get_pt_neb_idxs(
             curr_x_coords, curr_y_coords, n_nebs=n_nebs, neb_range=None)
@@ -386,8 +386,8 @@ class SpInterpSteps:
         for grp_idx in range(grps_ctr):
             same_grp_idxs = np.where(full_neb_idxs_grps[:, 0] == grp_idx)[0]
 
-            if same_grp_idxs.size != 1:
-                print(f'grp_idx: {grp_idx}, N: {same_grp_idxs.size}')
+#             if same_grp_idxs.size != 1:
+#                 print(f'grp_idx: {grp_idx}, N: {same_grp_idxs.size}')
 
             grp_dst_x_crds = self._interp_x_crds_msh[same_grp_idxs]
             grp_dst_y_crds = self._interp_y_crds_msh[same_grp_idxs]
@@ -607,15 +607,16 @@ class SpInterpSteps:
         else:
             raise NotImplementedError
 
-        n_quads = 8
-        n_per_quad = 2
-        min_dist_thresh = 0
-        dists_arr = np.zeros(n_nebs_tot, dtype=np.float64)
-        prcssed_nebrs_arr = np.zeros(n_nebs_tot, dtype=np.uint32)
-        slctd_nebrs_arr = np.zeros(n_nebs_tot, dtype=np.uint32)
-        slctd_nebrs_dists_arr = np.zeros(n_nebs_tot, dtype=np.float64)
-        nebs_idxs_arr = np.zeros(n_nebs_tot, dtype=np.int64)
-        fin_nebs_idxs_arr = np.zeros(n_nebs_tot, dtype=np.uint32)
+        if n_nebs is not None:
+            n_pies = 16
+            n_refs_per_pie = 30
+            min_dist_thresh = 0
+            dists = np.zeros(n_nebs_tot, dtype=np.float64)
+            ref_pie_idxs = np.zeros(n_nebs_tot, dtype=np.uint32)
+            tem_ref_sel_dists = np.zeros(n_nebs_tot, dtype=np.float64)
+#             srtd_tem_ref_sel_dist_idxs = np.zeros(n_nebs_tot, dtype=np.int64)
+            ref_sel_pie_idxs = np.zeros(n_nebs_tot, dtype=np.int64)
+            ref_pie_cts = np.zeros(n_pies, dtype=np.uint32)
 
         full_neb_idxs = np.full(
             (self._interp_x_crds_msh.size, n_neb_idxs_cols),
@@ -626,33 +627,47 @@ class SpInterpSteps:
             interp_x_crd = self._interp_x_crds_msh[i]
             interp_y_crd = self._interp_y_crds_msh[i]
 
-            dists = (
-                ((interp_x_crd - curr_x_coords) ** 2) +
-                ((interp_y_crd - curr_y_coords) ** 2)) ** 0.5
+#             dists = (
+#                 ((interp_x_crd - curr_x_coords) ** 2) +
+#                 ((interp_y_crd - curr_y_coords) ** 2)) ** 0.5
 
             if n_nebs is not None:
-                slct_nebrs_cy(
+                sel_equidist_refs(
                     interp_x_crd,
                     interp_y_crd,
                     curr_x_coords,
                     curr_y_coords,
-                    n_quads,
-                    n_per_quad,
+                    n_pies,
+                    n_refs_per_pie,
                     min_dist_thresh,
-                    n_nebs_tot,
-                    prcssed_nebrs_arr,
-                    slctd_nebrs_arr,
-                    nebs_idxs_arr,
-                    dists_arr,
-                    slctd_nebrs_dists_arr,
-                    fin_nebs_idxs_arr)
+#                     srtd_tem_ref_sel_dist_idxs,
+                    dists,
+                    tem_ref_sel_dists,
+                    ref_sel_pie_idxs,
+                    ref_pie_idxs,
+                    ref_pie_cts)
 
-                fin_nebs_idxs_wh_arr = np.where(fin_nebs_idxs_arr)[0]
+#                 print(i, ref_pie_cts)
+#                 print(i, ref_sel_pie_idxs)
 
-                full_neb_idxs[i, :] = np.argsort(fin_nebs_idxs_wh_arr[:n_nebs])
-                # full_neb_idxs[i, :] = np.argsort(np.argsort(dists)[:n_nebs])
+                ref_sel_pie_idxs_wh = np.where(ref_sel_pie_idxs > -1)[0]
+                fin_nebs_idxs_wh_arr = ref_sel_pie_idxs_wh[np.argsort(ref_sel_pie_idxs[ref_sel_pie_idxs_wh])]
+
+                full_neb_idxs[i, :] = np.sort(fin_nebs_idxs_wh_arr[:n_nebs])
+
+#                 dists = (
+#                     ((interp_x_crd - curr_x_coords) ** 2) +
+#                     ((interp_y_crd - curr_y_coords) ** 2)) ** 0.5
+#
+#                 full_neb_idxs[i, :] = np.sort(np.argsort(dists)[:n_nebs])
+
+#                 print(i, full_neb_idxs[i])
 
             elif neb_range is not None:
+                dists = (
+                    ((interp_x_crd - curr_x_coords) ** 2) +
+                    ((interp_y_crd - curr_y_coords) ** 2)) ** 0.5
+
                 neb_idxs = np.where(dists <= neb_range)[0]
                 full_neb_idxs[i, :neb_idxs.size] = neb_idxs
 

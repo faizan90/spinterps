@@ -145,7 +145,7 @@ class KrigingDrift:
         interp_drift_cols_mesh = interp_drift_cols_mesh.ravel()
         interp_drift_rows_mesh = interp_drift_rows_mesh.ravel()
 
-        if self._cell_sel_prms_set:
+        if self._cell_sel_prms_set and (self._cntn_idxs is not None):
             interp_drift_cols_mesh = interp_drift_cols_mesh[self._cntn_idxs]
             interp_drift_rows_mesh = interp_drift_rows_mesh[self._cntn_idxs]
 

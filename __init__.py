@@ -1,6 +1,6 @@
 from .cyth import (
     get_idw_arr,
-    slct_nebrs_cy,
+    sel_equidist_refs,
     OrdinaryKriging,
     SimpleKriging,
     ExternalDriftKriging_MD)
