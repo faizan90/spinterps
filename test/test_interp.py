@@ -23,12 +23,12 @@ def main():
 
     in_data_file = os.path.join(
             r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-            r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
+            r'Mulde_preciptiation_infilling_1950_2015',
             r'02_combined_station_outputs',
             r'infilled_var_df_infill_stns.csv')
 
     in_vgs_file = os.path.join(
-        r'Q:\Synchronize_LDs\Mulde_temperature_avg_kriging_20190417',
+        r'Q:\Synchronize_LDs\Mulde_precipitation_kriging_20190417',
         r'vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
@@ -37,9 +37,9 @@ def main():
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp_new_alg_quad_neb_selection_05_old_alg'
-    var_units = 'C'  # u'\u2103'  # 'centigrade'
-    var_name = 'temperature'
+    out_dir = r'test_spinterp_new_alg_quad_neb_selection_16_new_alg_10_nebs'
+    var_units = 'mm'  # u'\u2103'  # 'centigrade'
+    var_name = 'precipitation'
 
     out_krig_net_cdf_file = r'mulde_precipitation_kriging_%s_to_%s_1km_test.nc'
 
@@ -61,13 +61,13 @@ def main():
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_ppt_thresh = -float('inf')  # 1
+    min_ppt_thresh = 1  # -float('inf')  # 1
 
-    min_var_val = None
+    min_var_val = 0.0  # None
     max_var_val = None
 
     idw_exps = [1, 3, 5]
-    n_cpus = 1
+    n_cpus = 7
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
@@ -83,12 +83,12 @@ def main():
     interp_around_polys_flag = True
 
 #     ord_krige_flag = False
-#     sim_krige_flag = False
+    sim_krige_flag = False
 #     edk_krige_flag = False
 #     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
-    interp_around_polys_flag = False
+#     interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,

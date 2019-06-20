@@ -198,12 +198,12 @@ cpdef void sel_equidist_refs(
                     tem_ref_sel_dists[i] = INF
 
             srtd_tem_ref_sel_dist_idxs = np.argsort(tem_ref_sel_dists)
-            
+
 #             print(np.asarray(srtd_tem_ref_sel_dist_idxs))
 
-            for i in range(n_refs_per_pie):
-#                 if tem_ref_sel_dists[srtd_tem_ref_sel_dist_idxs[i]] == INF:
-#                     break
+            for i in range(n_refs):
+                if tem_ref_sel_dists[srtd_tem_ref_sel_dist_idxs[i]] == INF:
+                    break
 
                 ref_sel_pie_idxs[srtd_tem_ref_sel_dist_idxs[i]] = i
     return

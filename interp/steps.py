@@ -108,22 +108,7 @@ class SpInterpSteps:
             else:
                 model = None
 
-            self._interp(
-                curr_data_vals,
-                model,
-                curr_stns,
-                interp_time,
-                krg_flag,
-                curr_x_coords,
-                curr_y_coords,
-                curr_drift_vals,
-                interp_type,
-                drft_arrs,
-                idw_exp,
-                interp_flds,
-                i)
-
-#             self._interp_new(
+#             self._interp(
 #                 curr_data_vals,
 #                 model,
 #                 curr_stns,
@@ -137,6 +122,21 @@ class SpInterpSteps:
 #                 idw_exp,
 #                 interp_flds,
 #                 i)
+
+            self._interp_new(
+                curr_data_vals,
+                model,
+                curr_stns,
+                interp_time,
+                krg_flag,
+                curr_x_coords,
+                curr_y_coords,
+                curr_drift_vals,
+                interp_type,
+                drft_arrs,
+                idw_exp,
+                interp_flds,
+                i)
 
             if self._plot_figs_flag:
                 self._plot_interp(
@@ -376,7 +376,7 @@ class SpInterpSteps:
             idw_exp):
 
         # configured for n_nebs only!
-        n_nebs = 30
+        n_nebs = 10
 
         full_neb_idxs, grps_ctr, full_neb_idxs_grps = self._get_pt_neb_idxs(
             curr_x_coords, curr_y_coords, n_nebs=n_nebs, neb_range=None)
@@ -651,9 +651,22 @@ class SpInterpSteps:
 #                 print(i, ref_sel_pie_idxs)
 
                 ref_sel_pie_idxs_wh = np.where(ref_sel_pie_idxs > -1)[0]
-                fin_nebs_idxs_wh_arr = ref_sel_pie_idxs_wh[np.argsort(ref_sel_pie_idxs[ref_sel_pie_idxs_wh])]
+#                 sort_ref_sel_pie_idxs_wh_idxs = np.argsort(ref_sel_pie_idxs[ref_sel_pie_idxs_wh])
+#                 fin_nebs_idxs_wh_arr = ref_sel_pie_idxs_wh[sort_ref_sel_pie_idxs_wh_idxs]
 
-                full_neb_idxs[i, :] = np.sort(fin_nebs_idxs_wh_arr[:n_nebs])
+                uniq_ref_sel_pie_idxs = np.unique(ref_sel_pie_idxs[ref_sel_pie_idxs_wh])
+
+                full_sorted_nebs_idxs = []
+                for uniq_ref_sel_pie_idx in uniq_ref_sel_pie_idxs:
+                    same_pie_idxs = np.where(ref_sel_pie_idxs == uniq_ref_sel_pie_idx)[0]
+                    same_pie_dist_sorted_idxs = same_pie_idxs[np.argsort(dists[same_pie_idxs])]
+
+                    full_sorted_nebs_idxs.extend(same_pie_dist_sorted_idxs.tolist())
+
+                full_sorted_nebs_idxs = np.array(full_sorted_nebs_idxs)
+
+                full_neb_idxs[i, :] = full_sorted_nebs_idxs[:n_nebs]
+#                 full_neb_idxs[i, :] = np.sort(fin_nebs_idxs_wh_arr[:n_nebs])
 
 #                 dists = (
 #                     ((interp_x_crd - curr_x_coords) ** 2) +
