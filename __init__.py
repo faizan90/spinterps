@@ -1,6 +1,10 @@
 from .cyth import (
-    get_idw_arr,
+    fill_dists_one_pt,
+    fill_wts_and_sum,
+    get_mults_sum,
     sel_equidist_refs,
+    fill_dists_2d_mat,
+    fill_vg_var_arr,
     OrdinaryKriging,
     SimpleKriging,
     ExternalDriftKriging_MD)

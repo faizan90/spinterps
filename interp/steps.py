@@ -9,13 +9,18 @@ import netCDF4 as nc
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 
+from .grps import SpInterpNeighborGrouping as SIG
 from ..misc import traceback_wrapper
 from ..cyth import (
     OrdinaryKriging,
     SimpleKriging,
     ExternalDriftKriging_MD,
-    get_idw_arr,
-    sel_equidist_refs)
+    fill_dists_one_pt,
+    fill_wts_and_sum,
+    get_mults_sum,
+    sel_equidist_refs,
+    fill_dists_2d_mat,
+    fill_vg_var_arr)
 
 plt.ioff()
 
@@ -25,6 +30,7 @@ class SpInterpSteps:
     def __init__(self, spinterp_main_cls):
 
         read_labs = [
+            '_vb',
             '_n_cpus',
             '_mp_flag',
             '_crds_df',
@@ -38,14 +44,16 @@ class SpInterpSteps:
             '_plot_figs_flag',
             '_interp_crds_orig_shape',
             '_interp_x_crds_plt_msh',
-            '_interp_y_crds_plot_msh',
+            '_interp_y_crds_plt_msh',
             '_interp_x_crds_msh',
             '_interp_y_crds_msh',
             '_index_type',
             '_nc_file_path',
+            '_neb_sel_mthd',
+            '_n_nebs',
+            '_n_pies',
+            '_n_dst_pts',
             ]
-
-        self._debug = False
 
         for read_lab in read_labs:
             setattr(self, read_lab, getattr(spinterp_main_cls, read_lab))
@@ -78,91 +86,137 @@ class SpInterpSteps:
         if self._plot_figs_flag:
             out_figs_dir = interp_arg[1]
 
-        curr_drift_vals = None
+        time_stn_grp_drifts = None
 
         fin_date_range = data_df.index
 
         interp_flds = np.full(
             (fin_date_range.shape[0],
-             self._interp_crds_orig_shape[0],
-             self._interp_crds_orig_shape[1]),
+             np.prod(self._interp_crds_orig_shape)),
             np.nan,
             dtype=np.float32)
 
-        for i, interp_time in enumerate(fin_date_range):
-            curr_stns = data_df.loc[interp_time, :].dropna().index
+        grp_cls = SIG(
+            self._neb_sel_mthd,
+            self._n_nebs,
+            self._n_pies,
+            self._n_dst_pts,
+            self._interp_x_crds_msh,
+            self._interp_y_crds_msh,
+            verbose=self._vb)
 
-            assert curr_stns.shape == np.unique(curr_stns).shape
+        grp_cls._vb_debug = True
 
-            curr_data_vals = data_df.loc[interp_time, curr_stns].values
-            curr_x_coords = self._crds_df.loc[curr_stns, 'X'].values
-            curr_y_coords = self._crds_df.loc[curr_stns, 'Y'].values
+        grps_in_time = grp_cls._get_grps_in_time(data_df)
+
+        for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
+            if self._vb:
+                print('Time stn group:', time_stn_grp)
+
+            assert time_stn_grp.size == np.unique(time_stn_grp).size
+
+            time_stn_grp_ref_xs = self._crds_df.loc[time_stn_grp, 'X'].values
+            time_stn_grp_ref_ys = self._crds_df.loc[time_stn_grp, 'Y'].values
+
+            time_stn_grp_data_vals = data_df.loc[
+                cmn_time_stn_grp_idxs, time_stn_grp].values
 
             if interp_type == 'EDK':
-                curr_drift_vals = (
-                    np.atleast_2d(stns_drft_df.loc[curr_stns].values.T))
+                time_stn_grp_drifts = stns_drft_df.loc[time_stn_grp].values
 
             if krg_flag:
-                model = str(vgs_ser.loc[interp_time])
+                models = vgs_ser.loc[cmn_time_stn_grp_idxs].values
 
             else:
-                model = None
+                models = None
 
-#             self._interp(
-#                 curr_data_vals,
-#                 model,
-#                 curr_stns,
-#                 interp_time,
-#                 krg_flag,
-#                 curr_x_coords,
-#                 curr_y_coords,
-#                 curr_drift_vals,
-#                 interp_type,
-#                 drft_arrs,
-#                 idw_exp,
-#                 interp_flds,
-#                 i)
+            time_neb_idxs, time_neb_idxs_grps = grp_cls._get_neb_idxs_and_grps(
+                time_stn_grp_ref_xs, time_stn_grp_ref_ys)
 
-            self._interp_new(
-                curr_data_vals,
-                model,
-                curr_stns,
-                interp_time,
-                krg_flag,
-                curr_x_coords,
-                curr_y_coords,
-                curr_drift_vals,
-                interp_type,
-                drft_arrs,
-                idw_exp,
-                interp_flds,
-                i)
+            interp_flds_time_idxs = np.where(cmn_time_stn_grp_idxs)[0]
 
-            if self._plot_figs_flag:
+            pts_done_flags = np.zeros(self._n_dst_pts, dtype=bool)
+            sub_pts_flags = np.zeros(self._n_dst_pts, dtype=bool)
+            for time_neb_idxs_grp in time_neb_idxs_grps:
+                sub_dst_xs = self._interp_x_crds_msh[time_neb_idxs_grp]
+                sub_dst_ys = self._interp_y_crds_msh[time_neb_idxs_grp]
+
+                sub_ref_idxs = time_neb_idxs[time_neb_idxs_grp[0]]
+                sub_ref_xs = time_stn_grp_ref_xs[sub_ref_idxs]
+                sub_ref_ys = time_stn_grp_ref_ys[sub_ref_idxs]
+                sub_ref_data = time_stn_grp_data_vals[
+                    :, sub_ref_idxs].copy('c')
+
+                if interp_type == 'EDK':
+                    sub_ref_drifts = time_stn_grp_drifts[sub_ref_idxs, :]
+                    sub_dst_drifts = drft_arrs[:, time_neb_idxs_grp]
+
+                else:
+                    sub_ref_drifts = None
+                    sub_dst_drifts = None
+
+                sub_pts_flags[:] = False
+                interp_vals = self._interp2(
+                    sub_dst_xs,
+                    sub_dst_ys,
+                    sub_ref_xs,
+                    sub_ref_ys,
+                    sub_ref_data,
+                    interp_type,
+                    sub_ref_drifts,
+                    sub_dst_drifts,
+                    idw_exp,
+                    krg_flag,
+                    models)
+
+                pts_done_flags[time_neb_idxs_grp] = True
+                sub_pts_flags[time_neb_idxs_grp] = True
+
+                if self._cntn_idxs is not None:
+                    for j, time_idx in enumerate(interp_flds_time_idxs):
+                        interp_flds[
+                            time_idx, self._cntn_idxs[sub_pts_flags]] = (
+                                interp_vals[j])
+
+                else:
+                    for j, time_idx in enumerate(interp_flds_time_idxs):
+                        interp_flds[time_idx, sub_pts_flags] = interp_vals[j]
+
+            assert np.all(pts_done_flags)
+#         raise Exception
+
+        if self._plot_figs_flag:
+            for i in range(fin_date_range.shape[0]):
+                if interp_type == 'IDW':
+                    model = None
+
+                else:
+                    model = vgs_ser.iloc[i]
+
                 self._plot_interp(
-                    interp_flds[i],
-                    curr_x_coords,
-                    curr_y_coords,
-                    interp_time,
+                    interp_flds[i].reshape(self._interp_crds_orig_shape),
+                    self._crds_df.loc[:, 'X'].values,
+                    self._crds_df.loc[:, 'Y'].values,
+                    fin_date_range[i],
                     model,
                     interp_type,
                     out_figs_dir)
-
-        with lock:
-            nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
-            ar_is = nc_is - beg_idx
-
-            nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r+')
-
-            for i in range(max_rng):
-                nc_hdl[interp_arg[2]][
-                    nc_is[i]:nc_is[i + 1], :, :] = (
-                        interp_flds[ar_is[i]:ar_is[i + 1]])
-
-            nc_hdl.sync()
-            nc_hdl.close()
-
-            interp_flds = None
+#
+#         with lock:
+#             nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
+#             ar_is = nc_is - beg_idx
+#
+#             nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r+')
+#
+#             for i in range(max_rng):
+#                 nc_hdl[interp_arg[2]][
+#                     nc_is[i]:nc_is[i + 1], :, :] = (
+#                         interp_flds[ar_is[i]:ar_is[i + 1]])
+#
+#             nc_hdl.sync()
+#             nc_hdl.close()
+#
+#             interp_flds = None
         return
 
     def _interp(
@@ -217,13 +271,14 @@ class SpInterpSteps:
                 raise Exception
 
         else:
-            interp_vals = get_idw_arr(
-                self._interp_x_crds_msh,
-                self._interp_y_crds_msh,
-                curr_x_coords,
-                curr_y_coords,
-                curr_data_vals,
-                idw_exp)
+            raise Exception
+#             interp_vals = get_idw_arr(
+#                 self._interp_x_crds_msh,
+#                 self._interp_y_crds_msh,
+#                 curr_x_coords,
+#                 curr_y_coords,
+#                 curr_data_vals,
+#                 idw_exp)
 
         if self._cntn_idxs is not None:
             interp_flds[interp_fld_idx].ravel()[self._cntn_idxs] = interp_vals
@@ -234,6 +289,101 @@ class SpInterpSteps:
 
         self._mod_min_max(interp_flds[interp_fld_idx])
         return
+
+    def _interp2(
+            self,
+            dst_xs,
+            dst_ys,
+            ref_xs,
+            ref_ys,
+            ref_data,
+            interp_type,
+            ref_drfts,
+            dst_drfts,
+            idw_exp,
+            krg_flag,
+            models):
+
+        n_dsts = dst_xs.size
+        n_refs = ref_xs.size
+        n_time = ref_data.shape[0]
+
+        dst_data = np.full((n_time, n_dsts), np.nan)
+
+        if not krg_flag:
+            wts = np.full(n_refs, np.nan)
+            ref_dst_dists = np.full(n_refs, np.nan)
+
+            for i in range(n_dsts):
+                fill_dists_one_pt(
+                    dst_xs[i], dst_ys[i], ref_xs, ref_ys, ref_dst_dists)
+
+                wts_sum = fill_wts_and_sum(ref_dst_dists, wts, idw_exp)
+
+                for j in range(n_time):
+                    mults_sum = get_mults_sum(wts, ref_data[j])
+
+                    dst_data[j, i] = mults_sum / wts_sum
+
+        else:
+            if interp_type in ('OK', 'SK'):
+                add_rc = 1
+
+            elif interp_type == 'EDK':
+                add_rc = 1 + ref_drfts.shape[1]
+
+            else:
+                raise NotImplementedError
+
+            ref_2d_vars = np.zeros((n_refs + add_rc, n_refs + add_rc))
+            ref_2d_dists = np.full((n_refs, n_refs), np.nan)
+            dst_ref_2d_dists = np.full((n_dsts, n_refs), np.nan)
+            dst_ref_2d_vars = np.zeros((n_dsts, n_refs + add_rc))
+
+            fill_dists_2d_mat(ref_xs, ref_ys, ref_xs, ref_ys, ref_2d_dists)
+            fill_dists_2d_mat(dst_xs, dst_ys, ref_xs, ref_ys, dst_ref_2d_dists)
+
+            for j in range(n_time):
+                model = models[j]
+                if model == 'nan':
+                    continue
+
+                fill_vg_var_arr(ref_2d_dists, ref_2d_vars, model)
+                fill_vg_var_arr(dst_ref_2d_dists, dst_ref_2d_vars, model)
+
+                if interp_type in ('OK', 'SK'):
+                    ref_2d_vars[n_refs, :n_refs] = 1.0
+                    ref_2d_vars[:, n_refs] = 1.0
+                    ref_2d_vars[n_refs, n_refs] = 0.0
+                    dst_ref_2d_vars[:, n_refs] = 1.0
+
+                elif interp_type == 'EDK':
+                    ref_2d_vars[n_refs, :n_refs] = 1.0
+                    ref_2d_vars[:n_refs, n_refs] = 1.0
+                    dst_ref_2d_vars[:, n_refs] = 1.0
+
+                    for k in range(ref_drfts.shape[1]):
+                        ref_2d_vars[n_refs + 1 + k, :n_refs] = ref_drfts[:, k]
+                        ref_2d_vars[:n_refs, n_refs + 1 + k] = ref_drfts[:, k]
+
+                        dst_ref_2d_vars[:, n_refs + 1 + k] = dst_drfts[k, :]
+
+                else:
+                    raise NotImplementedError
+
+                try:
+                    ref_2d_vars_inv = np.linalg.inv(ref_2d_vars)
+
+                except Exception:
+                    continue
+#                     print(j, ref_2d_vars)
+#                     raise Exception
+
+                for i in range(n_dsts):
+                    lmds = np.matmul(ref_2d_vars_inv, dst_ref_2d_vars[i])
+                    dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
+
+        return dst_data
 
     def _interp_new(
             self,
@@ -313,7 +463,7 @@ class SpInterpSteps:
 
         pclr = ax.pcolormesh(
             self._interp_x_crds_plt_msh,
-            self._interp_y_crds_plot_msh,
+            self._interp_y_crds_plt_msh,
             interp_fld,
             vmin=grd_min,
             vmax=grd_max)
@@ -376,7 +526,7 @@ class SpInterpSteps:
             idw_exp):
 
         # configured for n_nebs only!
-        n_nebs = 10
+        n_nebs = 5
 
         full_neb_idxs, grps_ctr, full_neb_idxs_grps = self._get_pt_neb_idxs(
             curr_x_coords, curr_y_coords, n_nebs=n_nebs, neb_range=None)
@@ -418,13 +568,14 @@ class SpInterpSteps:
                     interp_type)
 
             else:
-                grp_interp_vals = get_idw_arr(
-                    grp_dst_x_crds,
-                    grp_dst_y_crds,
-                    grp_ref_x_crds,
-                    grp_ref_y_crds,
-                    grp_ref_z_crds,
-                    idw_exp)
+                raise Exception
+#                 grp_interp_vals = get_idw_arr(
+#                     grp_dst_x_crds,
+#                     grp_dst_y_crds,
+#                     grp_ref_x_crds,
+#                     grp_ref_y_crds,
+#                     grp_ref_z_crds,
+#                     idw_exp)
 
             assert np.all(np.isnan(interp_vals[same_grp_idxs])), (
                 'All pts should be NaN!')

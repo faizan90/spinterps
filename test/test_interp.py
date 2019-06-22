@@ -37,7 +37,7 @@ def main():
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp_new_alg_quad_neb_selection_17'
+    out_dir = r'test_spinterp_new_alg_quad_neb_selection_20'
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
@@ -66,10 +66,14 @@ def main():
     min_var_val = 0.0  # None
     max_var_val = None
 
-    idw_exps = [1, 3, 5]
+    idw_exps = [5]
     n_cpus = 1
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
+
+    neighbor_selection_method = 'nrst'
+    n_neighbors = 30
+    n_pies = 16
 
     in_sep = ';'
     in_date_fmt = '%Y-%m-%d'
@@ -82,10 +86,10 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-#     ord_krige_flag = False
+    ord_krige_flag = False
     sim_krige_flag = False
 #     edk_krige_flag = False
-#     idw_flag = False
+    idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
     interp_around_polys_flag = False
@@ -140,6 +144,9 @@ def main():
         interp_around_polys_flag,
         sec_buffer_dist)
     spinterp_cls.set_alignment_raster(align_ras_file)
+
+    spinterp_cls.set_neighbor_selection_method(
+        neighbor_selection_method, n_neighbors, n_pies)
 
     spinterp_cls.set_misc_settings(
         n_cpus,

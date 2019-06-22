@@ -1,5 +1,5 @@
 # cython: nonecheck=False
-# cython: boundscheck=True
+# cython: boundscheck=False
 # cython: wraparound=False
 # cython: cdivision=True
 # cython: embedsignature=True
@@ -90,75 +90,6 @@ all_vg_ftns['Pow'] = pow_vg
 all_vg_ftns['Hol'] = hol_vg
 
 
-cpdef void fill_dists_2d_mat(
-        const DT_D[::1] x1s,
-        const DT_D[::1] y1s,
-        const DT_D[::1] x2s,
-        const DT_D[::1] y2s,
-              DT_D[:, ::1] dists):
-
-    cdef:
-        Py_ssize_t i, j
-        DT_D x, y
-
-    for i in xrange(x1s.shape[0]):
-        x = x1s[i]
-        y = y1s[i]
-
-        for j in xrange(x2s.shape[0]):
-            dists[i, j] = (
-                ((x - x2s[j])**2) + ((y - y2s[j])**2))**0.5
-
-    return
-
-
-cpdef void fill_vg_var_arr(
-        const DT_D[:, ::1] dists, DT_D[:, ::1] in_vars, model_str):
-
-    cdef:
-        Py_ssize_t f, g, h
-        int row_ct = dists.shape[0], col_ct = dists.shape[1]
-        string model, submodel, vg, rng, sill
-        vector[string] vgs, vg_models
-        vector[DT_D] sills, ranges
-        vector[f_type] vg_ftns
-        f_type vg_ftn
-
-    model = bytes(model_str, 'utf-8')
-    vg_models = model.split(b'+')
-
-    for submodel in vg_models:
-        submodel = submodel.strip()
-
-        sill, vg = submodel.split(b' ')
-        vg, rng = vg.split(b'(')
-        rng = rng.split(b')')[0]
-        
-        vgs.push_back(vg)
-
-        sills.push_back(float(sill))
-
-        ranges.push_back(max(1e-5, float(rng)))
-
-        vg_ftns.push_back(all_vg_ftns[vg])
-
-    for h in xrange(row_ct):
-        for g in xrange(col_ct):
-            in_vars[h, g] = 0.0
-
-    for f in xrange(vg_ftns.size()):
-        vg_ftn = vg_ftns[f]
-        range_f = ranges[f]
-        sill_f = sills[f]
-
-        for h in xrange(row_ct):
-            for g in xrange(col_ct):
-                in_vars[h, g] += vg_ftn(
-                    dists[h, g], range_f, sill_f)
-
-    return
-
-
 cdef class OrdinaryKriging:
     '''Do ordinary kriging
     '''
@@ -242,7 +173,7 @@ cdef class OrdinaryKriging:
         self.in_vars[self.in_count, :self.in_count] = np.ones(self.in_count)
         self.in_vars[:, self.in_count] = np.ones(self.in_count + 1)
         self.in_vars[self.in_count, self.in_count] = 0
-
+        
         self.in_vars_inv = np.linalg.inv(self.in_vars)
 
         for k in xrange(self.out_count):

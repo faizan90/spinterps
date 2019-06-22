@@ -19,121 +19,104 @@ cdef DT_D INF = np.inf
 cdef extern from 'math.h' nogil:
     cdef:
         DT_D atan(DT_D x)
+        DT_D fabs(DT_D x)
         DT_D M_PI
+        DT_D pow(DT_D x, DT_D y)
 
 
-cpdef void fill_dists_one_pt(
-        const DT_D x, 
-        const DT_D y, 
-        const DT_D[::1] xs, 
-        const DT_D[::1] ys,
-              DT_D[::1] dists):
+cdef extern from 'misc.h' nogil:
+    cdef:
+        DT_D get_dist(
+            const DT_D x1, 
+            const DT_D y1, 
+            const DT_D x2, 
+            const DT_D y2)
+
+        DT_D get_sum(const DT_D *x, const DT_L len_x)
+
+        void fill_idw_wts_arr(
+            const DT_D *x_arr,
+                  DT_D *wts_arr,
+            const DT_D idw_exp,
+            const DT_L len_x)
+
+        void fill_mult_arr(
+            const DT_D *x,
+            const DT_D *y,
+                  DT_D *mult_arr,
+            const DT_L len_x)
+
+
+cpdef DT_D get_idw(
+        const DT_D idw_x,
+        const DT_D idw_y,
+        const DT_D[:] xs,
+        const DT_D[:] ys,
+        const DT_D[:] zs,
+        const DT_D idw_exp,
+              DT_D[:] idw_wts,
+              DT_D[:] dists,
+              DT_D[:] mult_arr):
+
+    """
+    Get IDW value at a point given distances of other points 
+    from it with values and the exponent of the IDW.
+    """
 
     cdef:
         Py_ssize_t i
 
-    for i in range(xs.size):
-        dists[i] = (((x - xs[i])**2) + ((y - ys[i])**2))**0.5
+        DT_L len_x = xs.shape[0]
 
-    return
+        DT_D idw_val, the_sum, the_wts
+
+    for i in range(len_x):
+        dists[i] = get_dist(idw_x, idw_y, xs[i], ys[i])
+
+    fill_idw_wts_arr(&dists[0], &idw_wts[0], idw_exp, len_x)
+
+    fill_mult_arr(&idw_wts[0], &zs[0], &mult_arr[0], len_x)
+
+    the_sum = get_sum(&mult_arr[0], len_x)
+
+    the_wts = get_sum(&idw_wts[0], len_x)
+
+    idw_val = the_sum / the_wts
+
+    return idw_val
 
 
-cpdef DT_D fill_wts_and_sum(
-        const DT_D[::1] dists, DT_D[::1] wts, const DT_D idw_exp):
+cpdef np.ndarray get_idw_arr(
+        DT_D[:] idw_x_arr,
+        DT_D[:] idw_y_arr,
+        DT_D[:] xs,
+        DT_D[:] ys,
+        DT_D[:] zs,
+        DT_D idw_exp):
 
     cdef:
         Py_ssize_t i
-        DT_D wts_sum = 0.0
 
-    for i in range(dists.size):
-        wts[i] = 1.0 / ((dists[i] ** idw_exp))
-        wts_sum += wts[i]
+        DT_L len_x = xs.shape[0], len_idw_z = idw_x_arr.shape[0]
 
-    return wts_sum
+        DT_D[:] idw_wts = np.zeros(shape=len_x, dtype=np.float64)
+        DT_D[:] dists = np.zeros(shape=len_x, dtype=np.float64)
+        DT_D[:] mult_arr = np.zeros(shape=len_x, dtype=np.float64)
+        DT_D[:] idw_z_arr = np.zeros(shape=len_idw_z, dtype=np.float64)
 
+    for i in range(len_idw_z):
+        idw_z_arr[i] = get_idw(
+            idw_x_arr[i],
+            idw_y_arr[i],
+            xs,
+            ys,
+            zs,
+            idw_exp,
+            idw_wts,
+            dists,
+            mult_arr)
 
-cpdef DT_D get_mults_sum(
-        const DT_D[::1] wts, const DT_D[::1] data):
-
-    cdef:
-        Py_ssize_t i
-        DT_D mults_sum = 0.0
-
-    for i in range(wts.size):
-        mults_sum += wts[i] * data[i]
-    return mults_sum
-
-
-# cpdef DT_D get_idw(
-#         const DT_D idw_x,
-#         const DT_D idw_y,
-#         const DT_D[:] xs,
-#         const DT_D[:] ys,
-#         const DT_D[:] zs,
-#         const DT_D idw_exp,
-#               DT_D[:] idw_wts,
-#               DT_D[:] dists,
-#               DT_D[:] mult_arr):
-# 
-#     """
-#     Get IDW value at a point given distances of other points 
-#     from it with values and the exponent of the IDW.
-#     """
-# 
-#     cdef:
-#         Py_ssize_t i
-# 
-#         DT_L len_x = xs.shape[0]
-# 
-#         DT_D idw_val, the_sum, the_wts
-# 
-#     for i in range(len_x):
-#         dists[i] = get_dist(idw_x, idw_y, xs[i], ys[i])
-# 
-#     fill_idw_wts_arr(&dists[0], &idw_wts[0], idw_exp, len_x)
-# 
-#     fill_mult_arr(&idw_wts[0], &zs[0], &mult_arr[0], len_x)
-# 
-#     the_sum = get_sum(&mult_arr[0], len_x)
-# 
-#     the_wts = get_sum(&idw_wts[0], len_x)
-# 
-#     idw_val = the_sum / the_wts
-# 
-#     return idw_val
-# 
-# 
-# cpdef np.ndarray get_idw_arr(
-#         DT_D[:] idw_x_arr,
-#         DT_D[:] idw_y_arr,
-#         DT_D[:] xs,
-#         DT_D[:] ys,
-#         DT_D[:] zs,
-#         DT_D idw_exp):
-# 
-#     cdef:
-#         Py_ssize_t i
-# 
-#         DT_L len_x = xs.shape[0], len_idw_z = idw_x_arr.shape[0]
-# 
-#         DT_D[:] idw_wts = np.zeros(shape=len_x, dtype=np.float64)
-#         DT_D[:] dists = np.zeros(shape=len_x, dtype=np.float64)
-#         DT_D[:] mult_arr = np.zeros(shape=len_x, dtype=np.float64)
-#         DT_D[:] idw_z_arr = np.zeros(shape=len_idw_z, dtype=np.float64)
-# 
-#     for i in range(len_idw_z):
-#         idw_z_arr[i] = get_idw(
-#             idw_x_arr[i],
-#             idw_y_arr[i],
-#             xs,
-#             ys,
-#             zs,
-#             idw_exp,
-#             idw_wts,
-#             dists,
-#             mult_arr)
-# 
-#     return np.asarray(idw_z_arr)
+    return np.asarray(idw_z_arr)
 
 
 cpdef void sel_equidist_refs(
@@ -161,8 +144,13 @@ cpdef void sel_equidist_refs(
     for i in range(n_refs):
         ref_sel_pie_idxs[i] = not_neb_flag
 
-    fill_dists_one_pt(dst_x, dst_y, ref_xs, ref_ys, dists)
     for i in range(n_refs):
+        dists[i] = get_dist(
+            dst_x,
+            dst_y,
+            ref_xs[i],
+            ref_ys[i])
+
         if (dists[i] <= min_dist_thresh) and (dists[i] < min_dist):
             min_dist_idx = i
             min_dist = dists[i]

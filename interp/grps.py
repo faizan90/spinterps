@@ -13,7 +13,14 @@ from ..misc import print_sl, print_el
 class SpInterpNeighborGrouping:
 
     def __init__(
-            self, neb_sel_method, n_nebs, n_pies, n_dst_pts, verbose=True):
+            self,
+            neb_sel_method,
+            n_nebs,
+            n_pies,
+            n_dst_pts,
+            dst_xs,
+            dst_ys,
+            verbose=True):
 
         self._vb = verbose
 
@@ -23,6 +30,8 @@ class SpInterpNeighborGrouping:
         self._n_nebs = n_nebs
         self._n_pies = n_pies
         self._n_dst_pts = n_dst_pts
+        self._dst_xs = dst_xs
+        self._dst_ys = dst_ys
         self._not_neb_flag = -1
         return
 
@@ -42,7 +51,7 @@ class SpInterpNeighborGrouping:
 
         hashes = np.array(hashes)
 
-        n_uniq_hashes = np.unique(hashes)
+        n_uniq_hashes = np.unique(hashes).size
 
         assert np.all(np.isfinite(hashes))
 
@@ -88,7 +97,7 @@ class SpInterpNeighborGrouping:
 
         assert np.all(np.isfinite(hashes))
 
-        n_unique_hashes = np.unique(hashes)
+        n_unique_hashes = np.unique(hashes).size
 
         if self._vb_debug:
             print('N crds unique hashes:', n_unique_hashes)
@@ -99,11 +108,11 @@ class SpInterpNeighborGrouping:
             if sel_flags[i]:
                 continue
 
-            equal_idxs = (hashes == hashes[i])
+            equal_idxs = np.where((hashes == hashes[i]))[0]
 
             sel_flags[equal_idxs] = True
 
-            neb_idxs_grps.append(np.where(equal_idxs)[0])
+            neb_idxs_grps.append(equal_idxs)
 
         assert len(neb_idxs_grps) == n_unique_hashes
         assert np.all(sel_flags)
@@ -112,7 +121,7 @@ class SpInterpNeighborGrouping:
 
     def _get_all_neb_idxs(self, n_refs):
 
-        all_neb_idxs = np.tile(np.arange(n_refs), (n_refs, 1), dtype=int)
+        all_neb_idxs = np.tile(np.arange(n_refs), (self._n_dst_pts, 1))
 
         return all_neb_idxs
 
@@ -124,8 +133,8 @@ class SpInterpNeighborGrouping:
             dtype=int)
 
         for i in range(self._n_dst_pts):
-            dst_x = self._interp_x_crds_msh[i]
-            dst_y = self._interp_y_crds_msh[i]
+            dst_x = self._dst_xs[i]
+            dst_y = self._dst_ys[i]
 
             dists = (
                 ((dst_x - ref_xs) ** 2) +
@@ -152,9 +161,9 @@ class SpInterpNeighborGrouping:
             self._not_neb_flag,
             dtype=int)
 
-        for i in range(self._interp_x_crds_msh.size):
-            dst_x = self._interp_x_crds_msh[i]
-            dst_y = self._interp_y_crds_msh[i]
+        for i in range(self._dst_xs.size):
+            dst_x = self._dst_xs[i]
+            dst_y = self._dst_ys[i]
 
             sel_equidist_refs(
                 dst_x,

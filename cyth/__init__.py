@@ -6,5 +6,11 @@ Created on Dec 10, 2018
 import pyximport
 pyximport.install()
 
-from .idw_nebs import get_idw_arr, sel_equidist_refs
-from .krigings import (OrdinaryKriging, SimpleKriging, ExternalDriftKriging_MD)
+from .idw_nebs import (
+    fill_dists_one_pt, fill_wts_and_sum, get_mults_sum, sel_equidist_refs)
+from .krigings import (
+    fill_dists_2d_mat,
+    fill_vg_var_arr,
+    OrdinaryKriging,
+    SimpleKriging,
+    ExternalDriftKriging_MD)

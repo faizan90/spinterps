@@ -185,7 +185,7 @@ class SpInterpPrepare(SIBD, KDT):
         # must not move
         self._interp_crds_orig_shape = interp_x_coords_mesh.shape
 
-        self._interp_x_crds_plt_msh, self._interp_y_crds_plot_msh = None, None
+        self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = None, None
 
         if self._plot_figs_flag:
             # xy coords for pcolormesh
@@ -195,7 +195,7 @@ class SpInterpPrepare(SIBD, KDT):
             pcolmesh_y_coords = np.linspace(
                 self._y_max, self._y_min, (self._max_row - self._min_row + 1))
 
-            self._interp_x_crds_plt_msh, self._interp_y_crds_plot_msh = (
+            self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = (
                 np.meshgrid(pcolmesh_x_coords, pcolmesh_y_coords))
 
         self._nc_x_crds = interp_x_coords
