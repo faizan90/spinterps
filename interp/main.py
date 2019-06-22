@@ -41,7 +41,7 @@ class SpInterpMain(SID, SIP):
         self._edk_flag = False
         self._idw_flag = False
 
-        self._max_mem_usage_ratio = 0.9
+        self._max_mem_usage_ratio = 0.8
 
         self._main_vrfd_flag = False
         return

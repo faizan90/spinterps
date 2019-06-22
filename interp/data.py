@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from ..variograms.vgsinput import VariogramsData as VD
+from ..misc import print_sl, print_el
 
 
 class SpInterpData(VD):
@@ -33,12 +34,19 @@ class SpInterpData(VD):
         self._min_var_cut = None
         self._max_var_cut = None
 
+        self._neb_sel_mthds = ('all', 'nrst', 'pie')
+
+        self._neb_sel_mthd = 'all'
+        self._n_nebs = None
+        self._n_pies = None
+
         self._vg_ser_set_flag = False
         self._out_dir_set_flag = False
         self._nc_set_flag = False
         self._time_prms_set_flag = False
         self._cell_sel_prms_set = False
         self._algn_ras_set_flag = False
+        self._neb_sel_mthd_set_flag = False
         self._misc_settings_set_flag = False
         self._data_vrfd_flag = False
         return
@@ -82,11 +90,11 @@ class SpInterpData(VD):
         miss_steps_ctr = (self._vgs_ser.values == 'nan').sum()
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print(
                 f'vgs_ser set with a shape of: {self._vgs_ser.shape}. '
                 f'Out of which {miss_steps_ctr} have no variograms.')
-            print('#' * 10)
+            print_el()
 
         self._vg_ser_set_flag = True
         return
@@ -106,9 +114,9 @@ class SpInterpData(VD):
         self._out_dir = out_dir
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Outputs directory set to:', str(self._out_dir))
-            print('#' * 10)
+            print_el()
 
         self._out_dir_set_flag = True
         return
@@ -185,7 +193,7 @@ class SpInterpData(VD):
         self._nc_ylab = 'Y'
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Set the following output netCDF4 file parameters:')
             print(f'File name: {self._nc_out}')
             print(f'Variable units: {self._nc_vunits}')
@@ -195,7 +203,7 @@ class SpInterpData(VD):
             print(f'Time label: {self._nc_tlab}')
             print(f'X-coordinates label: {self._nc_xlab}')
             print(f'Y-coordinates label: {self._nc_ylab}')
-            print('#' * 10)
+            print_el()
 
         self._nc_set_flag = True
         return
@@ -275,12 +283,12 @@ class SpInterpData(VD):
             self._tfreq = None
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Set the following time interpolation parameters:')
             print('Begin time:', self._tbeg)
             print('End time:', self._tend)
             print('Time frequency:', self._tfreq)
-            print('#' * 10)
+            print_el()
 
         self._time_prms_set_flag = True
         return
@@ -365,13 +373,13 @@ class SpInterpData(VD):
             self._cell_bdist = float(polygon_cell_buffer_distance)
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Set the following cell selection parameters:')
             print('Polygons shapefile:', str(self._poly_shp))
             print('interp_around_polys_flag:', self._ipoly_flag)
             print('Buffer distance to select a station:', self._stn_bdist)
             print('Buffer distance to select a cell:', self._cell_bdist)
-            print('#' * 10)
+            print_el()
 
         self._cell_sel_prms_set = True
         return
@@ -402,11 +410,52 @@ class SpInterpData(VD):
         self._algn_ras = align_raster
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Alignment raster set to:', str(self._algn_ras))
-            print('#' * 10)
+            print_el()
 
         self._algn_ras_set_flag = True
+        return
+
+    def set_neighbor_selection_method(
+            self,
+            selection_method,
+            n_neighbors=None,
+            n_pies=None):
+
+        '''
+        Set the type of method to select neighboring points while interpolating
+        '''
+
+        assert isinstance(selection_method, str)
+        assert selection_method in self._neb_sel_mthds
+
+        if (selection_method == 'nrst') or (selection_method == 'pie'):
+            assert isinstance(n_neighbors, int)
+            assert n_neighbors > 0
+
+        elif (selection_method == 'all'):
+            pass
+
+        else:
+            raise NotImplementedError
+
+        if selection_method == 'pie':
+            assert isinstance(n_pies, int)
+            assert 0 < n_pies < np.inf
+            assert n_pies <= n_neighbors
+
+        elif (selection_method == 'all') or (selection_method == 'nrst'):
+            pass
+
+        else:
+            raise NotImplementedError
+
+        self._neb_sel_mthd = selection_method
+        self._n_nebs = n_neighbors
+        self._n_pies = n_pies
+
+        self._neb_sel_mthd_set_flag = True
         return
 
     def set_misc_settings(
@@ -520,7 +569,7 @@ class SpInterpData(VD):
                 'max_cutoff_value!')
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Set the following misc. settings:')
             print('n_cpus:', self._n_cpus)
             print('plot_figs_flag:', self._plot_figs_flag)
@@ -528,7 +577,7 @@ class SpInterpData(VD):
             print('min_value_to_krige_thresh:', self._min_var_thr)
             print('min_cutoff_value:', self._min_var_cut)
             print('max_cutoff_value:', self._max_var_cut)
-            print('#' * 10)
+            print_el()
 
         self._misc_settings_set_flag = True
         return
@@ -540,31 +589,32 @@ class SpInterpData(VD):
         assert self._nc_set_flag
         assert self._time_prms_set_flag
 
-        if (not self._vg_ser_set_flag) and self._vb:
+        if self._vb:
+            if not self._vg_ser_set_flag:
 
-            print('\n', '#' * 10, sep='')
-            print(
-                'No variograms series were set by the user. '
-                'Only non-variogram type interpolations will be possible!')
-            print('#' * 10)
+                print_sl()
+                print(
+                    'No variograms series were set by the user. '
+                    'Only non-variogram type interpolations will be possible!')
+                print_el()
 
-        if (not self._cell_sel_prms_set) and self._vb:
+            if not self._cell_sel_prms_set:
 
-            print('\n', '#' * 10, sep='')
-            print('Cell selection parameters were not set by the user!')
-            print('#' * 10)
+                print_sl()
+                print('Cell selection parameters were not set by the user!')
+                print_el()
 
-        if (not self._algn_ras_set_flag) and self._vb:
+            if not self._algn_ras_set_flag:
 
-            print('\n', '#' * 10, sep='')
-            print('Alignment raster was not set by the user!')
-            print('#' * 10)
+                print_sl()
+                print('Alignment raster was not set by the user!')
+                print_el()
 
-        if (not self._misc_settings_set_flag) and self._vb:
+            if not self._misc_settings_set_flag:
 
-            print('\n', '#' * 10, sep='')
-            print('Using default misc. parameters!')
-            print('#' * 10)
+                print_sl()
+                print('Using default misc. parameters!')
+                print_el()
 
         self._data_vrfd_flag = True
         return

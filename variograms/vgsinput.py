@@ -103,8 +103,9 @@ class VariogramsData:
 
         cmn_stns = stns_time_ser_df.columns.intersection(stns_crds_df.index)
 
-        assert cmn_stns.shape[0], (
-            'No common stations between stns_time_ser_df and stns_crds_df!')
+        assert cmn_stns.shape[0] > 1, (
+            'Less than 2 common stations between stns_time_ser_df and '
+            'stns_crds_df!')
 
         stns_time_ser_df = stns_time_ser_df[cmn_stns]
         stns_crds_df = stns_crds_df.loc[cmn_stns]

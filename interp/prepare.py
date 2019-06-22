@@ -13,8 +13,13 @@ import shapefile as shp
 
 from .drift import KrigingDrift as KDT
 from .bdpolys import SpInterpBoundaryPolygons as SIBD
-from ..misc import get_aligned_shp_bds_and_cell_size
-from ..misc import cnvt_to_pt, chk_cntmt, get_ras_props
+from ..misc import (
+    get_aligned_shp_bds_and_cell_size,
+    cnvt_to_pt,
+    chk_cntmt,
+    get_ras_props,
+    print_sl,
+    print_el)
 
 
 class SpInterpPrepare(SIBD, KDT):
@@ -26,6 +31,8 @@ class SpInterpPrepare(SIBD, KDT):
 
         self._plot_polys = None
         self._cntn_idxs = None
+
+        self._n_dst_pts = None
 
         self._prpd_flag = False
         return
@@ -63,14 +70,14 @@ class SpInterpPrepare(SIBD, KDT):
         self._cell_size = cell_size
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Computed the following aligned coordinates:')
             print('Minimum X:', self._x_min)
             print('Maximum X:', self._x_max)
             print('Minimum Y:', self._y_min)
             print('Maximum Y:', self._y_max)
             print('Cell size:', self._cell_size)
-            print('#' * 10)
+            print_el()
 
         return
 
@@ -102,14 +109,14 @@ class SpInterpPrepare(SIBD, KDT):
         assert self._cell_size is not None, 'Cell size unspecified!'
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Computed the following corner coordinates:')
             print('Minimum X:', self._x_min)
             print('Maximum X:', self._x_max)
             print('Minimum Y:', self._y_min)
             print('Maximum X:', self._x_max)
             print('Cell size:', self._cell_size)
-            print('#' * 10)
+            print_el()
         return
 
     def _prepare_crds(self):
@@ -196,6 +203,16 @@ class SpInterpPrepare(SIBD, KDT):
 
         self._interp_x_crds_msh = interp_x_coords_mesh.ravel()
         self._interp_y_crds_msh = interp_y_coords_mesh.ravel()
+
+        assert (
+            self._interp_x_crds_msh.ndim ==
+            self._interp_y_crds_msh.ndim ==
+            1)
+
+        assert (self._interp_x_crds_msh.size == self._interp_y_crds_msh.size)
+
+        self._n_dst_pts = self._interp_x_crds_msh.size
+
         return
 
     def _select_nearby_cells(self):
@@ -208,7 +225,7 @@ class SpInterpPrepare(SIBD, KDT):
         '''
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print(self._interp_x_crds_msh.shape[0],
                   'cells to interpolate per step before intersection!')
 
@@ -229,7 +246,7 @@ class SpInterpPrepare(SIBD, KDT):
             print(
                 fin_idxs_sum,
                 'cells to interpolate per step after intersection!')
-            print('#' * 10)
+            print_el()
 
         assert fin_idxs_sum, 'No cells selected for interpolation!'
 
@@ -308,6 +325,41 @@ class SpInterpPrepare(SIBD, KDT):
         nc_hdl.close()
         return
 
+    def _vrf_nebs(self):
+
+        assert self._neb_sel_mthd in self._neb_sel_mthds
+
+        n_avail_nebs = self._crds_df.shape[0]
+
+        assert n_avail_nebs > 0
+
+        if self._neb_sel_mthd == 'all':
+            pass
+
+        elif (self._neb_sel_mthd == 'nrst') or (self._neb_sel_mthd == 'pie'):
+            if n_avail_nebs < self._n_nebs:
+
+                print_sl()
+                print(
+                    f'WARNING: Setting the neighbor selection method to '
+                    f'\'all\' because n_neighbors ({self._n_nebs}) '
+                    f'is greater than the number of available stations '
+                    f'({n_avail_nebs})!')
+                print_el()
+
+                self._neb_sel_mthd = 'all'
+                self._n_nebs = None
+                self._n_pies = None
+
+            if self._neb_sel_mthd != 'all':
+                n_avail_nebs_ser = self._data_df.count(axis=0).values
+                assert np.all(n_avail_nebs_ser >= self._n_nebs)
+
+        else:
+            raise NotImplementedError
+
+        return
+
     def _prepare(self):
 
         '''Main call for the preparation of required variables.'''
@@ -351,6 +403,8 @@ class SpInterpPrepare(SIBD, KDT):
 
         if self._cell_sel_prms_set and self._ipoly_flag:
             self._select_nearby_cells()
+
+        self._vrf_nebs()
 
         if self._edk_flag:
             self._prepare_stns_drift()
@@ -430,15 +484,16 @@ class SpInterpPrepare(SIBD, KDT):
         self._initiate_nc()
 
         all_stns = self._data_df.columns.intersection(self._crds_df.index)
-        assert all_stns.shape[0], (
-            'No common stations in data and station coordinates\' '
+
+        assert all_stns.shape[0] > 1, (
+            'Less than 2 common stations in data and station coordinates\' '
             'dataframes!')
 
         if self._edk_flag:
             all_stns = all_stns.intersection(self._stns_drft_df.index)
 
-            assert all_stns.shape[0], (
-                'No common stations in data, station coordinates\' '
+            assert all_stns.shape[0] > 1, (
+                'Less than 2 common stations in data, station coordinates\' '
                 'and station drifts\' dataframes!')
 
             self._stns_drft_df = self._stns_drft_df.loc[all_stns]

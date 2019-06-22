@@ -37,7 +37,7 @@ def main():
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp_new_alg_quad_neb_selection_16_new_alg_10_nebs'
+    out_dir = r'test_spinterp_new_alg_quad_neb_selection_17'
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
@@ -67,7 +67,7 @@ def main():
     max_var_val = None
 
     idw_exps = [1, 3, 5]
-    n_cpus = 7
+    n_cpus = 1
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
@@ -88,7 +88,7 @@ def main():
 #     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
-#     interp_around_polys_flag = False
+    interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,

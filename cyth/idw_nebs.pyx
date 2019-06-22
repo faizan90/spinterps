@@ -125,9 +125,8 @@ cpdef void sel_equidist_refs(
         const DT_D[::1] ref_xs,
         const DT_D[::1] ref_ys,
         const DT_UL n_pies,
-        const DT_UL n_refs_per_pie,
         const DT_D min_dist_thresh,
-#               long long[::1] srtd_tem_ref_sel_dist_idxs,
+        const long long not_neb_flag,
               DT_D[::1] dists,
               DT_D[::1] tem_ref_sel_dists,
               long long[::1] ref_sel_pie_idxs,
@@ -143,7 +142,7 @@ cpdef void sel_equidist_refs(
         long long[::1] srtd_tem_ref_sel_dist_idxs
 
     for i in range(n_refs):
-        ref_sel_pie_idxs[i] = -1
+        ref_sel_pie_idxs[i] = not_neb_flag
 
     for i in range(n_refs):
         dists[i] = get_dist(
@@ -157,7 +156,7 @@ cpdef void sel_equidist_refs(
             min_dist = dists[i]
 
     if min_dist < INF:
-        ref_sel_pie_idxs[min_dist_idx] = 1
+        ref_sel_pie_idxs[min_dist_idx] = 0
 
     else:
         for j in range(n_pies):
@@ -198,8 +197,6 @@ cpdef void sel_equidist_refs(
                     tem_ref_sel_dists[i] = INF
 
             srtd_tem_ref_sel_dist_idxs = np.argsort(tem_ref_sel_dists)
-
-#             print(np.asarray(srtd_tem_ref_sel_dist_idxs))
 
             for i in range(n_refs):
                 if tem_ref_sel_dists[srtd_tem_ref_sel_dist_idxs[i]] == INF:
