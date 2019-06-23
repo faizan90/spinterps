@@ -3,6 +3,8 @@ Created on Nov 26, 2018
 
 @author: Faizan-Uni
 '''
+import warnings
+
 import numpy as np
 import netCDF4 as nc
 
@@ -411,7 +413,10 @@ class SpInterpSteps:
 
         fig, ax = plt.subplots()
 
-        with np.errstate(invalid='ignore'):
+#         with np.errstate(invalid='ignore'):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
             grd_min = np.nanmin(interp_fld)
             grd_max = np.nanmax(interp_fld)
 
