@@ -208,7 +208,6 @@ class SpInterpPrepare(SIBD, KDT):
             1)
 
         assert (self._interp_x_crds_msh.size == self._interp_y_crds_msh.size)
-
         return
 
     def _select_nearby_cells(self):

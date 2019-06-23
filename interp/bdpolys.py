@@ -115,13 +115,13 @@ class SpInterpBoundaryPolygons:
         assert fin_stns, (
             'Found zero stations that are close enough to the polygons!')
 
+        fin_stns = np.unique(fin_stns)
+
         if self._vb:
             print(
                 f'{len(fin_stns)} stations out of {self._crds_df.shape[0]} '
                 f'within buffer zone of polygons_shapefile.')
             print('#' * 10)
-
-        fin_stns = np.unique(fin_stns)
 
         self._data_df = self._data_df.loc[:, fin_stns]
         self._crds_df = self._crds_df.loc[fin_stns, :]

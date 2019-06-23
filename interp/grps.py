@@ -28,10 +28,13 @@ class SpInterpNeighborGrouping:
         assert isinstance(neb_sel_method, str)
         assert neb_sel_method in ('all', 'nrst', 'pie')
 
-        assert isinstance(n_nebs, int)
-        assert isinstance(n_pies, int)
-        assert n_nebs >= n_pies
-        assert n_nebs > 0
+        if neb_sel_method == 'nrst':
+            assert isinstance(n_nebs, int)
+            assert n_nebs > 0
+
+        if neb_sel_method == 'pie':
+            assert isinstance(n_pies, int)
+            assert n_nebs >= n_pies
 
         assert isinstance(dst_xs, np.ndarray)
         assert isinstance(dst_ys, np.ndarray)

@@ -411,8 +411,9 @@ class SpInterpSteps:
 
         fig, ax = plt.subplots()
 
-        grd_min = np.nanmin(interp_fld)
-        grd_max = np.nanmax(interp_fld)
+        with np.errstate(invalid='ignore'):
+            grd_min = np.nanmin(interp_fld)
+            grd_max = np.nanmax(interp_fld)
 
         pclr = ax.pcolormesh(
             self._interp_x_crds_plt_msh,

@@ -424,15 +424,55 @@ class SpInterpData(VD):
             n_pies=None):
 
         '''
-        Set the type of method to select neighboring points while interpolating
+        Set the type of method to select neighboring points while
+        interpolating.
+
+        Parameters
+        ----------
+        selection_method : str
+            The type of method to use while selecting neighbors.
+            Three are described below.
+            Default is all, even if this method is not called.
+            all : take all present neighbors values to interpolate at
+            a given point at a given time step.
+            nrst : take exactly n_neighbors nearest neighbors while
+            interpolating. An error is raised if at any given step
+            available neighbors are less than this. Slow as compared
+            to the all method. But will probably outperform it if
+            neighbors are too many e.g. 500.
+            pie : same as the nrst method but have point sampled
+            almost uniformly from n_pies parts of a circle. Almost
+            because if n_neighbors is not a multiple of n_pies. In
+            such cases the nearest ones are taken. Slow as compared
+            to the nrst method. Recommend using it while
+            interpolating massive grids with a lot of neighbors.
+        n_neighbors : int
+            The numbers of neighbors to take at a given time step
+            if the selection method is nrst or pie. Error is raised
+            if at any time step the given number of neighbors with
+            valid values is less than it. Should be greater than or
+            equal to n_pies (if specified). Has to be specified if
+            selection method is nrst or pie.
+        n_pies : int
+            If selection method is nrst of pie, how many pies to
+            divide a circle in to take a uniform number of neighbors
+            from each pie. This can be due to non uniform distribution
+            of neighbors in plane. Has to be specified if selection
+            method is pie. Always less than or equal to n_neighbors.
         '''
 
-        assert isinstance(selection_method, str)
-        assert selection_method in self._neb_sel_mthds
+        assert isinstance(selection_method, str), (
+            'selection_method not a string!')
+
+        assert selection_method in self._neb_sel_mthds, (
+            f'selection_method can only be one of the '
+            f'{self._neb_sel_mthds} methods!')
 
         if (selection_method == 'nrst') or (selection_method == 'pie'):
-            assert isinstance(n_neighbors, int)
-            assert n_neighbors > 0
+            assert isinstance(n_neighbors, int), (
+                'n_neighbors not an integer!')
+
+            assert n_neighbors > 0, 'n_neighbors less than or equal to zero!'
 
         elif (selection_method == 'all'):
             pass
@@ -441,9 +481,10 @@ class SpInterpData(VD):
             raise NotImplementedError
 
         if selection_method == 'pie':
-            assert isinstance(n_pies, int)
-            assert 0 < n_pies < np.inf
-            assert n_pies <= n_neighbors
+            assert isinstance(n_pies, int), 'n_pies not an integer!'
+
+            assert 0 < n_pies <= n_neighbors, (
+                'n_pies can be in between zero and n_neighbors only!')
 
         elif (selection_method == 'all') or (selection_method == 'nrst'):
             pass
@@ -452,8 +493,20 @@ class SpInterpData(VD):
             raise NotImplementedError
 
         self._neb_sel_mthd = selection_method
-        self._n_nebs = n_neighbors
-        self._n_pies = n_pies
+
+        if selection_method in ('nrst', 'pie'):
+            self._n_nebs = n_neighbors
+
+        if selection_method == 'pie':
+            self._n_pies = n_pies
+
+        if self._vb:
+            print_sl()
+            print('Set the following neighbor selection parameters:')
+            print(f'Neighbor selection method: {self._neb_sel_mthd}')
+            print(f'Number of neighbors to use: {self._n_nebs}')
+            print(f'Number of pies: {self._n_pies}')
+            print_el()
 
         self._neb_sel_mthd_set_flag = True
         return

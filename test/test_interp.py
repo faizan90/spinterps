@@ -37,7 +37,7 @@ def main():
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp_new_alg_quad_neb_selection_20'
+    out_dir = r'test_spinterp_new_alg_quad_neb_selection_22'
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
@@ -71,7 +71,7 @@ def main():
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
-    neighbor_selection_method = 'all'
+    neighbor_selection_method = 'nrst'
     n_neighbors = 10
     n_pies = 8
 
@@ -90,9 +90,9 @@ def main():
 #     sim_krige_flag = False
 #     edk_krige_flag = False
 #     idw_flag = False
-#     plot_figs_flag = False
+    plot_figs_flag = False
 #     verbose = False
-#     interp_around_polys_flag = False
+    interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,
