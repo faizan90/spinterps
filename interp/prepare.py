@@ -32,8 +32,6 @@ class SpInterpPrepare(SIBD, KDT):
         self._plot_polys = None
         self._cntn_idxs = None
 
-        self._n_dst_pts = None
-
         self._prpd_flag = False
         return
 
@@ -210,8 +208,6 @@ class SpInterpPrepare(SIBD, KDT):
             1)
 
         assert (self._interp_x_crds_msh.size == self._interp_y_crds_msh.size)
-
-        self._n_dst_pts = self._interp_x_crds_msh.size
 
         return
 

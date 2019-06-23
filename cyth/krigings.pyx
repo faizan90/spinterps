@@ -1,8 +1,9 @@
 # cython: nonecheck=False
-# cython: boundscheck=True
+# cython: boundscheck=False
 # cython: wraparound=False
 # cython: cdivision=True
 # cython: embedsignature=True
+# cython: language_level=3
 
 from __future__ import division
 import numpy as np
@@ -80,14 +81,14 @@ cdef inline DT_D hol_vg(DT_D h, DT_D r, DT_D s) nogil:
 
 ctypedef DT_D (*f_type)(DT_D h, DT_D r, DT_D s)
 cdef map[string, f_type] all_vg_ftns
-all_vg_ftns['Rng'] = rng_vg
-all_vg_ftns['Nug'] = nug_vg
-all_vg_ftns['Sph'] = sph_vg
-all_vg_ftns['Exp'] = exp_vg
-all_vg_ftns['Lin'] = lin_vg
-all_vg_ftns['Gau'] = gau_vg
-all_vg_ftns['Pow'] = pow_vg
-all_vg_ftns['Hol'] = hol_vg
+all_vg_ftns[b'Rng'] = rng_vg
+all_vg_ftns[b'Nug'] = nug_vg
+all_vg_ftns[b'Sph'] = sph_vg
+all_vg_ftns[b'Exp'] = exp_vg
+all_vg_ftns[b'Lin'] = lin_vg
+all_vg_ftns[b'Gau'] = gau_vg
+all_vg_ftns[b'Pow'] = pow_vg
+all_vg_ftns[b'Hol'] = hol_vg
 
 
 cpdef void fill_dists_2d_mat(
@@ -95,7 +96,7 @@ cpdef void fill_dists_2d_mat(
         const DT_D[::1] y1s,
         const DT_D[::1] x2s,
         const DT_D[::1] y2s,
-              DT_D[:, ::1] dists):
+              DT_D[:, ::1] dists) except +:
 
     cdef:
         Py_ssize_t i, j
@@ -113,49 +114,68 @@ cpdef void fill_dists_2d_mat(
 
 
 cpdef void fill_vg_var_arr(
-        const DT_D[:, ::1] dists, DT_D[:, ::1] in_vars, model_str):
+        const DT_D[:, ::1] dists,
+              DT_D[:, ::1] in_vars,
+        int covar_flag,
+        int diag_mat_flag,
+        vg_models_str) except +:
 
     cdef:
-        Py_ssize_t f, g, h
+        Py_ssize_t g, h
         int row_ct = dists.shape[0], col_ct = dists.shape[1]
-        string model, submodel, vg, rng, sill
-        vector[string] vgs, vg_models
-        vector[DT_D] sills, ranges
-        vector[f_type] vg_ftns
+        int cov_sign, cov_mult
+        string vg_model, vg_s, range_s, sill_s
+        vector[string] vg_models
         f_type vg_ftn
 
-    model = bytes(model_str, 'utf-8')
-    vg_models = model.split(b'+')
+    if covar_flag:
+        cov_sign = -1
+        cov_mult = +1
 
-    for submodel in vg_models:
-        submodel = submodel.strip()
-
-        sill, vg = submodel.split(b' ')
-        vg, rng = vg.split(b'(')
-        rng = rng.split(b')')[0]
-        
-        vgs.push_back(vg)
-
-        sills.push_back(float(sill))
-
-        ranges.push_back(max(1e-5, float(rng)))
-
-        vg_ftns.push_back(all_vg_ftns[vg])
+    else:
+        cov_sign = +1
+        cov_mult = +0
 
     for h in xrange(row_ct):
         for g in xrange(col_ct):
             in_vars[h, g] = 0.0
 
-    for f in xrange(vg_ftns.size()):
-        vg_ftn = vg_ftns[f]
-        range_f = ranges[f]
-        sill_f = sills[f]
+    vg_models = bytes(vg_models_str, 'utf-8').split(b'+')
+    for vg_model in vg_models:
+        vg_model = vg_model.strip()
 
+        sill_s, vg_s = vg_model.split(b' ')
+        vg_s, range_s = vg_s.split(b'(')
+        range_s = range_s.split(b')')[0]
+
+        vg_ftn = all_vg_ftns[vg_s]
+        range_f = max(1e-5, float(range_s))
+        sill_f = float(sill_s)
+
+        if diag_mat_flag:
+            for h in xrange(row_ct):
+                for g in xrange(col_ct):
+                    if g < h:
+                        continue
+
+                    in_vars[h, g] += (
+                        (cov_mult * sill_f) +
+                        (cov_sign * vg_ftn(dists[h, g], range_f, sill_f)))
+
+        else:
+            for h in xrange(row_ct):
+                for g in xrange(col_ct):
+                    in_vars[h, g] += (
+                        (cov_mult * sill_f) +
+                        (cov_sign * vg_ftn(dists[h, g], range_f, sill_f)))
+
+    if diag_mat_flag:
         for h in xrange(row_ct):
             for g in xrange(col_ct):
-                in_vars[h, g] += vg_ftn(
-                    dists[h, g], range_f, sill_f)
+                if g >= h:
+                    continue
 
+                in_vars[h, g] = in_vars[g, h]
     return
 
 

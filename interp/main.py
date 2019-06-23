@@ -83,78 +83,69 @@ class SpInterpMain(SID, SIP):
             print('Parent process ID:', os.getpid())
             print('Interpolation step indices:\n', interp_steps_idxs, sep='')
 
-        for interp_arg in self._interp_args:
-            ivar_name = interp_arg[2]
-
-            if self._vb:
-                interp_beg_time = timeit.default_timer()
-
-                t_passes = int((interp_steps_idxs.shape[0] - 1) / self._n_cpus)
-
-                print('\n', '#' * 10, sep='')
-                print('Current interpolation method:', ivar_name)
-                print(f'Using {t_passes} pass(es) to interpolate.')
-                print('\n')
-
-            for j in range(0, interp_steps_idxs.shape[0] - 1, self._n_cpus):
-                max_rng = min(self._n_cpus, interp_steps_idxs[j:].shape[0])
-                assert max_rng > 0
-
-                if self._vb:
-                    print(
-                        f'Pass number {(j // max_rng) + 1} out of '
-                        f'{t_passes} pass(es).')
-
-                    print(f'Using {max_rng} worker(s) for the current pass.')
-
-                interp_gen = (
-                    self._get_interp_gen_data(
-                        interp_steps_idxs[j + i],
-                        interp_steps_idxs[j + i + 1],
-                        interp_arg,
-                        max_rng)
-
-                    for i in range(max_rng))
-
-                if self._mp_flag:
-                    if self._vb:
-                        print('Sending jobs to all workers...')
-
-                maped_obj = spi_map(
-                    interp_steps_cls.get_interp_flds, interp_gen)
-
-                if not self._mp_flag:
-                    list(maped_obj)
-
-                if self._vb:
-                    print('Done writing for the current pass.')
-                    print('\n')
-
-            if self._vb:
-                tot_beg_time = timeit.default_timer() - interp_beg_time
-
-                print(
-                    f'Done with the interpolation method: {ivar_name} in '
-                    f'{tot_beg_time:0.3f} seconds.',)
-
-                print('#' * 10)
+        ivar_names = [interp_arg[2] for interp_arg in self._interp_args]
 
         if self._vb:
+            interp_beg_time = timeit.default_timer()
+
+            t_passes = int((interp_steps_idxs.shape[0] - 1) / self._n_cpus)
+
+            print('\n', '#' * 10, sep='')
+            print('Current interpolation methods:', ivar_names)
+            print(f'Using {t_passes} pass(es) to interpolate.')
             print('\n')
-            print('Done interpolating!')
+
+        for j in range(0, interp_steps_idxs.shape[0] - 1, self._n_cpus):
+            max_rng = min(self._n_cpus, interp_steps_idxs[j:].shape[0])
+            assert max_rng > 0
+
+            if self._vb:
+                print(
+                    f'Pass number {(j // max_rng) + 1} out of '
+                    f'{t_passes} pass(es).')
+
+                print(f'Using {max_rng} worker(s) for the current pass.')
+
+            interp_gen = (
+                self._get_interp_gen_data(
+                    interp_steps_idxs[j + i],
+                    interp_steps_idxs[j + i + 1],
+                    max_rng)
+
+                for i in range(max_rng))
+
+            maped_obj = spi_map(
+                interp_steps_cls.interpolate_subset, interp_gen)
+
+            if not self._mp_flag:
+                list(maped_obj)
+
+            if self._vb:
+                print('Done writing for the current pass.')
+                print('\n')
+
+        if self._vb:
+            tot_beg_time = timeit.default_timer() - interp_beg_time
+
+            print(
+                f'Done with the interpolation methods: {ivar_names} in '
+                f'{tot_beg_time:0.3f} seconds.',)
+
             print('#' * 10)
         return
 
-    def _get_interp_gen_data(
-            self, beg_idx, end_idx, interp_arg, max_rng):
+    def _get_interp_gen_data(self, beg_idx, end_idx, max_rng):
 
-        if interp_arg[0] in ['OK', 'SK', 'EDK']:
+        if any(
+            [interp_arg[0] in ['OK', 'SK', 'EDK']
+             for interp_arg in self._interp_args]):
+
             vgs_ser = self._vgs_ser
 
         else:
             vgs_ser = None
 
-        if interp_arg[0] == 'EDK':
+        if 'EDK' in [interp_arg[0] for interp_arg in self._interp_args]:
             drft_arrs = self._drft_arrs
             stns_drft_df = self._stns_drft_df
 
@@ -166,7 +157,7 @@ class SpInterpMain(SID, SIP):
             beg_idx,
             end_idx,
             max_rng,
-            interp_arg,
+            self._interp_args,
             self._lock,
             drft_arrs,
             stns_drft_df,
@@ -197,13 +188,15 @@ class SpInterpMain(SID, SIP):
 
         assert max_mem_per_thread > 0, 'Memory too little or too many threads!'
 
-        tot_interp_arr_size = bytes_per_number * (
+        tot_interp_arr_size = bytes_per_number * len(self._interp_args) * (
             self._data_df.shape[0] *
             self._interp_crds_orig_shape[0] *
             self._interp_crds_orig_shape[1])
 
         bytes_per_step = (
-            bytes_per_number * np.prod(self._interp_crds_orig_shape))
+            bytes_per_number *
+            np.prod(self._interp_crds_orig_shape) *
+            len(self._interp_args))
 
         assert max_mem_per_thread > bytes_per_step, (
                 'Interpolation grid too fine or too many threads!')
@@ -214,8 +207,11 @@ class SpInterpMain(SID, SIP):
         else:
             max_concurrent_steps = avail_threads_mem // (
                 bytes_per_number *
+                len(self._interp_args) *
                 self._interp_crds_orig_shape[0] *
                 self._interp_crds_orig_shape[1])
+
+            assert max_concurrent_steps > 0, 'Grid too fine!'
 
             steps_scale_cnst = ceil(
                 self._data_df.shape[0] / max_concurrent_steps)

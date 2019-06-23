@@ -366,3 +366,35 @@ def num2date(num_axis, units, calendar):
 
     assert res is not None
     return res
+
+
+def check_full_nuggetness(model):
+
+    nuggetness = False
+
+    if model == 'nan':
+        pass
+
+    else:
+        models = model.split('+')
+
+        Sill = 0.0
+        Range = 0.0
+        model_names = []
+
+        for submodel in models:
+            submodel = submodel.strip()
+
+            model = submodel.split(' ')[1].split('(')[0]
+            model_names.append(model)
+
+            Sill += float(submodel.split('(')[0].strip()[:-3].strip())
+            Range = max(Range, float(submodel.split('(')[1].split(')')[0]))
+
+        if np.any(np.isclose(np.array([Sill, Range]), 0.0)):
+            nuggetness = True
+
+        if (len(models) == 1) and models[0] == 'Nug':
+            nuggetness = True
+
+    return nuggetness

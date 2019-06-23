@@ -17,7 +17,6 @@ class SpInterpNeighborGrouping:
             neb_sel_method,
             n_nebs,
             n_pies,
-            n_dst_pts,
             dst_xs,
             dst_ys,
             verbose=True):
@@ -26,16 +25,34 @@ class SpInterpNeighborGrouping:
 
         self._vb_debug = False
 
+        assert isinstance(neb_sel_method, str)
+        assert neb_sel_method in ('all', 'nrst', 'pie')
+
+        assert isinstance(n_nebs, int)
+        assert isinstance(n_pies, int)
+        assert n_nebs >= n_pies
+        assert n_nebs > 0
+
+        assert isinstance(dst_xs, np.ndarray)
+        assert isinstance(dst_ys, np.ndarray)
+        assert dst_xs.ndim == dst_ys.ndim == 1
+        assert dst_xs.size > 0
+        assert dst_xs.size == dst_ys.size
+        assert np.all(np.isfinite(dst_xs))
+        assert np.all(np.isfinite(dst_ys))
+
         self._neb_sel_mthd = neb_sel_method
         self._n_nebs = n_nebs
         self._n_pies = n_pies
-        self._n_dst_pts = n_dst_pts
         self._dst_xs = dst_xs
         self._dst_ys = dst_ys
         self._not_neb_flag = -1
+
+        self._n_dst_pts = dst_xs.shape[0]
+
         return
 
-    def _get_grps_in_time(self, data_df):
+    def get_grps_in_time(self, data_df):
 
         assert isinstance(data_df, pd.DataFrame)
         assert np.all(data_df.shape)
@@ -221,17 +238,24 @@ class SpInterpNeighborGrouping:
                     (full_sorted_nebs_idxs.size == 1) or
                     (full_sorted_nebs_idxs.size == dists.size))
 
-            all_neb_idxs[i, :] = full_sorted_nebs_idxs[:self._n_nebs]
+            all_neb_idxs[i, :] = np.sort(full_sorted_nebs_idxs[:self._n_nebs])
 
         assert np.all(np.any(all_neb_idxs != self._not_neb_flag, axis=1))
 
         return all_neb_idxs
 
-    def _get_neb_idxs_and_grps(self, ref_xs, ref_ys):
+    def get_neb_idxs_and_grps(self, ref_xs, ref_ys):
+
+        assert isinstance(ref_xs, np.ndarray)
+        assert isinstance(ref_ys, np.ndarray)
 
         assert ref_xs.ndim == ref_ys.ndim
         assert ref_xs.ndim == 1
+        assert ref_xs.size > 1
         assert ref_xs.size == ref_ys.size
+
+        assert np.all(np.isfinite(ref_xs))
+        assert np.all(np.isfinite(ref_ys))
 
         n_refs = ref_xs.size
 

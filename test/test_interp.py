@@ -45,7 +45,7 @@ def main():
 
     freq = 'D'
     strt_date = r'1950-01-01'
-    end_date = r'1950-01-31'
+    end_date = r'1950-12-31'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
@@ -66,14 +66,14 @@ def main():
     min_var_val = 0.0  # None
     max_var_val = None
 
-    idw_exps = [5]
-    n_cpus = 1
+    idw_exps = [1, 3, 5]
+    n_cpus = 7
     buffer_dist = 20e3
     sec_buffer_dist = 2e3
 
-    neighbor_selection_method = 'nrst'
-    n_neighbors = 30
-    n_pies = 16
+    neighbor_selection_method = 'all'
+    n_neighbors = 10
+    n_pies = 8
 
     in_sep = ';'
     in_date_fmt = '%Y-%m-%d'
@@ -86,13 +86,13 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    ord_krige_flag = False
-    sim_krige_flag = False
+#     ord_krige_flag = False
+#     sim_krige_flag = False
 #     edk_krige_flag = False
-    idw_flag = False
+#     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
-    interp_around_polys_flag = False
+#     interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,
