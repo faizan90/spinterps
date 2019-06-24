@@ -27,6 +27,8 @@ class SpInterpSteps:
 
     def __init__(self, spinterp_main_cls):
 
+        # don't forget to have same time index for all data with time
+
         read_labs = [
             '_vb',
             '_n_cpus',
@@ -82,10 +84,9 @@ class SpInterpSteps:
                 interp_arg[2]: interp_arg[1] for interp_arg in interp_args}
 
         krg_flag = any(
-            [krg_type in interp_types
-             for krg_type in ('OK', 'SK', 'EDK')])
+            [krg_type in interp_types for krg_type in ('OK', 'SK', 'EDK')])
 
-        edk_flag = 'EDK' in [interp_arg[0] for interp_arg in interp_args]
+        edk_flag = 'EDK' in interp_types
 
         time_steps = data_df.index
 
@@ -268,6 +269,7 @@ class SpInterpSteps:
                 nc_hdl.sync()
                 interp_flds_dict[interp_label] = None
 
+            interp_flds = None
             nc_hdl.close()
         return
 
@@ -416,7 +418,6 @@ class SpInterpSteps:
 
         fig, ax = plt.subplots()
 
-#         with np.errstate(invalid='ignore'):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 

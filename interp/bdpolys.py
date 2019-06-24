@@ -7,7 +7,7 @@ Created on Nov 25, 2018
 import ogr
 import numpy as np
 
-from ..misc import cnvt_to_pt, chk_cntmt
+from ..misc import cnvt_to_pt, chk_cntmt, print_sl, print_el
 
 
 class SpInterpBoundaryPolygons:
@@ -25,7 +25,7 @@ class SpInterpBoundaryPolygons:
         '''
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print(
                 'Selecting stations within and around the shapefile '
                 'polygons...')
@@ -121,7 +121,7 @@ class SpInterpBoundaryPolygons:
             print(
                 f'{len(fin_stns)} stations out of {self._crds_df.shape[0]} '
                 f'within buffer zone of polygons_shapefile.')
-            print('#' * 10)
+            print_el()
 
         self._data_df = self._data_df.loc[:, fin_stns]
         self._crds_df = self._crds_df.loc[fin_stns, :]

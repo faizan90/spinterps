@@ -8,6 +8,8 @@ import gdal
 import numpy as np
 import pandas as pd
 
+from ..misc import print_sl, print_el
+
 
 class KrigingDrift:
 
@@ -46,7 +48,7 @@ class KrigingDrift:
             ]
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
+            print_sl()
             print('Assembling drift data...')
 
         for drift_raster in self._drft_rass:
@@ -118,7 +120,7 @@ class KrigingDrift:
 
         if self._vb:
             print('Drift rasters assembled without problems.')
-            print('#' * 10)
+            print_el()
 
         self._drft_asm_flag = True
         return
