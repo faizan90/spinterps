@@ -71,6 +71,9 @@ class SpInterpSteps:
          stns_drft_df,
          vgs_ser) = all_args
 
+        if vgs_ser is not None:
+            assert not data_df.index.difference(vgs_ser.index).shape[0]
+
         interp_types = [interp_arg[0] for interp_arg in interp_args]
         interp_labels = [interp_arg[2] for interp_arg in interp_args]
 

@@ -136,11 +136,13 @@ class SpInterpMain(SID, SIP):
 
     def _get_interp_gen_data(self, beg_idx, end_idx, max_rng):
 
+        data_df = self._data_df.iloc[beg_idx:end_idx]
+
         if any(
             [interp_arg[0] in ['OK', 'SK', 'EDK']
              for interp_arg in self._interp_args]):
 
-            vgs_ser = self._vgs_ser
+            vgs_ser = self._vgs_ser.loc[data_df.index]
 
         else:
             vgs_ser = None
@@ -153,7 +155,7 @@ class SpInterpMain(SID, SIP):
             drft_arrs, stns_drft_df = 2 * [None]
 
         return (
-            self._data_df.iloc[beg_idx:end_idx],
+            data_df,
             beg_idx,
             end_idx,
             max_rng,
