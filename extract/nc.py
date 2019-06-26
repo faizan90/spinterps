@@ -481,15 +481,26 @@ class ExtractNetCDFValues:
             f'{self._in_var_lab} and {self._in_time_lab}!')
 
         if hasattr(in_time, 'units') and hasattr(in_time, 'calendar'):
-            in_time_strs = pd.DatetimeIndex(num2date(
-                in_time[...],
-                in_time.units,
-                in_time.calendar)).strftime(self._time_strs_fmt)
+            try:
+                in_time_strs = pd.DatetimeIndex(num2date(
+                    in_time[...],
+                    in_time.units,
+                    in_time.calendar)).strftime(self._time_strs_fmt)
 
-            h5_str_dt = h5py.special_dtype(vlen=str)
+                h5_str_dt = h5py.special_dtype(vlen=str)
+
+            except Exception as msg:
+                if self._vb:
+                    print(
+                        f'WARNING: Error while converting dates to '
+                        f'strings ({msg})!')
+
+                in_time_strs = None
+                h5_str_dt = None
 
         else:
             in_time_strs = None
+            h5_str_dt = None
 
         path_stem = self._in_path.stem
         assert path_stem, 'Input file has no name?'
