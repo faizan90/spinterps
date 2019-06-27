@@ -32,7 +32,7 @@ class FitVariograms(VI):
 
     def fit_vgs(self):
 
-        assert self._inputs_vrfd_flag
+        assert self._inputs_vrfd_flag, 'Call the verify method first!'
 
         fit_vgs_steps_cls = FitVariogramsSteps(self)
 
@@ -70,13 +70,13 @@ class FitVariograms(VI):
 
     def get_fin_vgs_df(self):
 
-        assert self._vgs_fitted_flag
+        assert self._vgs_fitted_flag, 'Call the fit_vgs method first!'
 
         return self._vg_strs_df
 
     def save_fin_vgs_df(self):
 
-        assert self._vgs_fitted_flag
+        assert self._vgs_fitted_flag, 'Call the fit_vgs method first!'
 
         self._out_dir.mkdir(exist_ok=True)
 
@@ -85,6 +85,8 @@ class FitVariograms(VI):
 
 
 class FitVariogramsSteps:
+
+    '''Intended for use by the FitVariograms class'''
 
     def __init__(self, fit_vg_cls):
 
@@ -166,7 +168,7 @@ class FitVariogramsSteps:
 
         if self._out_figs_path is not None:
             vg_names = vg.best_vg_names
-            if not vg_names:  # FIXME: this does not work sometimes
+            if not vg_names:
                 return
 
             evg = vg.vg_vg_arr
@@ -201,7 +203,7 @@ class FitVariogramsSteps:
 
             plt.grid()
 
-            plt.xlabel('Distance (cells)')
+            plt.xlabel('Distance')
             plt.ylabel('Variogram')
 
             plt.title(

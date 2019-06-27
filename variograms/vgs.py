@@ -817,7 +817,8 @@ class Variogram:
 
             for m in range(len(n)):
                 prms = self.best_vg_params[o][(m * 2): (m * 2 + 2)]
-                rng, sill = prms
+                # rng, sill = prms
+                sill = prms[0]
 
                 cond_sill = (round(sill, 6) == 0.0)
                 if cond_sill:

@@ -74,7 +74,8 @@ class SpInterpSteps:
          vgs_ser) = all_args
 
         if vgs_ser is not None:
-            assert not data_df.index.difference(vgs_ser.index).shape[0]
+            assert not data_df.index.difference(vgs_ser.index).shape[0], (
+                'Data and variogram series have non-intersecting indices!')
 
         interp_types = [interp_arg[0] for interp_arg in interp_args]
         interp_labels = [interp_arg[2] for interp_arg in interp_args]
@@ -109,7 +110,8 @@ class SpInterpSteps:
         grps_in_time = grp_cls.get_grps_in_time(data_df)
 
         for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
-            assert time_stn_grp.size == np.unique(time_stn_grp).size
+            assert time_stn_grp.size == np.unique(time_stn_grp).size, (
+                'Non-unique stations in time group!')
 
             time_stn_grp_ref_xs = self._crds_df.loc[time_stn_grp, 'X'].values
             time_stn_grp_ref_ys = self._crds_df.loc[time_stn_grp, 'Y'].values
@@ -218,7 +220,7 @@ class SpInterpSteps:
 
                 pts_done_flags[time_neb_idxs_grp] = True
 
-            assert np.all(pts_done_flags)
+            assert np.all(pts_done_flags), 'Some points not interpolated!'
 
             if prblm_time_steps:
                 print(

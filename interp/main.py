@@ -52,14 +52,14 @@ class SpInterpMain(SID, SIP):
 
         self._prepare()
 
-        assert self._prpd_flag
+        assert self._prpd_flag, 'Preparing data for interpolation failed!'
 
         self._main_vrfd_flag = True
         return
 
     def interpolate(self):
 
-        assert self._main_vrfd_flag
+        assert self._main_vrfd_flag, 'Call the verify method first!'
 
         interp_steps_idxs = self._get_thread_steps_idxs()
 

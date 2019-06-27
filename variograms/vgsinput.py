@@ -73,6 +73,9 @@ class VariogramsData:
             raise AssertionError(
                 'index_type can only be \'obj\' or \'date\'!')
 
+        assert not np.any(np.isinf(stns_time_ser_df.values)), (
+            'Infinity not allowed in stns_time_ser_df!')
+
         assert all([
             'X' in stns_crds_df.columns,
             'Y' in stns_crds_df.columns]), (
@@ -123,11 +126,11 @@ class VariogramsData:
                 f'Adjusted shape of stns_crds_df after taking common '
                 f'stations: {stns_crds_df.shape}.')
 
-        assert not np.isnan(stns_crds_df['X'].values).sum(), (
-            'NaN values in x-coordinates!')
+        assert np.all(np.isfinite(stns_crds_df['X'].values)), (
+            'Invalid values in x-coordinates!')
 
-        assert not np.isnan(stns_crds_df['Y'].values).sum(), (
-            'NaN values in y-coordinates!')
+        assert np.all(np.isfinite(stns_crds_df['Y'].values)), (
+            'Invalid values in y-coordinates!')
 
         self._data_df = stns_time_ser_df
         self._crds_df = stns_crds_df
@@ -162,26 +165,71 @@ class VariogramsInput(VariogramsData):
             vg_names,
             n_best_vgs):
 
-        '''Set some of the inputs to the Variogram class here'''
+        '''Set some of the inputs to the Variogram class
 
-        assert isinstance(maximum_distance_ratio, float)
-        assert 0 < maximum_distance_ratio <= 1
+        Parameters
+        ----------
+        maximum_distance_ratio : int
+            Maximum allowed distance between pairs while computing variogram
+            as a ratio of the maximum possible distance between any pair.
+        n_vgs_perms : list-like
+            A list-like object having integers that show the number of
+            variogram types that are used to make combinations.
+        nugget_vg : str
+            Type of the nugget variogram. It can be any of the allowed ones.
+        n_opt_grid_points : int
+            The number of grid points between zero and variance (and zero
+            and range) to choose as initial points for optimization. The
+            more it is the slower the optimization and higher the chance of
+            finding the global optimum.
+        vg_names : list-like
+            A list-like object containing the string lables of variograms
+            that can tried for fitting to the empirical variogram.
+        n_best_vgs : int
+            The number of maximum variogram strings to store in the output
+            variogram series. These will be in ascending value of the
+            objective function value for each step i.e. the best is the first
+            one.
+        '''
 
-        assert hasattr(n_vgs_perms, '__iter__')
-        assert all([isinstance(i, int) for i in n_vgs_perms])
-        assert all([i > 0 for i in n_vgs_perms])
+        assert isinstance(maximum_distance_ratio, float), (
+            'maximum_distance_ratio not a floating value!')
 
-        assert isinstance(nugget_vg, str)
+        assert 0 < maximum_distance_ratio <= 1, (
+            'maximum_distance_ratio must be inbetween zero and one!')
 
-        assert isinstance(n_opt_grid_points, int)
-        assert 0 < n_opt_grid_points <= 100
+        assert hasattr(n_vgs_perms, '__iter__'), (
+            'n_vgs_perms not an iterable!')
 
-        assert hasattr(vg_names, '__iter__')
-        assert all([isinstance(i, str) for i in vg_names])
-        assert all([len(i) for i in vg_names])
+        assert all([isinstance(i, int) for i in n_vgs_perms]), (
+            'n_vgs_perms can only have integer values inside!')
 
-        assert isinstance(n_best_vgs, int)
-        assert 0 < n_best_vgs < 100
+        assert all([i > 0 for i in n_vgs_perms]), (
+            'n_vgs_perms have values less than or equal to zero!')
+
+        assert np.unique(n_vgs_perms).size == len(n_vgs_perms), (
+            'Non-unique values in n_vgs_perms!')
+
+        assert isinstance(nugget_vg, str), 'nugget_vg not an str object!'
+
+        assert isinstance(n_opt_grid_points, int), (
+            'n_opt_grid_points not an integer!')
+
+        assert 0 < n_opt_grid_points < np.inf, (
+            'n_opt_grid_points should be greater than zero and less '
+            'than infinity!')
+
+        assert hasattr(vg_names, '__iter__'), 'vg_names not an iterable!'
+
+        assert all([isinstance(i, str) for i in vg_names]), (
+            'Only str objects allowed inside vg_names!')
+
+        assert all([len(i) for i in vg_names]), 'Empty strings in vg_names!'
+
+        assert isinstance(n_best_vgs, int), 'n_best_vgs not an integer!'
+
+        assert 0 < n_best_vgs < np.inf, (
+            'n_best_vgs should be greater than zero and less than infinity!')
 
         self._mdr = maximum_distance_ratio
         self._n_vgs_perms = n_vgs_perms
@@ -201,13 +249,28 @@ class VariogramsInput(VariogramsData):
             n_cpus,
             min_valid_stations_per_step=1):
 
-        assert isinstance(n_cpus, int)
-        assert 0 < n_cpus
+        '''Set some misc. settings
+
+        Parameters
+        ----------
+        n_cpus : int
+            The number of threads to use while fitting the variograms.
+
+        min_valid_stations_per_step : int
+            The number of minimum valid stations that a given time step
+            should have in order to fit variogram(s) to that step's data.
+        '''
+
+        assert isinstance(n_cpus, int), 'n_cpus not an integer!'
+        assert 0 < n_cpus, 'n_cpus must be greater than zero!'
 
         self._n_cpus = n_cpus
 
-        assert isinstance(min_valid_stations_per_step, int)
-        assert 0 < min_valid_stations_per_step
+        assert isinstance(min_valid_stations_per_step, int), (
+            'min_valid_stations_per_step not an integer!')
+
+        assert 0 < min_valid_stations_per_step, (
+            'min_valid_stations_per_step must be greater than zero!')
 
         self._min_vld_stns = min_valid_stations_per_step
 
@@ -222,14 +285,23 @@ class VariogramsInput(VariogramsData):
             out_dir,
             out_figs_flag=False):
 
-        assert isinstance(out_dir, (str, Path))
+        '''Set the outputs settings
+
+        out_dir : str of Path-like
+            Path to output directory where all the outputs are stored.
+        out_figs_flag : bool
+            Whether to save the fitted varigrams' figures.
+        '''
+
+        assert isinstance(out_dir, (str, Path)), (
+            'out_dir not an str or a Path object!')
 
         out_dir = Path(out_dir)
 
         assert out_dir.parents[0].exists(), (
             'Parent directory of out_dir does not exist!')
 
-        assert isinstance(out_figs_flag, bool)
+        assert isinstance(out_figs_flag, bool), 'out_figs_flag not a boolean!'
 
         self._out_dir = out_dir
 
@@ -252,7 +324,9 @@ class VariogramsInput(VariogramsData):
         assert self._misc_settings_set_flag, 'Misc. settings not set!'
         assert self._output_settings_set_flag, 'Output directory not set!'
 
-        assert np.any(self._data_df.count(axis=1) >= self._min_vld_stns)
+        assert np.any(self._data_df.count(axis=1) >= self._min_vld_stns), (
+            'No time steps have available station greater then the '
+            'minimum threshold!')
 
         self._inputs_vrfd_flag = True
         return

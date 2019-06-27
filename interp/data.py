@@ -637,10 +637,15 @@ class SpInterpData(VD):
 
     def _verify(self):
 
-        assert self._data_set_flag
-        assert self._out_dir_set_flag
-        assert self._nc_set_flag
-        assert self._time_prms_set_flag
+        assert self._data_set_flag, 'Call the set_data method first!'
+
+        assert self._out_dir_set_flag, 'Call the set_out_dir method first!'
+
+        assert self._nc_set_flag, (
+            'Call the set_netcdf4_parameters method first!')
+
+        assert self._time_prms_set_flag, (
+            'Call the set_interp_time_parameters method first!')
 
         if self._vb:
             if not self._vg_ser_set_flag:

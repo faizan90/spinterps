@@ -103,7 +103,8 @@ class KrigingDrift:
             check_valss[6].append(cell_height)
 
         for check_vals in check_valss:
-            assert np.all(np.isclose(check_vals, check_vals[0]))
+            assert np.all(np.isclose(check_vals, check_vals[0])), (
+                'Drift rasters have dissimilar spatial properties!')
 
         self._drft_x_min = check_valss[0][0]
         self._drft_y_max = check_valss[1][0]
