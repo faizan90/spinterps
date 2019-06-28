@@ -127,14 +127,23 @@ class ExtractPolygons:
             geom_type = geom.GetGeometryType()
             geom_name = geom.GetGeometryName()
 
-            assert geom_type == 3, (
+            assert (geom_type == 3) or (geom_type == 6), (
                 f'Unsupported geometry type, name: {geom_type}, {geom_name}!')
 
-            assert geom.GetGeometryCount() == 1, (
+            assert geom.GetGeometryCount() >= 1, (
                 'Only one polygon allowed per feature!')
 
-            assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
-                f'A polygon has less than 3 points!')
+            if geom_type == 3:
+                assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
+                    f'A polygon has less than 3 points!')
+
+            elif geom_type == 6:
+                for sub_geom in geom:
+                    assert len(sub_geom.GetGeometryRef(0).GetPoints()) >= 3, (
+                        f'A polygon has less than 3 points!')
+
+            else:
+                raise NotImplementedError
 
             label = polygon.GetFieldAsString(self._poly_label_field)
 

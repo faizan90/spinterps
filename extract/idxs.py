@@ -22,7 +22,7 @@ class GeomAndCrdsItsctIdxs:
 
         self._vb = verbose
 
-        self._geom_types = (1, 3)
+        self._geom_types = (1, 3, 6)
 
         self._geoms = None
         self._labels = None
@@ -58,8 +58,8 @@ class GeomAndCrdsItsctIdxs:
             A dictionary whose values are gdal/ogr point/polygon geometries.
         geometry_type : int
             An integer corresponding to the geometry types of ogr.
-            Currently supported are points (geometry_type=1) and polygons
-            (geometry_type=3).
+            Currently supported are points (geometry_type=1), polygons
+            (geometry_type=3) and multipolygons (geometry_type=6).
         '''
 
         if self._vb:
@@ -104,15 +104,27 @@ class GeomAndCrdsItsctIdxs:
                 assert geom.GetGeometryCount() == 0, (
                     'Only one point allowed per feature!')
 
-            elif geometry_type == 3:
-                assert geom.GetGeometryType() == 3, (
-                    f'Geometry: {label} not a polygon!')
+            elif (geometry_type == 3) or (geometry_type == 6):
+                assert (
+                    (geom.GetGeometryType() == 3) or
+                    (geom.GetGeometryType() == 6)), (
+                        f'Geometry: {label} not a polygon!')
 
-                assert geom.GetGeometryCount() == 1, (
-                    'Only one polygon allowed per feature!')
+                assert geom.GetGeometryCount() >= 1, (
+                    'Only one  or more polygon allowed per feature!')
 
-                assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
-                    f'Polygon: {label} has less than 3 points!')
+                if geom_type == 3:
+                    assert len(geom.GetGeometryRef(0).GetPoints()) >= 3, (
+                        f'Polygon: {label} has less than 3 points!')
+
+                elif geom_type == 6:
+                    for sub_geom in geom:
+                        assert len(
+                            sub_geom.GetGeometryRef(0).GetPoints()) >= 3, (
+                                f'A polygon has less than 3 points!')
+
+                else:
+                    raise NotImplementedError
 
                 assert geom.Area() > 0, f'Polygon: {label} has no area!'
 
