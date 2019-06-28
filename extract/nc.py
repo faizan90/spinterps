@@ -8,7 +8,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-import pandas as pd
 import netCDF4 as nc
 
 from ..misc import print_sl, print_el, num2date
@@ -482,10 +481,10 @@ class ExtractNetCDFValues:
 
         if hasattr(in_time, 'units') and hasattr(in_time, 'calendar'):
             try:
-                in_time_strs = pd.DatetimeIndex(num2date(
-                    in_time[...],
-                    in_time.units,
-                    in_time.calendar)).strftime(self._time_strs_fmt)
+                in_time_strs = np.array([
+                    date.strftime(self._time_strs_fmt)
+                    for date in
+                    num2date(in_time[...], in_time.units, in_time.calendar)])
 
                 h5_str_dt = h5py.special_dtype(vlen=str)
 

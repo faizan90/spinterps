@@ -12,14 +12,14 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\Downloads\spinterp_nc_gtiff_test')
+    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
     os.chdir(main_dir)
 
-    path_to_shp = r'watersheds.shp'
+    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
 
     label_field = r'DN'
 
-    path_to_ras = r'tem_spinterp.nc'
+    path_to_ras = r'Q:\Synchronize_LDs\full_neckar_precipitation_interpolation\full_neckar_ppt_interp__1961-01-01_to_2015-12-31_1km_all.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = r'lower_de_gauss_z3_2km_atkis_19_extended_hydmod_lulc_ratios.tif'
@@ -27,7 +27,7 @@ def main():
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
-    nc_variable_labels = ['OK', 'SK']
+    nc_variable_labels = ['EDK']
     nc_time_label = 'time'
 
 #     main_dir = Path(r'P:\Downloads\spinterp_2d_nc_crds_test')
@@ -45,7 +45,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = 'test.h5'
+    path_to_output = 'ppt_edk_1961_to_2015_daily_1km_rockenau_six_cats.h5'
 
     Ext = Extract(True)
 
