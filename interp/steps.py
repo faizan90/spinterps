@@ -252,7 +252,8 @@ class SpInterpSteps:
                         time_steps[i],
                         model,
                         interp_type,
-                        out_figs_dir)
+                        out_figs_dir,
+                        data_df.loc[time_steps[i]].values)
 
         with lock:
             nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
@@ -404,7 +405,8 @@ class SpInterpSteps:
             interp_time,
             model,
             interp_type,
-            out_figs_dir):
+            out_figs_dir,
+            data_vals):
 
         if self._index_type == 'date':
             time_str = interp_time.strftime('%Y_%m_%d_T_%H_%M')
@@ -423,8 +425,13 @@ class SpInterpSteps:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
-            grd_min = np.nanmin(interp_fld)
-            grd_max = np.nanmax(interp_fld)
+            if not np.all(np.isfinite(interp_fld)):
+                grd_min = np.nanmin(data_vals)
+                grd_max = np.nanmax(data_vals)
+
+            else:
+                grd_min = interp_fld.min()
+                grd_max = interp_fld.max()
 
         pclr = ax.pcolormesh(
             self._interp_x_crds_plt_msh,

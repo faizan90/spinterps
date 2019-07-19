@@ -162,6 +162,8 @@ def get_ras_props(in_ras, in_band_no=1):
 
 def get_aligned_shp_bds_and_cell_size(bounds_shp_file, align_ras_file):
 
+    n_round = 6
+
     in_ds = ogr.Open(str(bounds_shp_file))
     assert in_ds, f'Could not open {bounds_shp_file}!'
 
@@ -176,16 +178,17 @@ def get_aligned_shp_bds_and_cell_size(bounds_shp_file, align_ras_file):
     assert envelope, f'No envelope for {bounds_shp_file}!'
     in_ds.Destroy()
 
-    raw_shp_x_min, raw_shp_x_max, raw_shp_y_min, raw_shp_y_max = envelope
+    raw_shp_x_min, raw_shp_x_max, raw_shp_y_min, raw_shp_y_max = np.round(
+        envelope, n_round)
 
     ras_props = get_ras_props(str(align_ras_file))
-    ras_cell_size, _1 = ras_props[6:8]
+    ras_cell_size, _1 = np.round(ras_props[6:8], n_round)
 
     assert np.isclose(ras_cell_size, _1), (
         f'align_ras ({align_ras_file}) not square!')
 
-    ras_min_x, ras_max_x = ras_props[:2]
-    ras_min_y, ras_max_y = ras_props[2:4]
+    ras_min_x, ras_max_x = np.round(ras_props[:2], n_round)
+    ras_min_y, ras_max_y = np.round(ras_props[2:4], n_round)
 
     assert all(
         ((raw_shp_x_min >= ras_min_x),

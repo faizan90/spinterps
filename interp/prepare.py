@@ -32,6 +32,8 @@ class SpInterpPrepare(SIBD, KDT):
         self._plot_polys = None
         self._cntn_idxs = None
 
+        self._bds_buff_ncells = 0
+
         self._prpd_flag = False
         return
 
@@ -56,10 +58,10 @@ class SpInterpPrepare(SIBD, KDT):
          cell_size) = get_aligned_shp_bds_and_cell_size(
              str(self._poly_shp), self._algn_ras)
 
-        fin_x_min -= 2 * cell_size
-        fin_x_max += 2 * cell_size
-        fin_y_min -= 2 * cell_size
-        fin_y_max += 2 * cell_size
+        fin_x_min -= self._bds_buff_ncells * cell_size
+        fin_x_max += self._bds_buff_ncells * cell_size
+        fin_y_min -= self._bds_buff_ncells * cell_size
+        fin_y_max += self._bds_buff_ncells * cell_size
 
         self._x_min = fin_x_min
         self._x_max = fin_x_max
@@ -120,29 +122,29 @@ class SpInterpPrepare(SIBD, KDT):
     def _prepare_crds(self):
 
         if self._edk_flag:
-            assert self._x_min > self._drft_x_min, (
+            assert self._x_min >= self._drft_x_min, (
                 'Grid x_min outside of the drift rasters!')
 
-            assert self._x_max < self._drft_x_max, (
+            assert self._x_max <= self._drft_x_max, (
                 'Grid x_max outside of drift rtasters!')
 
-            assert self._y_min > self._drft_y_min, (
+            assert self._y_min >= self._drft_y_min, (
                 'Grid y_min outside of drift rasters!')
 
-            assert self._y_max < self._drft_y_max, (
+            assert self._y_max <= self._drft_y_max, (
                 'Grid y_max outside of drift rasters!')
 
             self._min_col = int(
                 max(0, (self._x_min - self._drft_x_min) / self._cell_size))
 
             self._max_col = int(
-                ceil((self._x_max - self._drft_x_min) / self._cell_size))
+                (self._x_max - self._drft_x_min) / self._cell_size)
 
             self._min_row = int(
                 max(0, (self._drft_y_max - self._y_max) / self._cell_size))
 
             self._max_row = int(
-                ceil((self._drft_y_max - self._y_min) / self._cell_size))
+                (self._drft_y_max - self._y_min) / self._cell_size)
 
         else:
             self._min_col = 0

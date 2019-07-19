@@ -115,6 +115,15 @@ class KrigingDrift:
         self._drft_y_min = self._drft_y_max - (
             check_valss[2][0] * self._cell_size)
 
+        (self._drft_x_min,
+         self._drft_x_max,
+         self._drft_y_min,
+         self._drft_y_max) = np.round(
+            (self._drft_x_min,
+             self._drft_x_max,
+             self._drft_y_min,
+             self._drft_y_max), 6)
+
         self._drft_ndv = check_valss[4][0]
 
         self._drft_ras_props = tuple(check_valss)  # just in case
@@ -184,6 +193,8 @@ class KrigingDrift:
 
                 self._stns_drft_df.loc[stn, col] = drft
 
+        assert np.all(np.isfinite(self._stns_drft_df.values)), (
+            'Invalid value(s) of drift(s) for stations in drift rasters!')
+
         # TODO: check for repeating drift, that can produce singular matrix
-        self._stns_drft_df.dropna(inplace=True)
         return

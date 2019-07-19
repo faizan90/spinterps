@@ -118,7 +118,8 @@ def main():
         in_vgs_df.index = pd.to_datetime(in_vgs_df.index, format=in_date_fmt)
 
     elif index_type == 'obj':
-        pass
+        in_data_df.index = pd.Index(in_data_df.index, dtype=object)
+        in_vgs_df.index = pd.Index(in_vgs_df.index, dtype=object)
 
     else:
         raise ValueError(f'Incorrect index_type: {index_type}!')
