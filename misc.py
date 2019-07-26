@@ -15,6 +15,8 @@ import psutil as ps
 import netCDF4 as nc
 from netcdftime import utime, datetime
 
+from .cyth import fill_dists_2d_mat
+
 print_line_str = 40 * '#'
 
 
@@ -401,3 +403,27 @@ def check_full_nuggetness(model):
             nuggetness = True
 
     return nuggetness
+
+
+def get_dist_mat(x_arr, y_arr):
+
+    assert x_arr.ndim == y_arr.ndim == 1, 'x_arr and y_arr can be 1D only!'
+
+    assert x_arr.size == y_arr.size, (
+        'x_arr and y_arr lengths should be equal!')
+
+    assert np.all(np.isfinite(x_arr)) and np.all(np.isfinite(x_arr)), (
+        'Invalid values in x_arr or y_arr!')
+
+    dists_arr = np.full(
+        (x_arr.shape[0], x_arr.shape[0]), np.nan, dtype=np.float64)
+
+    fill_dists_2d_mat(
+        x_arr.astype(np.float64, copy=False),
+        y_arr.astype(np.float64, copy=False),
+        x_arr.astype(np.float64, copy=False),
+        y_arr.astype(np.float64, copy=False),
+        dists_arr)
+
+    assert np.all(np.isfinite(dists_arr)), 'Invalid values of distances!'
+    return dists_arr

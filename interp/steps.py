@@ -109,6 +109,8 @@ class SpInterpSteps:
 
         grps_in_time = grp_cls.get_grps_in_time(data_df)
 
+        prblm_time_steps = []
+
         for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
             assert time_stn_grp.size == np.unique(time_stn_grp).size, (
                 'Non-unique stations in time group!')
@@ -148,7 +150,6 @@ class SpInterpSteps:
 
             pts_done_flags = np.zeros(self._n_dst_pts, dtype=bool)
             sub_pts_flags = np.zeros(self._n_dst_pts, dtype=bool)
-            prblm_time_steps = []
 
             for time_neb_idxs_grp in time_neb_idxs_grps:
                 sub_dst_xs = self._interp_x_crds_msh[time_neb_idxs_grp]
@@ -222,13 +223,13 @@ class SpInterpSteps:
 
             assert np.all(pts_done_flags), 'Some points not interpolated!'
 
-            if prblm_time_steps:
-                print(
-                    'WARNING: There were problems while interpolating '
-                    'at the following steps:')
+        if prblm_time_steps:
+            print(
+                'WARNING: There were problems while interpolating '
+                'at the following steps:')
 
-                for prblm_stp in prblm_time_steps:
-                    print(prblm_stp)
+            for prblm_stp in prblm_time_steps:
+                print(prblm_stp)
 
         if self._plot_figs_flag:
             for interp_type, interp_label in zip(interp_types, interp_labels):

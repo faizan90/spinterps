@@ -66,6 +66,8 @@ def main():
     min_var_val = 0.0  # None
     max_var_val = None
 
+    min_nebor_dist_thresh = 0
+
     idw_exps = [1, 3, 5]
     n_cpus = 7
     buffer_dist = 20e3
@@ -126,8 +128,10 @@ def main():
 
     spinterp_cls = SpInterpMain(verbose)
 
-    spinterp_cls.set_data(in_data_df, in_stns_coords_df, index_type=index_type)
-    spinterp_cls.set_vgs_ser(in_vgs_df.iloc[:, 0], index_type=index_type)
+    spinterp_cls.set_data(
+        in_data_df, in_stns_coords_df, index_type, min_nebor_dist_thresh)
+
+    spinterp_cls.set_vgs_ser(in_vgs_df.iloc[:, 0], index_type)
     spinterp_cls.set_out_dir(out_dir)
 
     spinterp_cls.set_netcdf4_parameters(

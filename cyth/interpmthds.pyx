@@ -107,13 +107,14 @@ cpdef void fill_dists_2d_mat(
         Py_ssize_t i, j
         DT_D x, y
 
+    # dont use the ifs
+    # ifs only work if distance with self
     for i in xrange(x1s.shape[0]):
         x = x1s[i]
         y = y1s[i]
 
         for j in xrange(x2s.shape[0]):
-            dists[i, j] = (
-                ((x - x2s[j])**2) + ((y - y2s[j])**2))**0.5
+            dists[i, j] = (((x - x2s[j])**2) + ((y - y2s[j])**2))**0.5
 
     return
 

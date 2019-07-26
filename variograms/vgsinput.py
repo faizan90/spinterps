@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from ..misc import get_dist_mat
+
 
 class VariogramsData:
 
@@ -16,11 +18,17 @@ class VariogramsData:
         self._vb = verbose
 
         self._index_type = None
+        self._stns_min_dist_thrsh = 0.0
 
         self._data_set_flag = False
         return
 
-    def set_data(self, stns_time_ser_df, stns_crds_df, index_type='date'):
+    def set_data(
+            self,
+            stns_time_ser_df,
+            stns_crds_df,
+            index_type='date',
+            stns_min_dist_thresh=0):
 
         '''Set the data time series and coordinates dataframes.
 
@@ -37,6 +45,10 @@ class VariogramsData:
         index_type : str
             The datatype of stns_time_ser_df.index. Currently, allowed
             ones are obj and date.
+        stns_min_dist_thresh : int or float
+            The minimum distance that each station must have with its
+            neighbors. Distances that are zero or too small may result
+            in SingularMatrix errors while kriging.
         '''
 
         assert isinstance(stns_time_ser_df, pd.DataFrame), (
@@ -81,6 +93,12 @@ class VariogramsData:
             'Y' in stns_crds_df.columns]), (
                 'stns_crds_df has a missing \'X\' or \'Y\' column!')
 
+        assert isinstance(stns_min_dist_thresh, (int, float)), (
+            'stns_min_dist_thresh must be an integer or a float!')
+
+        assert 0 <= stns_min_dist_thresh < np.inf, (
+            'stns_min_dist_thresh must be inbetween 0 and infinity!')
+
         if self._vb:
             print('\n', '#' * 10, sep='')
             print(
@@ -113,6 +131,15 @@ class VariogramsData:
         stns_time_ser_df = stns_time_ser_df[cmn_stns]
         stns_crds_df = stns_crds_df.loc[cmn_stns]
 
+        dists_mat = get_dist_mat(
+            stns_crds_df['X'].values, stns_crds_df['Y'].values)
+
+        assert (
+            (dists_mat <= stns_min_dist_thresh).sum() <=
+            stns_crds_df.shape[0]), (
+                f'Stations have neighbors with distances less '
+                f'than the threshold {stns_min_dist_thresh}!')
+
         if self._vb:
             print(
                 f'{cmn_stns.shape[0]} out of {stns_time_ser_df.shape[1]} '
@@ -126,6 +153,9 @@ class VariogramsData:
                 f'Adjusted shape of stns_crds_df after taking common '
                 f'stations: {stns_crds_df.shape}.')
 
+            print(
+                f'Minimum station distance threshold: {stns_min_dist_thresh}')
+
         assert np.all(np.isfinite(stns_crds_df['X'].values)), (
             'Invalid values in x-coordinates!')
 
@@ -135,6 +165,7 @@ class VariogramsData:
         self._data_df = stns_time_ser_df
         self._crds_df = stns_crds_df
         self._index_type = index_type
+        self._stns_min_dist_thrsh = stns_min_dist_thresh
 
         if self._vb:
             print('Data set successfully!')
