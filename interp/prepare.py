@@ -348,10 +348,6 @@ class SpInterpPrepare(SIBD, KDT):
                 self._n_nebs = None
                 self._n_pies = None
 
-            if self._neb_sel_mthd != 'all':
-                n_avail_nebs_ser = self._data_df.count(axis=0).values
-                assert np.all(n_avail_nebs_ser >= self._n_nebs)
-
         else:
             raise NotImplementedError
 
