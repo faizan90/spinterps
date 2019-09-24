@@ -9,7 +9,7 @@ from .cyth import (
     SimpleKriging,
     ExternalDriftKriging_MD)
 
-from .variograms import FitVariograms
+from .variograms import FitVariograms, Variogram
 from .interp import SpInterpMain
 
 from .extract import (
