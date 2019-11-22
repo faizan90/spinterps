@@ -373,15 +373,17 @@ def num2date(num_axis, units, calendar):
     return res
 
 
-def check_full_nuggetness(model):
+def check_full_nuggetness(in_model):
+
+    in_model = str(in_model)
 
     nuggetness = False
 
-    if model == 'nan':
+    if in_model == 'nan':
         pass
 
     else:
-        models = model.split('+')
+        models = in_model.split('+')
 
         Sill = 0.0
         Range = 0.0
