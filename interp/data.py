@@ -79,6 +79,8 @@ class SpInterpData(VD):
             assert isinstance(vgs_ser.index, object), (
                 'Data type of index of vg_ser does not match index_type!')
 
+            vgs_ser.index = vgs_ser.index.astype(str)
+
         else:
             raise AssertionError(
                 'index_type can only be \'obj\' or \'date\'!')
@@ -516,7 +518,7 @@ class SpInterpData(VD):
             n_cpus=1,
             plot_figs_flag=False,
             cell_size=None,
-            min_value_to_krige_thresh=None,
+            min_value_to_interp_thresh=None,
             min_cutoff_value=None,
             max_cutoff_value=None):
 
@@ -535,7 +537,7 @@ class SpInterpData(VD):
             Cell size in the units that are consistent with the station
             coordinates system. It is used only if no drift or alignment
             rasters are specified.
-        min_value_to_krige_thresh : int or float
+        min_value_to_interp_thresh : int or float
             If all the stations have a value less than or equal to this
             for a given time step then all the cells are assigned the mean
             value of all the station values. This is good in cases like
@@ -544,11 +546,11 @@ class SpInterpData(VD):
         min_cutoff_value : None or int or float
             If not None, interpolated values below this are set
             equal to it. If not None it should be less than
-            min_value_to_krige_thresh.
+            min_value_to_interp_thresh.
         max_cutoff_value : None or int or float
             If not None, interpolated values above this are set
             equal to it. If not None it should be greater than
-            min_value_to_krige_thresh
+            min_value_to_interp_thresh
         '''
 
         assert isinstance(n_cpus, int), 'n_cpus not an integer!'
@@ -573,16 +575,16 @@ class SpInterpData(VD):
 
             self._cell_size = float(cell_size)
 
-        if min_value_to_krige_thresh is not None:
-            assert isinstance(min_value_to_krige_thresh, (int, float)), (
-                'min_value_to_krige_thresh can be a float or an int if '
+        if min_value_to_interp_thresh is not None:
+            assert isinstance(min_value_to_interp_thresh, (int, float)), (
+                'min_value_to_interp_thresh can be a float or an int if '
                 'not None!')
 
-            assert -np.inf <= min_value_to_krige_thresh < np.inf, (
-                'min_value_to_krige_thresh has to be in between -infinity '
+            assert -np.inf <= min_value_to_interp_thresh < np.inf, (
+                'min_value_to_interp_thresh has to be in between -infinity '
                 'and +infinity!')
 
-            self._min_var_thr = float(min_value_to_krige_thresh)
+            self._min_var_thr = float(min_value_to_interp_thresh)
 
         if min_cutoff_value is not None:
             assert isinstance(min_cutoff_value, (int, float)), (
@@ -607,7 +609,7 @@ class SpInterpData(VD):
         if (self._min_var_thr is not None) and (self._min_var_cut is not None):
 
             assert self._min_var_thr >= self._min_var_cut, (
-                'min_value_to_krige_thresh has to be greater than or equal to '
+                'min_value_to_interp_thresh has to be greater than or equal to '
                 'min_cutoff_value!')
 
         if (self._min_var_cut is not None) and (self._max_var_cut is not None):
@@ -618,7 +620,7 @@ class SpInterpData(VD):
         if (self._min_var_thr is not None) and (self._max_var_cut is not None):
 
             assert self._min_var_thr < self._max_var_cut, (
-                'min_value_to_krige_thresh has to be less than '
+                'min_value_to_interp_thresh has to be less than '
                 'max_cutoff_value!')
 
         if self._vb:
@@ -627,7 +629,7 @@ class SpInterpData(VD):
             print('n_cpus:', self._n_cpus)
             print('plot_figs_flag:', self._plot_figs_flag)
             print('cell_size:', self._cell_size)
-            print('min_value_to_krige_thresh:', self._min_var_thr)
+            print('min_value_to_interp_thresh:', self._min_var_thr)
             print('min_cutoff_value:', self._min_var_cut)
             print('max_cutoff_value:', self._max_var_cut)
             print_el()

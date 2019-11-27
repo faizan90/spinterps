@@ -61,7 +61,7 @@ def main():
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_ppt_thresh = 1  # -float('inf')  # 1
+    min_var_val_thresh = 1  # -float('inf')  # 1
 
     min_var_val = 0.0  # None
     max_var_val = None
@@ -157,7 +157,7 @@ def main():
         n_cpus,
         plot_figs_flag,
         None,
-        min_ppt_thresh,
+        min_var_val_thresh,
         min_var_val,
         max_var_val)
 

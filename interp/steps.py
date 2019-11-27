@@ -113,7 +113,7 @@ class SpInterpSteps:
 
         for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
             assert time_stn_grp.size == np.unique(time_stn_grp).size, (
-                'Non-unique stations in time group!')
+                'Non-unique stations in step group!')
 
             time_stn_grp_ref_xs = self._crds_df.loc[time_stn_grp, 'X'].values
             time_stn_grp_ref_ys = self._crds_df.loc[time_stn_grp, 'Y'].values
@@ -137,7 +137,7 @@ class SpInterpSteps:
                     nuggetness_flags[i] = check_full_nuggetness(vg_model)
 
                     if nuggetness_flags[i] and self._vb:
-                        print('Full nugget at time step:', sub_time_steps[i])
+                        print('Full nugget at step:', sub_time_steps[i])
 
             else:
                 vg_models = None

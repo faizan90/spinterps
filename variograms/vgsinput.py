@@ -81,6 +81,8 @@ class VariogramsData:
                 'Data type of index of stns_time_ser_df does not match '
                 'index_type!')
 
+            stns_time_ser_df.index = stns_time_ser_df.index.astype(str)
+
         else:
             raise AssertionError(
                 'index_type can only be \'obj\' or \'date\'!')

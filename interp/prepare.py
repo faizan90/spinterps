@@ -496,8 +496,8 @@ class SpInterpPrepare(SIBD, KDT):
 
         self._data_df = self._data_df.reindex(self._time_rng)
 
-        if not self._vg_ser_set_flag:
-            self._vgs_ser = self._vgs_ser.reindex(self._time_rng)
+        if self._vg_ser_set_flag:
+            self._vgs_ser = self._vgs_ser.reindex(self._time_rng).astype(str)
 
         self._prpd_flag = True
         return
