@@ -9,7 +9,7 @@ import numpy as np
 
 def kernel_triangular(*args):
 
-    dst_crd, src_crd_beg, src_crd_cen, src_crd_end, exponent = args
+    dst_crd, src_crd_beg, src_crd_end, src_crd_cen, exponent = args
 
     if ((dst_crd <= src_crd_beg) or (dst_crd >= src_crd_end)):
         weight = 0.0
@@ -34,7 +34,7 @@ def kernel_triangular_test(*args):
     Exclamation marks are added later by another function to errors
     '''
 
-    src_crd_beg, src_crd_cen, src_crd_end, exponent = args
+    src_crd_beg, src_crd_end, src_crd_cen, exponent = args
 
     all_inputs = [src_crd_beg, src_crd_cen, src_crd_end, exponent]
 
@@ -47,6 +47,6 @@ def kernel_triangular_test(*args):
     assert src_crd_beg <= src_crd_cen <= src_crd_end, (
         'Source coordinates to kernel_triangular not ascending')
 
-    assert 0 <= exponent < np.inf, (
+    assert 0 < exponent < np.inf, (
         'Exponent of kernel_triangular is out ouf bounds')
     return
