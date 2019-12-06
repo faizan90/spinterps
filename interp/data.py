@@ -28,6 +28,10 @@ class SpInterpData(VD):
 
         self._plot_figs_flag = False
 
+        self._tbeg = None
+        self._tend = None
+        self._tfreq = None
+
         self._cell_size = None
 
         self._min_var_thr = None
@@ -648,6 +652,9 @@ class SpInterpData(VD):
 
         assert self._time_prms_set_flag, (
             'Call the set_interp_time_parameters method first!')
+
+        assert self._neb_sel_mthd_set_flag, (
+            'Call set_neighbor_selection_method method first!')
 
         if self._vb:
             if not self._vg_ser_set_flag:

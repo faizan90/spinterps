@@ -364,6 +364,13 @@ class SpInterpPrepare(SIBD, KDT):
             self._idw_flag])
 
         if self._index_type == 'date':
+
+            assert all([
+                self._tbeg is not None,
+                self._tend is not None,
+                self._tfreq is not None]), (
+                    'beg_time, end_time and time_freq are not set!')
+
             self._time_rng = pd.date_range(
                 self._tbeg, self._tend, freq=self._tfreq)
 

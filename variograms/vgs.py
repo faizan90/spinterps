@@ -399,7 +399,8 @@ class Variogram:
         """Calculate the empirical variogram value for given z values."""
         p2x = (2 * xs.shape[0])
         if p2x == 0:
-            raise ZeroDivisionError
+            return np.nan
+#             raise ZeroDivisionError
         else:
             sqs = (np.subtract(xs, ys)) ** 2
             sum_vg = np.sum(sqs)

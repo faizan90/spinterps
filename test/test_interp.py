@@ -117,10 +117,12 @@ def main():
 
     if index_type == 'date':
         in_data_df.index = pd.to_datetime(in_data_df.index, format=in_date_fmt)
+
         in_vgs_df.index = pd.to_datetime(in_vgs_df.index, format=in_date_fmt)
 
     elif index_type == 'obj':
         in_data_df.index = pd.Index(in_data_df.index, dtype=object)
+
         in_vgs_df.index = pd.Index(in_vgs_df.index, dtype=object)
 
     else:
@@ -132,6 +134,7 @@ def main():
         in_data_df, in_stns_coords_df, index_type, min_nebor_dist_thresh)
 
     spinterp_cls.set_vgs_ser(in_vgs_df.iloc[:, 0], index_type)
+
     spinterp_cls.set_out_dir(out_dir)
 
     spinterp_cls.set_netcdf4_parameters(
@@ -143,11 +146,13 @@ def main():
 
     spinterp_cls.set_interp_time_parameters(
         strt_date, end_date, freq, in_date_fmt)
+
     spinterp_cls.set_cell_selection_parameters(
         in_bounds_shp_file,
         buffer_dist,
         interp_around_polys_flag,
         sec_buffer_dist)
+
     spinterp_cls.set_alignment_raster(align_ras_file)
 
     spinterp_cls.set_neighbor_selection_method(
@@ -174,7 +179,10 @@ def main():
         spinterp_cls.turn_inverse_distance_weighting_on(idw_exps)
 
     spinterp_cls.verify()
+
     spinterp_cls.interpolate()
+
+    spinterp_cls = None
     return
 
 

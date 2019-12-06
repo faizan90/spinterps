@@ -112,6 +112,8 @@ class SpInterpSteps:
         prblm_time_steps = []
 
         for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
+            assert time_stn_grp.size, 'No stations in time_stn_grp!'
+
             assert time_stn_grp.size == np.unique(time_stn_grp).size, (
                 'Non-unique stations in step group!')
 
