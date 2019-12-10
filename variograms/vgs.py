@@ -821,9 +821,9 @@ class Variogram:
                 # rng, sill = prms
                 sill = prms[0]
 
-                cond_sill = (round(sill, 6) == 0.0)
-                if cond_sill:
-                    continue
+#                 cond_sill = (round(sill, 6) == 0.0)
+#                 if cond_sill:
+#                     continue
 
                 vg_var += sill
 
@@ -832,7 +832,6 @@ class Variogram:
                                 prms[0]))
 
             self.vg_variance_list.append(vg_var)
-
             self.vg_str_list.append(vg_temp_str[3:])
             self.vg_fit.append(np.append(h_arr[np.newaxis].T,
                                          vg_mix[np.newaxis].T, axis=1))

@@ -209,7 +209,8 @@ class FitVariogramsSteps:
             plt.title(
                 'Event date: %s' % (date_str), fontdict={'fontsize':15})
 
-            plt.legend(loc=4, framealpha=0.7)
+            if vg_names:
+                plt.legend(loc=4, framealpha=0.7)
 
             plt.savefig(
                 str(self._out_figs_path / f'{date_str}.png'),

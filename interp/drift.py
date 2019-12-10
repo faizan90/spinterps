@@ -129,7 +129,7 @@ class KrigingDrift:
         self._drft_ras_props = tuple(check_valss)  # just in case
 
         if self._vb:
-            print('Drift rasters assembled without problems.')
+            print('Drift raster(s) assembled without problems.')
             print_el()
 
         self._drft_asm_flag = True

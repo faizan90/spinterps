@@ -66,6 +66,10 @@ def main():
     min_var_val = 0.0  # None
     max_var_val = None
 
+    # can be None or a string vg
+    # replace all nan vgs with this
+    nan_vg = '0.0 Nug(0.0)'
+
     min_nebor_dist_thresh = 0
 
     idw_exps = [1, 3, 5]
@@ -114,6 +118,15 @@ def main():
         sep=in_sep,
         index_col=0,
         encoding='utf-8')
+
+    if nan_vg:
+        assert isinstance(nan_vg, str), 'nan_vg can only be None or a string!'
+
+        in_vgs_df.replace(float('nan'), nan_vg, inplace=True)
+        in_vgs_df.replace('nan', nan_vg, inplace=True)
+
+    else:
+        assert nan_vg is None, 'nan_vg can only be None or a string!'
 
     if index_type == 'date':
         in_data_df.index = pd.to_datetime(in_data_df.index, format=in_date_fmt)

@@ -19,7 +19,7 @@ def main():
 
     label_field = r'DN'
 
-    path_to_ras = r'Q:\Synchronize_LDs\full_neckar_precipitation_interpolation\full_neckar_ppt_interp__1961-01-01_to_2015-12-31_1km_all.nc'
+    path_to_ras = r'P:\Synchronize\IWS\Papers_Reviews\Papers\Hydrological_Model_Parameter_Selection_2019\data\infill_resample_cmpr\daily_ppt_rescaled.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = r'lower_de_gauss_z3_2km_atkis_19_extended_hydmod_lulc_ratios.tif'
@@ -45,7 +45,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = 'ppt_edk_1961_to_2015_daily_1km_rockenau_six_cats.h5'
+    path_to_output = 'ppt_edk_1961_to_2015_daily_1km_rockenau_six_cats_rescaled_with_monthly.h5'
 
     Ext = Extract(True)
 

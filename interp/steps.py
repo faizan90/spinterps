@@ -138,8 +138,10 @@ class SpInterpSteps:
                 for i, vg_model in enumerate(vg_models):
                     nuggetness_flags[i] = check_full_nuggetness(vg_model)
 
-                    if nuggetness_flags[i] and self._vb:
-                        print('Full nugget at step:', sub_time_steps[i])
+                with lock:
+                    for i in range(nuggetness_flags.shape[0]):
+                        if nuggetness_flags[i] and self._vb:
+                            print('Full nugget at step:', sub_time_steps[i])
 
             else:
                 vg_models = None
@@ -226,12 +228,13 @@ class SpInterpSteps:
             assert np.all(pts_done_flags), 'Some points not interpolated!'
 
         if prblm_time_steps:
-            print(
-                'WARNING: There were problems while interpolating '
-                'at the following steps:')
+            with lock:
+                print(
+                    'WARNING: There were problems while interpolating '
+                    'at the following steps:')
 
-            for prblm_stp in prblm_time_steps:
-                print(prblm_stp)
+                for prblm_stp in prblm_time_steps:
+                    print(prblm_stp)
 
         if self._plot_figs_flag:
             for interp_type, interp_label in zip(interp_types, interp_labels):
