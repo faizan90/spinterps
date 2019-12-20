@@ -13,7 +13,7 @@ import gdal
 import numpy as np
 import psutil as ps
 import netCDF4 as nc
-from netcdftime import utime, datetime
+from cftime import utime, datetime
 
 from .cyth import fill_dists_2d_mat
 
@@ -247,11 +247,11 @@ def add_month(date, months_to_add):
     """
     Finds the next month from date.
 
-    :param netcdftime.datetime date: Accepts datetime or phony datetime
+    :param cftime.datetime date: Accepts datetime or phony datetime
         from ``netCDF4.num2date``.
     :param int months_to_add: The number of months to add to the date
     :returns: The final date
-    :rtype: *netcdftime.datetime*
+    :rtype: *cftime.datetime*
     """
 
     years_to_add = int((
@@ -278,11 +278,11 @@ def add_year(date, years_to_add):
     """
     Finds the next year from date.
 
-    :param netcdftime.datetime date: Accepts datetime or phony datetime
+    :param cftime.datetime date: Accepts datetime or phony datetime
         from ``netCDF4.num2date``.
     :param int years_to_add: The number of years to add to the date
     :returns: The final date
-    :rtype: *netcdftime.datetime*
+    :rtype: *cftime.datetime*
     """
 
     new_year = date.year + years_to_add
@@ -304,7 +304,7 @@ def num2date(num_axis, units, calendar):
         "months since" units.
 
     If time units are not "years since" or "months since", calls
-    usual ``netcdftime.num2date``.
+    usual ``cftime.num2date``.
 
     :param numpy.array num_axis: The numerical time axis following units
     :param str units: The proper time units
