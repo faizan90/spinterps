@@ -19,11 +19,11 @@ def main():
 
     label_field = r'DN'
 
-    path_to_ras = r'P:\Synchronize\IWS\Papers_Reviews\Papers\Hydrological_Model_Parameter_Selection_2019\data\infill_resample_cmpr\daily_ppt_rescaled.nc'
-    input_ras_type = 'nc'
+#     path_to_ras = r'P:\Synchronize\IWS\Papers_Reviews\Papers\Hydrological_Model_Parameter_Selection_2019\data\infill_resample_cmpr\daily_ppt_rescaled.nc'
+#     input_ras_type = 'nc'
 
-#     path_to_ras = r'lower_de_gauss_z3_2km_atkis_19_extended_hydmod_lulc_ratios.tif'
-#     input_ras_type = 'gtiff'
+    path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
+    input_ras_type = 'gtiff'
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
@@ -45,7 +45,8 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = 'ppt_edk_1961_to_2015_daily_1km_rockenau_six_cats_rescaled_with_monthly.h5'
+#     path_to_output = 'ppt_edk_1961_to_2015_daily_1km_rockenau_six_cats_rescaled_with_monthly.h5'
+    path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)
 
@@ -70,7 +71,8 @@ def main():
     else:
         raise NotImplementedError
 
-    print(res)
+    print('\n')
+    print('res:', res)
 
     return
 
