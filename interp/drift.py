@@ -94,6 +94,10 @@ class KrigingDrift:
                 print('NDV:', drift_ndv)
                 print('\n')
 
+            if drift_ndv is None:
+                drift_ndv = np.nan
+                print('Changed drift value to NaN!')
+
             check_valss[0].append(drift_x_min)
             check_valss[1].append(drift_y_max)
             check_valss[2].append(drift_rows)
