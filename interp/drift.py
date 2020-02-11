@@ -96,7 +96,12 @@ class KrigingDrift:
 
             if drift_ndv is None:
                 drift_ndv = np.nan
-                print('Changed drift value to NaN!')
+
+                print('\n')
+                print('#' * 30)
+                print('Info: Changed drift value to NaN!')
+                print('#' * 30)
+                print('\n')
 
             check_valss[0].append(drift_x_min)
             check_valss[1].append(drift_y_max)
@@ -107,6 +112,12 @@ class KrigingDrift:
             check_valss[6].append(cell_height)
 
         for check_vals in check_valss:
+
+            assert np.all(
+                [isinstance(check_val, (int, float))
+                for check_val in check_vals]), (
+                    'Non numeric values of raster properties!')
+
             assert np.all(np.isclose(check_vals, check_vals[0])), (
                 'Drift rasters have dissimilar spatial properties!')
 
