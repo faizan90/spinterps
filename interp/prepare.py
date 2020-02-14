@@ -5,7 +5,9 @@ Created on Nov 25, 2018
 '''
 
 from math import ceil
+from multiprocessing import Pool
 
+import ogr
 import numpy as np
 import pandas as pd
 import netCDF4 as nc
@@ -19,7 +21,27 @@ from ..misc import (
     chk_cntmt,
     get_ras_props,
     print_sl,
-    print_el)
+    print_el,
+    ret_mp_idxs)
+
+
+def get_containment_idxs(args):
+
+    beg_idx, end_idx, x_crds, y_crds, pts = args
+
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+
+    for pt in pts:
+        ring.AddPoint(*pt)
+
+    poly = ogr.Geometry(ogr.wkbPolygon)
+    poly.AddGeometry(ring)
+
+    ogr_pts = np.vectorize(cnvt_to_pt)(x_crds, y_crds)
+
+    curr_cntn_idxs = np.vectorize(chk_cntmt)(ogr_pts, poly)
+
+    return beg_idx, end_idx, curr_cntn_idxs
 
 
 class SpInterpPrepare(SIBD, KDT):
@@ -33,6 +55,8 @@ class SpInterpPrepare(SIBD, KDT):
         self._cntn_idxs = None
 
         self._bds_buff_ncells = 0
+
+        self._thresh_mp_poly_crds = 10000
 
         self._prpd_flag = False
         return
@@ -227,15 +251,58 @@ class SpInterpPrepare(SIBD, KDT):
                   'cells to interpolate per step before intersection!')
 
         fin_cntn_idxs = np.zeros(self._interp_x_crds_msh.shape[0], dtype=bool)
-        ogr_pts = np.vectorize(cnvt_to_pt)(
-            self._interp_x_crds_msh, self._interp_y_crds_msh)
 
-        for poly in self._geom_buff_cells:
-            curr_cntn_idxs = np.vectorize(chk_cntmt)(ogr_pts, poly)
+        if self._interp_x_crds_msh.shape[0] > self._thresh_mp_poly_crds:
+            mp_pool = Pool(self._n_cpus)
 
-            assert curr_cntn_idxs.sum(), 'Polygon intersects zero cells!'
+            step_idxs = ret_mp_idxs(
+                self._interp_x_crds_msh.shape[0], self._n_cpus)
 
-            fin_cntn_idxs = fin_cntn_idxs | curr_cntn_idxs
+            # polygons or rings cannot be sent over to another process and
+            # unpickled as of now. So points are sent over and then
+            # used to contruct the polygon for further operations.
+            # It is quite inefficient but I don't what else to do now.
+
+            for poly in self._geom_buff_cells:
+                assert poly.GetGeometryCount() == 1, (
+                    'Expected geometry count to be 1!')
+
+                pts = poly.GetGeometryRef(0).GetPoints()
+
+                steps_gen = (
+                    (step_idxs[i],
+                     step_idxs[i + 1],
+                     self._interp_x_crds_msh[step_idxs[i]:step_idxs[i + 1]],
+                     self._interp_y_crds_msh[step_idxs[i]:step_idxs[i + 1]],
+                     pts)
+                    for i in range(self._n_cpus))
+
+                ress = list(mp_pool.map(get_containment_idxs, steps_gen))
+
+                curr_cntn_idxs = np.zeros(
+                    self._interp_x_crds_msh.shape[0], dtype=bool)
+
+                for res in ress:
+                    beg_idx, end_idx, res_cntn_idxs = res
+                    curr_cntn_idxs[beg_idx:end_idx] = res_cntn_idxs
+
+                fin_cntn_idxs = fin_cntn_idxs | curr_cntn_idxs
+
+            mp_pool.close()
+            mp_pool.join()
+
+            mp_pool = None
+
+        else:
+            ogr_pts = np.vectorize(cnvt_to_pt)(
+                self._interp_x_crds_msh, self._interp_y_crds_msh)
+
+            for poly in self._geom_buff_cells:
+                curr_cntn_idxs = np.vectorize(chk_cntmt)(ogr_pts, poly)
+
+                assert curr_cntn_idxs.sum(), 'Polygon intersects zero cells!'
+
+                fin_cntn_idxs = fin_cntn_idxs | curr_cntn_idxs
 
         fin_idxs_sum = fin_cntn_idxs.sum()
 

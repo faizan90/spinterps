@@ -61,7 +61,7 @@ class SpInterpSteps:
         return
 
     @traceback_wrapper
-    def interpolate_subset(self, all_args):
+    def interpolate_subset(self, args):
 
         (data_df,
          beg_idx,
@@ -71,7 +71,7 @@ class SpInterpSteps:
          lock,
          drft_arrs,
          stns_drft_df,
-         vgs_ser) = all_args
+         vgs_ser) = args
 
         if vgs_ser is not None:
             assert not data_df.index.difference(vgs_ser.index).shape[0], (
@@ -262,6 +262,16 @@ class SpInterpSteps:
                         data_df.loc[time_steps[i]].values)
 
         with lock:
+            if self._vb:
+                print(
+                    f'Writing data between {beg_idx} and {end_idx} indices '
+                    f'to disk...')
+
+                print(
+                    'Start and end step of this part:',
+                    data_df.index[0],
+                    data_df.index[-1])
+
             nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
             ar_is = nc_is - beg_idx
 
@@ -280,6 +290,11 @@ class SpInterpSteps:
 
             interp_flds = None
             nc_hdl.close()
+
+            if self._vb:
+                print(
+                    f'Done writing data between {beg_idx} and {end_idx} '
+                    f'indices to disk...')
         return
 
     def _get_interp(
