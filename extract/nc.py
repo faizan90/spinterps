@@ -448,7 +448,7 @@ class ExtractNetCDFValues:
             f'Variable: {self._in_var_lab} in the input must have '
             f'3 dimensions!')
 
-        assert in_var.size > 0, (
+        assert in_var.size != 0, (
             f'Zero values in the extraction variable: {self._in_var_lab}!')
 
         assert all(in_var.shape), (
@@ -472,7 +472,7 @@ class ExtractNetCDFValues:
         assert in_time.ndim == 1, (
             f'Input time variable: {self._in_time_lab} can only be 1D!')
 
-        assert in_time.size > 0, (
+        assert in_time.size != 0, (
             f'Zero values in the input time variable: {self._in_time_lab}!')
 
         assert in_time.shape[0] == in_var.shape[0], (
