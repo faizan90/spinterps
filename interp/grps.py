@@ -145,10 +145,10 @@ class SpInterpNeighborGrouping:
 
         return all_neb_idxs
 
-    def _get_nrst_neb_idxs(self, ref_xs, ref_ys):
+    def _get_nrst_neb_idxs(self, ref_xs, ref_ys, n_refs):
 
         all_neb_idxs = np.full(
-            (self._n_dst_pts, self._n_nebs),
+            (self._n_dst_pts, min(self._n_nebs, n_refs)),
             self._not_neb_flag,
             dtype=int)
 
@@ -271,7 +271,7 @@ class SpInterpNeighborGrouping:
             all_neb_idxs = self._get_all_neb_idxs(n_refs)
 
         elif self._neb_sel_mthd == 'nrst':
-            all_neb_idxs = self._get_nrst_neb_idxs(ref_xs, ref_ys)
+            all_neb_idxs = self._get_nrst_neb_idxs(ref_xs, ref_ys, n_refs)
 
         elif self._neb_sel_mthd == 'pie':
             all_neb_idxs = self._get_pie_neb_idxs(ref_xs, ref_ys, n_refs)

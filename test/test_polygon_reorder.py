@@ -93,13 +93,13 @@ def main():
                 pd.DataFrame(data={'x': x, 'y': y}).to_csv(
                     f'{label}.csv', index=False, sep=';')
 
-        for nc_variable_label in nc_variable_labels:
-            nc_vals_cls = ExtractNetCDFValues(verbose=verbose)
-
-            nc_vals_cls.set_input(path_to_nc, nc_variable_label, nc_time_label)
-            nc_vals_cls.set_output(path_to_h5_output)
-
-            nc_vals_cls.extract_values(nc_itsct_cls.get_intersect_indices())
+#         for nc_variable_label in nc_variable_labels:
+#             nc_vals_cls = ExtractNetCDFValues(verbose=verbose)
+#
+#             nc_vals_cls.set_input(path_to_nc, nc_variable_label, nc_time_label)
+#             nc_vals_cls.set_output(path_to_h5_output)
+#
+#             nc_vals_cls.extract_values(nc_itsct_cls.get_intersect_indices())
 
         gtiff_crds_cls = ExtractGTiffCoords(verbose=verbose)
 
