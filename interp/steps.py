@@ -105,13 +105,37 @@ class SpInterpSteps:
             self._n_pies,
             self._interp_x_crds_msh,
             self._interp_y_crds_msh,
-            verbose=False)
+            verbose=self._vb)
+
+        # TODO: equalize the distribution of groups among
+        # threads. This whole thing becomes pretty inefficient
+        # if some threads get way more variety than others.
+        # A threshold for the change in station density can be given.
+        # All of this should be taken outside of the steps class.
 
         grps_in_time = grp_cls.get_grps_in_time(data_df)
+
+        # TODO: min_nebor_dist_thresh should be related to time and not just
+        # proximity. Because, if a very close nebor is active at a time
+        # when others are inactive than there is no need to drop one.
 
         prblm_time_steps = []
 
         for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
+
+            sub_time_steps = time_steps[cmn_time_stn_grp_idxs]
+
+            if not time_stn_grp.size:
+                print(sub_time_steps.size, 'step(s) have no station(s)!')
+
+                for sub_time_step in sub_time_steps:
+                    if sub_time_step in prblm_time_steps:
+                        continue
+
+                    prblm_time_steps.append(sub_time_step)
+
+                continue
+
             assert time_stn_grp.size, 'No stations in time_stn_grp!'
 
             assert time_stn_grp.size == np.unique(time_stn_grp).size, (
@@ -122,8 +146,6 @@ class SpInterpSteps:
 
             time_stn_grp_data_vals = data_df.loc[
                 cmn_time_stn_grp_idxs, time_stn_grp].values
-
-            sub_time_steps = time_steps[cmn_time_stn_grp_idxs]
 
             if edk_flag:
                 time_stn_grp_drifts = stns_drft_df.loc[time_stn_grp].values
@@ -368,6 +390,7 @@ class SpInterpSteps:
                 model = models[j]
 
                 if (not interp_steps_flags[j]) or (nuggetness_flags[j]):
+
                     dst_data[j, :] = ref_means[j]
                     continue
 
@@ -444,7 +467,7 @@ class SpInterpSteps:
         fig, ax = plt.subplots()
 
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+            warnings.simplefilter('ignore')
 
             if not np.all(np.isfinite(interp_fld)):
                 grd_min = np.nanmin(data_vals)
