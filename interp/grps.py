@@ -254,7 +254,7 @@ class SpInterpNeighborGrouping:
 
         assert ref_xs.ndim == ref_ys.ndim
         assert ref_xs.ndim == 1
-        assert ref_xs.size > 1
+        assert ref_xs.size
         assert ref_xs.size == ref_ys.size
 
         assert np.all(np.isfinite(ref_xs))
