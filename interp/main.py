@@ -8,6 +8,7 @@ import os
 import timeit
 from math import ceil
 from pathlib import Path
+from functools import partial
 from multiprocessing import Pool, Manager, Lock
 
 import numpy as np
@@ -41,7 +42,7 @@ class SpInterpMain(SID, SIP):
         self._edk_flag = False
         self._idw_flag = False
 
-        self._max_mem_usage_ratio = 0.80
+        self._max_mem_usage_ratio = 0.20
 
         self._main_vrfd_flag = False
         return
@@ -66,7 +67,8 @@ class SpInterpMain(SID, SIP):
         if self._mp_flag:
             mp_pool = Pool(self._n_cpus)
 
-            spi_map = mp_pool.map  # has to be a blocking one
+            # has to be a blocking one
+            spi_map = partial(mp_pool.map, chunksize=1)
 
             self._lock = Manager().Lock()
 
