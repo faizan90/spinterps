@@ -66,6 +66,8 @@ def main():
     min_var_val = 0.0  # None
     max_var_val = None
 
+    max_steps_per_chunk = 1000
+
     # can be None or a string vg
     # replace all nan vgs with this
     nan_vg = '0.0 Nug(0.0)'
@@ -177,7 +179,8 @@ def main():
         None,
         min_var_val_thresh,
         min_var_val,
-        max_var_val)
+        max_var_val,
+        max_steps_per_chunk)
 
     if ord_krige_flag:
         spinterp_cls.turn_ordinary_kriging_on()

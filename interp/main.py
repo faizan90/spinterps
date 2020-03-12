@@ -42,7 +42,7 @@ class SpInterpMain(SID, SIP):
         self._edk_flag = False
         self._idw_flag = False
 
-        self._max_mem_usage_ratio = 0.20
+        self._max_mem_usage_ratio = 0.80
 
         self._main_vrfd_flag = False
         return
@@ -97,34 +97,19 @@ class SpInterpMain(SID, SIP):
             print(f'Using {t_passes} pass(es) to interpolate.')
             print('\n')
 
-        for j in range(0, interp_steps_idxs.shape[0] - 1, self._n_cpus):
-            max_rng = min(self._n_cpus, interp_steps_idxs[j:].shape[0])
-            assert max_rng > 0
+        interp_gen = (
+            self._get_interp_gen_data(
+                interp_steps_idxs[i],
+                interp_steps_idxs[i + 1],
+                interp_steps_idxs.size - 1)
 
-            if self._vb:
-                print(
-                    f'Pass number {(j // max_rng) + 1} out of '
-                    f'{t_passes} pass(es).')
+            for i in range(interp_steps_idxs.size - 1))
 
-                print(f'Using {max_rng} worker(s) for the current pass.')
+        maped_obj = spi_map(
+            interp_steps_cls.interpolate_subset, interp_gen)
 
-            interp_gen = (
-                self._get_interp_gen_data(
-                    interp_steps_idxs[j + i],
-                    interp_steps_idxs[j + i + 1],
-                    max_rng)
-
-                for i in range(max_rng))
-
-            maped_obj = spi_map(
-                interp_steps_cls.interpolate_subset, interp_gen)
-
-            if not self._mp_flag:
-                list(maped_obj)
-
-            if self._vb:
-                print('Done writing for the current pass.')
-                print('\n')
+        if not self._mp_flag:
+            list(maped_obj)
 
         if self._vb:
             tot_beg_time = timeit.default_timer() - interp_beg_time
@@ -407,6 +392,14 @@ class SpInterpMain(SID, SIP):
                 self._data_df.shape[0], self._n_cpus * steps_scale_cnst)
 
         steps_per_thread = step_idxs[1] - step_idxs[0]
+
+        if ((self._max_steps_per_chunk is not None) and
+            (steps_per_thread > self._max_steps_per_chunk)):
+
+            step_idxs = np.arange(
+                0, self._data_df.shape[0], self._max_steps_per_chunk)
+
+            step_idxs = np.concatenate((step_idxs, [self._data_df.shape[0]]))
 
         if self._vb:
             print_sl()

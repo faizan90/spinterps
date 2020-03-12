@@ -37,6 +37,7 @@ class SpInterpData(VD):
         self._min_var_thr = None
         self._min_var_cut = None
         self._max_var_cut = None
+        self._max_steps_per_chunk = None
 
         self._neb_sel_mthds = ('all', 'nrst', 'pie')
 
@@ -524,7 +525,8 @@ class SpInterpData(VD):
             cell_size=None,
             min_value_to_interp_thresh=None,
             min_cutoff_value=None,
-            max_cutoff_value=None):
+            max_cutoff_value=None,
+            max_steps_per_chunk=None):
 
         '''
         Set some more parameters
@@ -555,6 +557,10 @@ class SpInterpData(VD):
             If not None, interpolated values above this are set
             equal to it. If not None it should be greater than
             min_value_to_interp_thresh
+        max_steps_per_chunk : None or int
+            Maximum number of steps that can be interpolated per thread.
+            Final number of steps is the minimum based on available memory
+            and max_steps_per_chunk.
         '''
 
         assert isinstance(n_cpus, int), 'n_cpus not an integer!'
@@ -610,6 +616,15 @@ class SpInterpData(VD):
 
             self._max_var_cut = float(max_cutoff_value)
 
+        if max_steps_per_chunk is not None:
+            assert isinstance(max_steps_per_chunk, int), (
+                'max_steps_per_chunk can only be an integer if not None!')
+
+            assert max_steps_per_chunk > 0, (
+                'max_steps_per_chunk should be greeater than zero!')
+
+            self._max_steps_per_chunk = max_steps_per_chunk
+
         if (self._min_var_thr is not None) and (self._min_var_cut is not None):
 
             assert self._min_var_thr >= self._min_var_cut, (
@@ -636,6 +651,7 @@ class SpInterpData(VD):
             print('min_value_to_interp_thresh:', self._min_var_thr)
             print('min_cutoff_value:', self._min_var_cut)
             print('max_cutoff_value:', self._max_var_cut)
+            print('max_steps_per_chunk:', self._max_steps_per_chunk)
             print_el()
 
         self._misc_settings_set_flag = True
