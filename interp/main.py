@@ -112,9 +112,9 @@ class SpInterpMain(SID, SIP):
             list(maped_obj)
 
         else:
-            spi_map.close()
-            spi_map.join()
-            spi_map = None
+            mp_pool.close()
+            mp_pool.join()
+            mp_pool = None
 
         if self._vb:
             tot_beg_time = timeit.default_timer() - interp_beg_time
