@@ -109,11 +109,11 @@ cpdef void fill_dists_2d_mat(
 
     # dont use the ifs
     # ifs only work if distance with self
-    for i in xrange(x1s.shape[0]):
+    for i in range(x1s.shape[0]):
         x = x1s[i]
         y = y1s[i]
 
-        for j in xrange(x2s.shape[0]):
+        for j in range(x2s.shape[0]):
             dists[i, j] = (((x - x2s[j])**2) + ((y - y2s[j])**2))**0.5
 
     return
@@ -142,8 +142,8 @@ cpdef void fill_vg_var_arr(
         cov_sign = +1
         cov_mult = +0
 
-    for h in xrange(row_ct):
-        for g in xrange(col_ct):
+    for h in range(row_ct):
+        for g in range(col_ct):
             in_vars[h, g] = 0.0
 
     vg_models = bytes(vg_models_str, 'utf-8').split(b'+')
@@ -159,8 +159,8 @@ cpdef void fill_vg_var_arr(
         sill_f = float(sill_s)
 
         if diag_mat_flag:
-            for h in xrange(row_ct):
-                for g in xrange(col_ct):
+            for h in range(row_ct):
+                for g in range(col_ct):
                     if g < h:
                         continue
 
@@ -169,15 +169,15 @@ cpdef void fill_vg_var_arr(
                         (cov_sign * vg_ftn(dists[h, g], range_f, sill_f)))
 
         else:
-            for h in xrange(row_ct):
-                for g in xrange(col_ct):
+            for h in range(row_ct):
+                for g in range(col_ct):
                     in_vars[h, g] += (
                         (cov_mult * sill_f) +
                         (cov_sign * vg_ftn(dists[h, g], range_f, sill_f)))
 
     if diag_mat_flag:
-        for h in xrange(row_ct):
-            for g in xrange(col_ct):
+        for h in range(row_ct):
+            for g in range(col_ct):
                 if g >= h:
                     continue
 
@@ -240,10 +240,10 @@ cdef class OrdinaryKriging:
             self.ranges.push_back(max(1e-5, float(rng)))
             self.vg_ftns.push_back(all_vg_ftns[vg])
 
-        for i in xrange(self.in_count):
+        for i in range(self.in_count):
             x1 = self.xi[i]
             y1 = self.yi[i]
-            for j in xrange(self.in_count):
+            for j in range(self.in_count):
                 if j > i:
                     self.in_dists[i, j] = get_dist(x1,
                                                    y1,
@@ -252,12 +252,12 @@ cdef class OrdinaryKriging:
                 elif i > j:
                     self.in_dists[i, j] = self.in_dists[j, i]
 
-        for f in xrange(self.vg_ftns.size()):
+        for f in range(self.vg_ftns.size()):
             vg_ftn = self.vg_ftns[f]
             range_f = self.ranges[f]
             sill_f = self.sills[f]
-            for h in xrange(self.in_count):
-                for g in xrange(self.in_count):
+            for h in range(self.in_count):
+                for g in range(self.in_count):
                     if g > h:
                         self.in_vars[h, g] += vg_ftn(self.in_dists[h, g],
                                                      range_f,
@@ -271,16 +271,16 @@ cdef class OrdinaryKriging:
 
         self.in_vars_inv = np.linalg.inv(self.in_vars)
 
-        for k in xrange(self.out_count):
+        for k in range(self.out_count):
             x_interp = self.xk[k]
             y_interp = self.yk[k]
             out_vars = np.zeros(shape=(self.in_count + 1))
 
-            for l in xrange(self.in_count):
+            for l in range(self.in_count):
                 out_dist = get_dist(self.xi[l], self.yi[l], x_interp, y_interp)
                 if out_dist == 0.0:
                     continue
-                for n in xrange(self.vg_ftns.size()):
+                for n in range(self.vg_ftns.size()):
                     out_vars[l] += self.vg_ftns[n](out_dist,
                                                    self.ranges[n],
                                                    self.sills[n])
@@ -354,10 +354,10 @@ cdef class SimpleKriging:
             self.ranges.push_back(max(1e-5, float(rng)))
             self.vg_ftns.push_back(all_vg_ftns[vg])
  
-        for i in xrange(self.in_count):
+        for i in range(self.in_count):
             x1 = self.xi[i]
             y1 = self.yi[i]
-            for j in xrange(self.in_count):
+            for j in range(self.in_count):
                 if j > i:
                     self.in_dists[i, j] = get_dist(x1,
                                                    y1,
@@ -366,12 +366,12 @@ cdef class SimpleKriging:
                 elif i > j:
                     self.in_dists[i, j] = self.in_dists[j, i]
  
-        for f in xrange(self.vg_ftns.size()):
+        for f in range(self.vg_ftns.size()):
             vg_ftn = self.vg_ftns[f]
             range_f = self.ranges[f]
             sill_f = self.sills[f]
-            for h in xrange(self.in_count):
-                for g in xrange(self.in_count):
+            for h in range(self.in_count):
+                for g in range(self.in_count):
                     if g > h:
                         self.in_covars[h, g] -= vg_ftn(self.in_dists[h, g],
                                                        range_f,
@@ -381,17 +381,17 @@ cdef class SimpleKriging:
 
         self.in_covars_inv = np.linalg.inv(self.in_covars)
 
-        for k in xrange(self.out_count):
+        for k in range(self.out_count):
             x_interp = self.xk[k]
             y_interp = self.yk[k]
             out_covars_k = np.full(shape=(self.in_count,),
                                    fill_value=self.covar)
  
-            for l in xrange(self.in_count):
+            for l in range(self.in_count):
                 out_dist = get_dist(self.xi[l], self.yi[l], x_interp, y_interp)
                 if out_dist == 0.0:
                     continue
-                for n in xrange(self.vg_ftns.size()):
+                for n in range(self.vg_ftns.size()):
                     out_covars_k[l] -= self.vg_ftns[n](out_dist,
                                                        self.ranges[n],
                                                        self.sills[n])
@@ -463,10 +463,10 @@ cdef class ExternalDriftKriging:
             self.ranges.push_back(max(1e-5, float(rng)))
             self.vg_ftns.push_back(all_vg_ftns[vg])
  
-        for i in xrange(self.in_count):
+        for i in range(self.in_count):
             x1 = self.xi[i]
             y1 = self.yi[i]
-            for j in xrange(self.in_count):
+            for j in range(self.in_count):
                 if j > i:
                     self.in_dists[i, j] = get_dist(x1,
                                                    y1,
@@ -475,12 +475,12 @@ cdef class ExternalDriftKriging:
                 elif i > j:
                     self.in_dists[i, j] = self.in_dists[j, i]
  
-        for f in xrange(self.vg_ftns.size()):
+        for f in range(self.vg_ftns.size()):
             vg_ftn = self.vg_ftns[f]
             range_f = self.ranges[f]
             sill_f = self.sills[f]
-            for h in xrange(self.in_count):
-                for g in xrange(self.in_count):
+            for h in range(self.in_count):
+                for g in range(self.in_count):
                     if g > h:
                         self.in_vars[h, g] += vg_ftn(self.in_dists[h, g],
                                                      range_f,
@@ -495,16 +495,16 @@ cdef class ExternalDriftKriging:
  
         self.in_vars_inv = np.linalg.inv(self.in_vars)
 
-        for k in xrange(self.out_count):
+        for k in range(self.out_count):
             x_interp = self.xk[k]
             y_interp = self.yk[k]
             out_vars = np.zeros(shape=(self.in_count + 2))
  
-            for l in xrange(self.in_count):
+            for l in range(self.in_count):
                 out_dist = get_dist(self.xi[l], self.yi[l], x_interp, y_interp)
                 if out_dist == 0.0:
                     continue
-                for n in xrange(self.vg_ftns.size()):
+                for n in range(self.vg_ftns.size()):
                     out_vars[l] += self.vg_ftns[n](out_dist,
                                                    self.ranges[n],
                                                    self.sills[n])
@@ -591,10 +591,10 @@ cdef class ExternalDriftKriging_MD:
             self.ranges.push_back(max(1e-5, float(rng)))
             self.vg_ftns.push_back(all_vg_ftns[vg])
  
-        for i in xrange(self.in_count):
+        for i in range(self.in_count):
             x1 = self.xi[i]
             y1 = self.yi[i]
-            for j in xrange(self.in_count):
+            for j in range(self.in_count):
                 if j > i:
                     self.in_dists[i, j] = get_dist(x1,
                                                    y1,
@@ -603,12 +603,12 @@ cdef class ExternalDriftKriging_MD:
                 elif i > j:
                     self.in_dists[i, j] = self.in_dists[j, i]
  
-        for f in xrange(self.vg_ftns.size()):
+        for f in range(self.vg_ftns.size()):
             vg_ftn = self.vg_ftns[f]
             range_f = self.ranges[f]
             sill_f = self.sills[f]
-            for h in xrange(self.in_count):
-                for g in xrange(self.in_count):
+            for h in range(self.in_count):
+                for g in range(self.in_count):
                     if g > h:
                         self.in_vars[h, g] += vg_ftn(self.in_dists[h, g],
                                                      range_f,
@@ -619,32 +619,32 @@ cdef class ExternalDriftKriging_MD:
         self.in_vars[self.in_count, :self.in_count] = np.ones(self.in_count)
         self.in_vars[:self.in_count, self.in_count] = np.ones(self.in_count)
  
-        for m in xrange(self.n_drifts):
+        for m in range(self.n_drifts):
             self.in_vars[self.in_count + 1 + m, :self.in_count] = self.si[m]
             self.in_vars[:self.in_count, self.in_count + 1 + m] = self.si[m]
  
         self.in_vars_inv = np.linalg.inv(self.in_vars)
 
-        for k in xrange(self.out_count):
+        for k in range(self.out_count):
             x_interp = self.xk[k]
             y_interp = self.yk[k]
             out_vars = np.zeros(shape=(self.in_count + self.n_drifts + 1))
  
-            for l in xrange(self.in_count):
+            for l in range(self.in_count):
                 out_dist = get_dist(self.xi[l], self.yi[l], x_interp, y_interp)
                 if out_dist == 0.0:
                     continue
-                for n in xrange(self.vg_ftns.size()):
+                for n in range(self.vg_ftns.size()):
                     out_vars[l] += self.vg_ftns[n](out_dist,
                                                    self.ranges[n],
                                                    self.sills[n])
  
             out_vars[self.in_count] = 1
-            for m in xrange(self.n_drifts):
+            for m in range(self.n_drifts):
                 out_vars[self.in_count + 1 + m] = self.sk[m, k]
 #             lambdas_k = np.linalg.solve(self.in_vars, out_vars)
             lambdas_k = np.matmul(self.in_vars_inv, out_vars) 
-            for m in xrange(self.n_drifts + 1):
+            for m in range(self.n_drifts + 1):
                 self.mus_arr[m, k] = lambdas_k[self.in_count + m]
  
 #            self.mus_1[k] = lambdas_k[self.in_count]
@@ -673,7 +673,7 @@ cdef class OrdinaryIndicatorKriging(OrdinaryKriging):
  
     def ikrige(self):
         self.krige()
-        for o in xrange(self.out_count):
+        for o in range(self.out_count):
             self.ik[o] = max(0.0, np.sum((self.lambdas[o, :] * self.ixi)))
             self.est_vars[o] = max(0.0, self.ik[o] * (1. - self.ik[o]))
         return
@@ -696,7 +696,7 @@ cdef class SimpleIndicatorKriging(SimpleKriging):
  
     def ikrige(self):
         self.krige()
-        for o in xrange(self.out_count):
+        for o in range(self.out_count):
             self.ik[o] = max(0.0, np.sum((self.lambdas[o, :] * self.ixi)))
             self.est_covars[o] = max(0.0, self.ik[o] * (1. - self.ik[o]))
         return
