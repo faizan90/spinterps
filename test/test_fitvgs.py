@@ -67,17 +67,27 @@ def get_max_temp_paths():
 
 def get_ppt_paths():
 
+#     in_vals_df_loc = os.path.join(
+#              r'Mulde_preciptiation_infilling_1950_2015',
+#              r'02_combined_station_outputs',
+#              r'infilled_var_df_infill_stns.csv')
+#
+#     in_stn_coords_df_loc = os.path.join(
+#              r'Mulde_preciptiation_infilling_1950_2015',
+#              r'02_combined_station_outputs',
+#             r'infilled_var_df_infill_stns_coords.csv')
+#
+#     out_dir = r'Mulde_precipitation_kriging_20190417'
+
     in_vals_df_loc = os.path.join(
-             r'Mulde_preciptiation_infilling_1950_2015',
-             r'02_combined_station_outputs',
-             r'infilled_var_df_infill_stns.csv')
+        r'full_neckar_clim_data_2',
+        r'precipitation.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'Mulde_preciptiation_infilling_1950_2015',
-             r'02_combined_station_outputs',
-            r'infilled_var_df_infill_stns_coords.csv')
+        r'full_neckar_clim_data_2',
+        r'precipitation_coords.csv')
 
-    out_dir = r'Mulde_precipitation_kriging_20190417'
+    out_dir = r'Neckar_precipitation_kriging_20201028'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -89,20 +99,20 @@ def main():
 
     vg_vars = ['ppt']
 
-    strt_date = '1950-01-01'
-    end_date = '2015-12-31'
-    min_valid_stns = 20
+    strt_date = '1900-01-01'
+    end_date = '2015-12-30'
+    min_valid_stns = 10
 
     drop_stns = []
     mdr = 0.7
     perm_r_list = [1, 2]
     fit_vgs = ['Sph', 'Exp']
     fil_nug_vg = 'Nug'
-    n_best = 4
+    n_best = 1
     ngp = 5
     figs_flag = False
 
-    n_cpus = 30
+    n_cpus = 8
 
     sep = ';'
 
@@ -148,6 +158,8 @@ def main():
 
         if drop_stns:
             in_coords_df.drop(labels=drop_stns, axis=0, inplace=True)
+
+        in_coords_df = in_coords_df[['X', 'Y', 'Z']].astype(float)
 
         fit_vg_cls = FitVariograms()
 

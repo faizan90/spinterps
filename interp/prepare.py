@@ -80,7 +80,7 @@ class SpInterpPrepare(SIBD, KDT):
           fin_y_min,
           fin_y_max),
          cell_size) = get_aligned_shp_bds_and_cell_size(
-             str(self._poly_shp), self._algn_ras)
+             str(self._poly_shp), self._algn_ras, self._cell_bdist)
 
         fin_x_min -= self._bds_buff_ncells * cell_size
         fin_x_max += self._bds_buff_ncells * cell_size

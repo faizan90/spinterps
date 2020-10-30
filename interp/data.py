@@ -324,7 +324,7 @@ class SpInterpData(VD):
             for every parameter.
         station_select_buffer_distance : int or float
             Maximum farthest distance that a station might have from the
-            nearest polygon, in order for it to considered a neighbor
+            nearest polygon, in order for it to be considered as a neighbor
             in the interpolation computation. It is up to the user to use
             consistent units for every parameter.
         interp_around_polys_flag : bool
@@ -336,7 +336,7 @@ class SpInterpData(VD):
         polygon_cell_buffer_distance : None or int or float
             The maximum distance away from the nearest polygon so that
             a cell is considered for interpolation. None by default but if
-            interp_around_polys_flag is True then should be a float or
+            interp_around_polys_flag is True then it should be a float or
             an int.  It is up to the user to use consistent units for
             every parameter.
         '''

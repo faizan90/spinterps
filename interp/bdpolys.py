@@ -14,6 +14,8 @@ class SpInterpBoundaryPolygons:
 
     def __init__(self):
 
+        self._geom_buff_cells = None
+
         self._nrst_stns_slctd_flag = False
         return
 
@@ -48,7 +50,6 @@ class SpInterpBoundaryPolygons:
             feat_buff_cells = []
 
         temp_geoms = []
-
         for feat in bds_lyr:
             geom = feat.GetGeometryRef().Clone()
 
@@ -82,8 +83,17 @@ class SpInterpBoundaryPolygons:
 
             feat_buff_stns.append(geom.Buffer(self._stn_bdist))
 
+            assert (feat_buff_stns[-1].GetGeometryCount() == 1), (
+                'Geometry count changed after buffering! '
+                'Changing station_select_buffer_distance might help.')
+
             if self._ipoly_flag:
+
                 feat_buff_cells.append(geom.Buffer(self._cell_bdist))
+
+                assert (feat_buff_cells[-1].GetGeometryCount() == 1), (
+                    'Geometry count changed after buffering! '
+                    'Changing polygon_cell_buffer_distance might help.')
 
         bds_vec.Destroy()
 

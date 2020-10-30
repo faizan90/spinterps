@@ -160,10 +160,10 @@ class SpInterpSteps:
                 for i, vg_model in enumerate(vg_models):
                     nuggetness_flags[i] = check_full_nuggetness(vg_model)
 
-                with lock:
-                    for i in range(nuggetness_flags.shape[0]):
-                        if nuggetness_flags[i] and self._vb:
-                            print('Full nugget at step:', sub_time_steps[i])
+#                 with lock:
+#                     for i in range(nuggetness_flags.shape[0]):
+#                         if nuggetness_flags[i] and self._vb:
+#                             print('Full nugget at step:', sub_time_steps[i])
 
             else:
                 vg_models = None

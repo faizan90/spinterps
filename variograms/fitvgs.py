@@ -53,11 +53,36 @@ class FitVariograms(VI):
                 columns=np.arange(self._n_best_vgs),
                 dtype=object)
 
-            mp_pool = Pool(self._n_cpus)
+            # Time step indices are reordered in such a way that each chunk
+            # sent to a different thread gets a subset of indices such that
+            # the indices are uniformly sampled from all the time
+            # periods. This helps in keeping all the threads busy for as
+            # long as possible. For example, if the indices in the begining
+            # have too few stations, then the thread will finish fast and
+            # would have nothing to do. Reordering tries to avoid this
+            # scenario.
+            time_idxs = self._data_df.index
+
+            time_idxs_reshuff = []
+            for i in range(mp_idxs[1]):
+                time_idxs_reshuff.extend(time_idxs[mp_idxs[:-1] + i].tolist())
+
+            time_idxs_reshuff = pd.DatetimeIndex(time_idxs_reshuff)
+
+            time_idxs_reshuff = time_idxs_reshuff[
+                ~time_idxs_reshuff.duplicated(keep='first')]
+
+            time_idxs_diff = time_idxs.difference(time_idxs_reshuff)
+
+            time_idxs_reshuff = time_idxs_reshuff.append(time_idxs_diff)
+
+            assert time_idxs_reshuff.size == n_steps
 
             sub_data_dfs_gen = (
-                self._data_df.iloc[mp_idxs[i]:mp_idxs[i + 1]]
+                self._data_df.loc[time_idxs_reshuff[mp_idxs[i]:mp_idxs[i + 1]]]
                 for i in range(self._n_cpus))
+
+            mp_pool = Pool(self._n_cpus)
 
             vg_strs_dfs = mp_pool.map(
                 fit_vgs_steps_cls.get_vgs_df, sub_data_dfs_gen)

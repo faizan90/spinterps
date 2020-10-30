@@ -12,22 +12,22 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
+    main_dir = Path(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\ts')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
+    path_to_shp = r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\vector\danube_gkz3_merged_polys.shp'
 
-    label_field = r'DN'
+    label_field = r'BASINCODE'
 
-#     path_to_ras = r'P:\Synchronize\IWS\Papers_Reviews\Papers\Hydrological_Model_Parameter_Selection_2019\data\infill_resample_cmpr\daily_ppt_rescaled.nc'
-#     input_ras_type = 'nc'
+    path_to_ras = r'S:\Synchronize_LDs\danube_precipitation_kriging_20201030\danube_precipitation_kriging_1900-01-01_to_2015-12-31_5km.nc'
+    input_ras_type = 'nc'
 
-    path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
-    input_ras_type = 'gtiff'
+#     path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
+#     input_ras_type = 'gtiff'
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
-    nc_variable_labels = ['EDK']
+    nc_variable_labels = ['IDW_000']
     nc_time_label = 'time'
 
 #     main_dir = Path(r'P:\Downloads\spinterp_2d_nc_crds_test')
@@ -45,8 +45,8 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-#     path_to_output = 'ppt_edk_1961_to_2015_daily_1km_rockenau_six_cats_rescaled_with_monthly.h5'
-    path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
+    path_to_output = Path(r'danube_1cats_ppt_1900_2015_5km.h5')
+#     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)
 

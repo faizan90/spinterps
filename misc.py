@@ -162,7 +162,8 @@ def get_ras_props(in_ras, in_band_no=1):
     return
 
 
-def get_aligned_shp_bds_and_cell_size(bounds_shp_file, align_ras_file):
+def get_aligned_shp_bds_and_cell_size(
+        bounds_shp_file, align_ras_file, cell_bdist):
 
     n_round = 6
 
@@ -182,6 +183,12 @@ def get_aligned_shp_bds_and_cell_size(bounds_shp_file, align_ras_file):
 
     raw_shp_x_min, raw_shp_x_max, raw_shp_y_min, raw_shp_y_max = np.round(
         envelope, n_round)
+
+    if cell_bdist:
+        raw_shp_x_min -= cell_bdist
+        raw_shp_x_max += cell_bdist
+        raw_shp_y_min -= cell_bdist
+        raw_shp_y_max += cell_bdist
 
     ras_props = get_ras_props(str(align_ras_file))
     ras_cell_size, _1 = np.round(ras_props[6:8], n_round)

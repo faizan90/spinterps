@@ -18,43 +18,38 @@ from spinterps import SpInterpMain
 
 def main():
 
-    main_dir = Path(r'Q:\Synchronize_LDs')
+    main_dir = Path(r'S:\Synchronize_LDs')
     os.chdir(main_dir)
 
     in_data_file = os.path.join(
-            r'P:\Synchronize\IWS\DWD_meteo_hist_pres',
-            r'Mulde_preciptiation_infilling_1950_2015',
-            r'02_combined_station_outputs',
-            r'infilled_var_df_infill_stns.csv')
+        r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\ecad\2020\ECA_blend_rr_reformatted_europe',
+        r'ecad_blend_combined_stns.csv')
 
     in_vgs_file = os.path.join(
-        r'Q:\Synchronize_LDs\Mulde_precipitation_kriging_20190417',
-        r'vg_strs.csv')
+        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\Neckar_precipitation_kriging_20201028\vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
-        os.path.dirname(in_data_file),
-        r'infilled_var_df_infill_stns_coords.csv')
+        os.path.dirname(in_data_file), r'stations_gkz3.csv')
 
     index_type = 'date'
 
-    out_dir = r'test_spinterp_new_alg_quad_neb_selection_23_new_alg_nrst_50_nebs_cmpr'
+    out_dir = r'danube_precipitation_kriging_20201030_2'
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
-    out_krig_net_cdf_file = r'mulde_precipitation_kriging_%s_to_%s_1km_test.nc'
+    out_krig_net_cdf_file = r'danube_precipitation_kriging_%s_to_%s_5km.nc'
 
     freq = 'D'
-    strt_date = r'1950-01-01'
-    end_date = r'1950-12-31'
+    strt_date = r'2015-12-01'
+    end_date = r'2015-12-31'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Mulde\hydmod\raster\srtm_mosaic_mulde_gkz3_1km.tif'])
+        [r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\raster\srtm_danube_mosaic_gkz3_5km.tif'])
 
     in_bounds_shp_file = (
-        os.path.join(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\spate_engine_data\Mulde\hydmod\raster',
-                     r'taudem_out_mulde_20190416\watersheds.shp'))
+        os.path.join(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\vector\danube_gkz3_merged_polys.shp'))
 
     align_ras_file = in_drift_rasters_list[0]
 
@@ -66,7 +61,7 @@ def main():
     min_var_val = 0.0  # None
     max_var_val = None
 
-    max_steps_per_chunk = 1000
+    max_steps_per_chunk = 2500
 
     # can be None or a string vg
     # replace all nan vgs with this
@@ -74,10 +69,10 @@ def main():
 
     min_nebor_dist_thresh = 0
 
-    idw_exps = [1, 3, 5]
-    n_cpus = 7
+    idw_exps = [1]
+    n_cpus = 8
     buffer_dist = 20e3
-    sec_buffer_dist = 2e3
+    sec_buffer_dist = 6e3
 
     neighbor_selection_method = 'nrst'
     n_neighbors = 50
@@ -94,13 +89,13 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-#     ord_krige_flag = False
-#     sim_krige_flag = False
-#     edk_krige_flag = False
+    ord_krige_flag = False
+    sim_krige_flag = False
+    edk_krige_flag = False
 #     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
-    interp_around_polys_flag = False
+#     interp_around_polys_flag = False
 
     in_data_df = pd.read_csv(
         in_data_file,
@@ -142,6 +137,8 @@ def main():
 
     else:
         raise ValueError(f'Incorrect index_type: {index_type}!')
+
+    in_stns_coords_df = (in_stns_coords_df[['X', 'Y', 'Z']]).astype(float)
 
     spinterp_cls = SpInterpMain(verbose)
 
