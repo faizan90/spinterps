@@ -6,6 +6,7 @@ Created on May 27, 2019
 
 import ogr
 import gdal
+import pyproj
 import numpy as np
 
 from ..misc import print_sl, print_el, gdal_err_hdlr
@@ -36,6 +37,10 @@ class GeomAndCrdsItsctIdxs:
         self._y_crds = None
         self._ras_type_lab = None
         self._crds_ndims = None
+
+        self._crds_src_epsg = None
+        self._crds_dst_epsg = None
+        self._crds_tfmr = None
 
         self._min_itsct_area_pct_thresh = 1
         self._max_itct_cells_thresh = 5000
@@ -225,6 +230,59 @@ class GeomAndCrdsItsctIdxs:
         self._set_itsct_idxs_crds_flag = True
         return
 
+    def set_coordinate_system_transforms(self, src_epsg, dst_epsg):
+
+        '''
+        Transform coordinates from source to destination systems.
+
+        This applies to x_crds and y_crds specified in set_coordinates.
+        '''
+
+        if self._vb:
+            print_sl()
+
+            print('Setting coordinate system transforms...')
+
+        if (src_epsg is None) and (dst_epsg is None):
+            pass
+
+        else:
+            assert isinstance(src_epsg, int), 'src_epsg must be an integer!'
+            assert isinstance(dst_epsg, int), 'dst_epsg must be an integer!'
+
+            assert src_epsg != dst_epsg, (
+                'src_epsg and dst_epsg cannot be the same!')
+
+            assert (src_epsg > 0) and (dst_epsg > 0), (
+                'Both src_epsg and dst_epsg must be greater than zero!')
+
+            try:
+                pyproj.crs.CRS.from_epsg(src_epsg)
+
+            except pyproj.exceptions.CRSError:
+                raise ValueError(
+                    f'Unrecognized src_epsg coordinate system: {src_epsg}!')
+            try:
+                pyproj.crs.CRS.from_epsg(dst_epsg)
+
+            except pyproj.exceptions.CRSError:
+                raise ValueError(
+                    f'Unrecognized dst_epsg coordinate system: {dst_epsg}!')
+
+            self._crds_src_epsg = src_epsg
+            self._crds_dst_epsg = dst_epsg
+
+            self._crds_tfmr = pyproj.Transformer.from_crs(
+                f'EPSG:{src_epsg}', f'EPSG:{dst_epsg}', always_xy=True)
+
+        if self._vb:
+            print(f'Set the following coordinate system transforms:')
+            print(f'Source coordinate system EPSG: {src_epsg}')
+            print(f'Destination coordinate system EPSG: {dst_epsg}')
+
+            print_el()
+        return
+
     def set_intersect_misc_settings(
             self,
             minimum_cell_area_intersection_percentage,
@@ -286,42 +344,42 @@ class GeomAndCrdsItsctIdxs:
             (self._crds_ndims == 1) and
             (self._geom_type == 1)):
 
-            self._x_crds, self._y_crds = (
+            x_crds, y_crds = (
                 self._x_crds_orig.copy(), self._y_crds_orig.copy())
 
         elif ((self._ras_type_lab == 'gtiff') and
               (self._crds_ndims == 1) and
               (self._geom_type == 1)):
 
-            self._x_crds = self._get_rect_crds_1d(self._x_crds_orig)
-            self._y_crds = self._get_rect_crds_1d(self._y_crds_orig)
+            x_crds = self._get_rect_crds_1d(self._x_crds_orig)
+            y_crds = self._get_rect_crds_1d(self._y_crds_orig)
 
         elif ((self._ras_type_lab == 'nc') and
               (self._crds_ndims == 2) and
               (self._geom_type == 1)):
 
-            self._x_crds, self._y_crds = (
+            x_crds, y_crds = (
                 self._x_crds_orig.copy(), self._y_crds_orig.copy())
 
         elif ((self._ras_type_lab == 'nc') and
               (self._crds_ndims == 1) and
               (self._geom_type == 3)):
 
-            self._x_crds = self._get_rect_crds_1d(self._x_crds_orig)
-            self._y_crds = self._get_rect_crds_1d(self._y_crds_orig)
+            x_crds = self._get_rect_crds_1d(self._x_crds_orig)
+            y_crds = self._get_rect_crds_1d(self._y_crds_orig)
 
         elif ((self._ras_type_lab == 'gtiff') and
               (self._crds_ndims == 1) and
               (self._geom_type == 3)):
 
-            self._x_crds, self._y_crds = (
+            x_crds, y_crds = (
                 self._x_crds_orig.copy(), self._y_crds_orig.copy())
 
         elif ((self._ras_type_lab == 'nc') and
               (self._crds_ndims == 2) and
               (self._geom_type == 3)):
 
-            self._x_crds, self._y_crds = self._get_rect_crds_2d(
+            x_crds, y_crds = self._get_rect_crds_2d(
                 self._x_crds_orig, self._y_crds_orig)
 
         else:
@@ -329,6 +387,15 @@ class GeomAndCrdsItsctIdxs:
                 f'Not configured for raster_type_label: '
                 f'{self._ras_type_lab}, {self._crds_ndims} '
                 f'dimensions and geometry type: {self._geom_type}!')
+
+        if self._crds_tfmr is not None:
+            x_crds, y_crds = self._reproject(x_crds, y_crds)
+
+        self._x_crds = x_crds
+        self._y_crds = y_crds
+
+        self._x_crds.flags.writeable = False
+        self._y_crds.flags.writeable = False
 
         x_min = self._x_crds.min()
         x_max = self._x_crds.max()
@@ -460,6 +527,27 @@ class GeomAndCrdsItsctIdxs:
             'Call the compute_intersect_idxs method first!')
 
         return self._itsct_idxs_dict
+
+    def _reproject(self, x_crds, y_crds):
+
+        if self._vb:
+            print(
+                f'Reprojecting from EPSG {self._crds_src_epsg} to '
+                f'{self._crds_dst_epsg}...')
+
+        x_crds_reproj, y_crds_reproj = self._crds_tfmr.transform(
+            x_crds, y_crds)
+
+        assert x_crds.shape == x_crds_reproj.shape
+        assert y_crds.shape == y_crds_reproj.shape
+
+        assert np.all(np.isfinite(x_crds_reproj))
+        assert np.all(np.isfinite(y_crds_reproj))
+
+        if self._vb:
+            print('Done reprojecting.')
+
+        return x_crds_reproj, y_crds_reproj
 
     def _verf_crds(self, crds):
 

@@ -19,16 +19,22 @@ def main():
 
     label_field = r'BASINCODE'
 
-    path_to_ras = r'S:\Synchronize_LDs\danube_precipitation_kriging_20201030\danube_precipitation_kriging_1900-01-01_to_2015-12-31_5km.nc'
+    path_to_ras = r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\raster\tot_prec_1901_daysum.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
 #     input_ras_type = 'gtiff'
 
-    nc_x_crds_label = 'X'
-    nc_y_crds_label = 'Y'
-    nc_variable_labels = ['IDW_000']
+    nc_x_crds_label = 'lon'
+    nc_y_crds_label = 'lat'
+    nc_variable_labels = ['TOT_PREC']
     nc_time_label = 'time'
+
+#     src_epsg = None
+#     dst_epsg = None
+
+    src_epsg = 4326
+    dst_epsg = 31467
 
 #     main_dir = Path(r'P:\Downloads\spinterp_2d_nc_crds_test')
 #     os.chdir(main_dir)
@@ -45,7 +51,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'danube_1cats_ppt_1900_2015_5km.h5')
+    path_to_output = Path(r'test_danube_cosmo2.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)
@@ -54,10 +60,14 @@ def main():
 
     if input_ras_type == 'gtiff':
         res = Ext.extract_from_geotiff(
-            path_to_shp, label_field, path_to_ras, path_to_output)
+            path_to_shp,
+            label_field,
+            path_to_ras,
+            path_to_output,
+            src_epsg,
+            dst_epsg)
 
     elif input_ras_type == 'nc':
-
         res = Ext.extract_from_netCDF(
             path_to_shp,
             label_field,
@@ -66,7 +76,9 @@ def main():
             nc_x_crds_label,
             nc_y_crds_label,
             nc_variable_labels,
-            nc_time_label)
+            nc_time_label,
+            src_epsg,
+            dst_epsg)
 
     else:
         raise NotImplementedError

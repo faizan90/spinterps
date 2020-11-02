@@ -44,7 +44,9 @@ class Extract:
             path_to_shp,
             label_field,
             path_to_gtiff,
-            path_to_output):
+            path_to_output,
+            src_epsg,
+            dst_epsg):
 
         poly_cls = self._get_poly_cls(path_to_shp, label_field)
 
@@ -62,6 +64,8 @@ class Extract:
             gtiff_crds_cls.get_x_coordinates(),
             gtiff_crds_cls.get_y_coordinates(),
             gtiff_crds_cls._raster_type_lab)
+
+        itsct_cls.set_coordinate_system_transforms(src_epsg, dst_epsg)
 
         itsct_cls.verify()
 
@@ -91,7 +95,9 @@ class Extract:
             x_crds_label,
             y_crds_label,
             variable_labels,
-            time_label):
+            time_label,
+            src_epsg,
+            dst_epsg):
 
         assert isinstance(variable_labels, (list, tuple)), (
             'variable_labels can only be a list or tuple having strings!')
@@ -115,6 +121,8 @@ class Extract:
             nc_crds_cls.get_x_coordinates(),
             nc_crds_cls.get_y_coordinates(),
             nc_crds_cls._raster_type_lab)
+
+        itsct_cls.set_coordinate_system_transforms(src_epsg, dst_epsg)
 
         itsct_cls.verify()
 
