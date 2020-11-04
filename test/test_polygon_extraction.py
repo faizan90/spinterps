@@ -12,12 +12,12 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\ts')
+    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\vector\rhine_gkz3_merged_polys.shp'
+    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
 
-    label_field = r'BASINCODE'
+    label_field = r'DN'
 
     path_to_ras = r'P:\tot_prec_1901_2010_daysum.nc'
     input_ras_type = 'nc'
@@ -51,7 +51,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'rhine_1cats_ppt_1901_2010_cosmo.h5')
+    path_to_output = Path(r'neckar_6cats_ppt_1901_2010_cosmo.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)

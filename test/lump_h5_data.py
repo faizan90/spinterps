@@ -23,16 +23,16 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\ts')
+    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
     os.chdir(main_dir)
 
-    in_h5_file = Path(r'elbe_1cats_ppt_1901_2010_cosmo.h5')
+    in_h5_file = Path(r'temp_edk_1961_to_2015_daily_1km_rockenau_six_cats.h5')
 
-    data_grp = 'tot_prec_1901_2010_daysum'
+    data_grp = 'full_neckar_avg_temp_kriging_1961-01-01_to_2015-12-31_1km_all'
 
-    out_file_name_pref = f'elbe_{data_grp}'
+    out_file_name_pref = f'neckar_{data_grp}'
 
-    variable_labels = ['TOT_PREC']
+    variable_labels = ['EDK']
     rel_cell_area_label = 'rel_itsctd_area'
 
     time_label = 'time/time_strs'
@@ -116,8 +116,8 @@ def main():
                 float_format=float_fmt)
 
             if save_df_pkl_flag:
-                out_pkl_path = (
-                    out_dir / Path(f'{out_file_name_pref}__{variable_label}.pkl'))
+                out_pkl_path = (out_dir / Path(
+                    f'{out_file_name_pref}__{variable_label}.pkl'))
 
                 out_df.to_pickle(out_pkl_path)
 
