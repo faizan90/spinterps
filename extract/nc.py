@@ -713,8 +713,7 @@ class ExtractNetCDFValues:
                     out_hdl[f'rows/{label_str}'] = rows_idxs
                     out_hdl[f'cols/{label_str}'] = cols_idxs
 
-                out_var_grp[label_str] = in_var_data[
-                    :, rows_idxs, cols_idxs]
+                out_var_grp[label_str] = in_var_data[:, rows_idxs, cols_idxs]
 
                 out_hdl.flush()
 

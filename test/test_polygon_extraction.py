@@ -15,11 +15,11 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\ts')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\vector\danube_gkz3_merged_polys.shp'
+    path_to_shp = r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\vector\rhine_gkz3_merged_polys.shp'
 
     label_field = r'BASINCODE'
 
-    path_to_ras = r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\raster\tot_prec_1901_daysum.nc'
+    path_to_ras = r'P:\tot_prec_1901_2010_daysum.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
@@ -51,7 +51,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'test_danube_cosmo2.h5')
+    path_to_output = Path(r'rhine_1cats_ppt_1901_2010_cosmo.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)

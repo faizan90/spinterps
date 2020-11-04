@@ -26,11 +26,13 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\ts')
     os.chdir(main_dir)
 
-    in_h5_file = Path(r'danube_1cats_ppt_1900_2015_5km.h5')
+    in_h5_file = Path(r'elbe_1cats_ppt_1901_2010_cosmo.h5')
 
-    data_grp = 'danube_precipitation_kriging_1900-01-01_to_2015-12-31_5km'
+    data_grp = 'tot_prec_1901_2010_daysum'
 
-    variable_labels = ['IDW_000']
+    out_file_name_pref = f'elbe_{data_grp}'
+
+    variable_labels = ['TOT_PREC']
     rel_cell_area_label = 'rel_itsctd_area'
 
     time_label = 'time/time_strs'
@@ -51,8 +53,6 @@ def main():
     save_df_pkl_flag = True
 
     out_dir = main_dir
-
-    out_file_name_pref = data_grp
 
     with h5py.File(in_h5_file, mode='r', driver=None) as h5_hdl:
         h5_times = pd.to_datetime(
