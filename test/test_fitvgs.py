@@ -16,17 +16,25 @@ from spinterps import FitVariograms
 
 def get_mean_temp_paths():
 
+#     in_vals_df_loc = os.path.join(
+#              r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
+#              r'02_combined_station_outputs',
+#              r'infilled_var_df_infill_stns.csv')
+#
+#     in_stn_coords_df_loc = os.path.join(
+#              r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
+#              r'02_combined_station_outputs',
+#             r'infilled_var_df_infill_stns_coords.csv')
+#
+#     out_dir = r'Mulde_temperature_avg_kriging_20190417'
+
     in_vals_df_loc = os.path.join(
-             r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
-             r'02_combined_station_outputs',
-             r'infilled_var_df_infill_stns.csv')
+             r'temperature_avg.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'Mulde_temperature_avg_norm_cop_infill_1950_to_2015_20190417',
-             r'02_combined_station_outputs',
-            r'infilled_var_df_infill_stns_coords.csv')
+             r'temperature_avg_coords.csv')
 
-    out_dir = r'Mulde_temperature_avg_kriging_20190417'
+    out_dir = r'temperature_interpolation/obs'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -94,13 +102,13 @@ def get_ppt_paths():
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\DWD_meteo_hist_pres')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
     os.chdir(main_dir)
 
-    vg_vars = ['ppt']
+    vg_vars = ['mean_temp']
 
-    strt_date = '1900-01-01'
-    end_date = '2015-12-30'
+    strt_date = '1989-01-01'
+    end_date = '1992-12-30'
     min_valid_stns = 10
 
     drop_stns = []
@@ -110,7 +118,7 @@ def main():
     fil_nug_vg = 'Nug'
     n_best = 1
     ngp = 5
-    figs_flag = False
+    figs_flag = True
 
     n_cpus = 8
 

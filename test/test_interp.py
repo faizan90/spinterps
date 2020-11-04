@@ -18,47 +18,46 @@ from spinterps import SpInterpMain
 
 def main():
 
-    main_dir = Path(r'S:\Synchronize_LDs')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
     os.chdir(main_dir)
 
     in_data_file = os.path.join(
-        r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\ecad\2020\ECA_blend_rr_reformatted_europe',
-        r'ecad_blend_combined_stns.csv')
+        r'temperature_avg.csv')
 
     in_vgs_file = os.path.join(
-        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\Neckar_precipitation_kriging_20201028\vg_strs.csv')
+        r'temperature_interpolation/obs/vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
-        os.path.dirname(in_data_file), r'stations_gkz3.csv')
+        os.path.dirname(in_data_file), r'temperature_avg_coords.csv')
 
     index_type = 'date'
 
-    out_dir = r'danube_precipitation_kriging_20201030_2'
+    out_dir = r'temperature_interpolation/obs'
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
-    out_krig_net_cdf_file = r'danube_precipitation_kriging_%s_to_%s_5km.nc'
+    out_krig_net_cdf_file = r'temperature_kriging_%s_to_%s_1km_obs.nc'
 
     freq = 'D'
-    strt_date = r'2015-12-01'
-    end_date = r'2015-12-31'
+    strt_date = r'1989-01-01'
+    end_date = r'1992-12-30'
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\raster\srtm_danube_mosaic_gkz3_5km.tif'])
+        [r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif'])
 
     in_bounds_shp_file = (
-        os.path.join(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\vector\danube_gkz3_merged_polys.shp'))
+        os.path.join(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'))
 
     align_ras_file = in_drift_rasters_list[0]
 
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_var_val_thresh = 1  # -float('inf')  # 1
+    min_var_val_thresh = -float('inf')  # 1
 
-    min_var_val = 0.0  # None
+    min_var_val = None
     max_var_val = None
 
     max_steps_per_chunk = 2500
@@ -72,7 +71,7 @@ def main():
     idw_exps = [1]
     n_cpus = 8
     buffer_dist = 20e3
-    sec_buffer_dist = 6e3
+    sec_buffer_dist = 2e3
 
     neighbor_selection_method = 'nrst'
     n_neighbors = 50
@@ -91,8 +90,8 @@ def main():
 
     ord_krige_flag = False
     sim_krige_flag = False
-    edk_krige_flag = False
-#     idw_flag = False
+#     edk_krige_flag = False
+    idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False

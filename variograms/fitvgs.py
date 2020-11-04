@@ -67,7 +67,7 @@ class FitVariograms(VI):
             for i in range(mp_idxs[1]):
                 time_idxs_reshuff.extend(time_idxs[mp_idxs[:-1] + i].tolist())
 
-            time_idxs_reshuff = pd.DatetimeIndex(time_idxs_reshuff)
+            time_idxs_reshuff = pd.Index(time_idxs_reshuff)
 
             time_idxs_reshuff = time_idxs_reshuff[
                 ~time_idxs_reshuff.duplicated(keep='first')]
@@ -220,7 +220,7 @@ class FitVariogramsSteps:
                 plt.plot(
                     vg_fit[m][:, 0],
                     vg_fit[m][:, 1],
-                    c=pd.np.random.rand(3,),
+                    c=np.random.rand(3,),
                     linewidth=4,
                     zorder=m,
                     label=fit_vg_list[m],
@@ -232,7 +232,7 @@ class FitVariogramsSteps:
             plt.ylabel('Variogram')
 
             plt.title(
-                'Event date: %s' % (date_str), fontdict={'fontsize':15})
+                'Step label: %s' % (date_str), fontdict={'fontsize':15})
 
             if vg_names:
                 plt.legend(loc=4, framealpha=0.7)
