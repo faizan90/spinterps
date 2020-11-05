@@ -32,9 +32,9 @@ def get_mean_temp_paths():
              r'temperature_avg.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'temperature_avg_coords.csv')
+             r'temperature_avg_coords_subset.csv')
 
-    out_dir = r'temperature_interpolation/obs'
+    out_dir = r'temperature_interpolation_validation/obs'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -87,15 +87,23 @@ def get_ppt_paths():
 #
 #     out_dir = r'Mulde_precipitation_kriging_20190417'
 
+#     in_vals_df_loc = os.path.join(
+#         r'full_neckar_clim_data_2',
+#         r'precipitation.csv')
+#
+#     in_stn_coords_df_loc = os.path.join(
+#         r'full_neckar_clim_data_2',
+#         r'precipitation_coords.csv')
+#
+#     out_dir = r'Neckar_precipitation_kriging_20201028'
+
     in_vals_df_loc = os.path.join(
-        r'full_neckar_clim_data_2',
-        r'precipitation.csv')
+             r'precipitation.csv')
 
     in_stn_coords_df_loc = os.path.join(
-        r'full_neckar_clim_data_2',
-        r'precipitation_coords.csv')
+             r'precipitation_coords_subset.csv')
 
-    out_dir = r'Neckar_precipitation_kriging_20201028'
+    out_dir = r'precipitation_interpolation_validation/obs'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -111,7 +119,9 @@ def main():
     end_date = '1992-12-30'
     min_valid_stns = 10
 
-    drop_stns = []
+    drop_stns = ['T3705', 'T1875', 'T5664', 'T1197']
+#     drop_stns = ['P3733', 'P3315', 'P3713', 'P3454']
+
     mdr = 0.7
     perm_r_list = [1, 2]
     fit_vgs = ['Sph', 'Exp']

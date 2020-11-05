@@ -18,29 +18,34 @@ from spinterps import SpInterpMain
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
+    main_dir = Path(
+        r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
+
     os.chdir(main_dir)
 
     in_data_file = os.path.join(
         r'temperature_avg.csv')
 
     in_vgs_file = os.path.join(
-        r'temperature_interpolation/obs/vg_strs.csv')
+        r'temperature_interpolation_validation/obs/vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
-        os.path.dirname(in_data_file), r'temperature_avg_coords.csv')
+        os.path.dirname(in_data_file), r'temperature_avg_coords_subset.csv')
 
     index_type = 'date'
 
-    out_dir = r'temperature_interpolation/obs'
-    var_units = 'mm'  # u'\u2103'  # 'centigrade'
-    var_name = 'precipitation'
+    out_dir = r'temperature_interpolation_validation/obs'
+    var_units = 'C'  # u'\u2103'  # 'centigrade'
+    var_name = 'temperature'
 
     out_krig_net_cdf_file = r'temperature_kriging_%s_to_%s_1km_obs.nc'
 
     freq = 'D'
     strt_date = r'1989-01-01'
     end_date = r'1992-12-30'
+
+    drop_stns = ['T3705', 'T1875', 'T5664', 'T1197']
+#     drop_stns = ['P3733', 'P3315', 'P3713', 'P3454']
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
@@ -62,8 +67,8 @@ def main():
 
     max_steps_per_chunk = 2500
 
-    # can be None or a string vg
-    # replace all nan vgs with this
+    # Can be None or a string vg.
+    # Replace all nan vgs with this.
     nan_vg = '0.0 Nug(0.0)'
 
     min_nebor_dist_thresh = 0
@@ -88,9 +93,9 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    ord_krige_flag = False
+#     ord_krige_flag = False
     sim_krige_flag = False
-#     edk_krige_flag = False
+    edk_krige_flag = False
     idw_flag = False
 #     plot_figs_flag = False
 #     verbose = False
@@ -114,6 +119,14 @@ def main():
         sep=in_sep,
         index_col=0,
         encoding='utf-8')
+
+    if drop_stns:
+        assert all([
+            validation_col in in_stns_coords_df.index
+            for validation_col in drop_stns])
+
+        in_stns_coords_df = in_stns_coords_df.loc[
+            in_stns_coords_df.index.difference(pd.Index(drop_stns))]
 
     if nan_vg:
         assert isinstance(nan_vg, str), 'nan_vg can only be None or a string!'

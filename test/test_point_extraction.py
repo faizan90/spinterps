@@ -18,13 +18,13 @@ from spinterps import (
 
 def main():
 
-    main_dir = Path(r'P:\Downloads\spinterp_pt_extract')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
     os.chdir(main_dir)
 
-    path_to_shp = 'neckar_46_stns_20180624.shp'
+    path_to_shp = 'temperature_validation_stns.shp'
     label_field = 'field_1'
 
-    path_to_ras = r'tem_spinterp.nc'
+    path_to_ras = r'temperature_interpolation_validation\obs\temperature_kriging_1989-01-01_to_1992-12-30_1km_obs.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = (
@@ -33,10 +33,10 @@ def main():
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
-    nc_variable_labels = ['OK', 'SK']
+    nc_variable_labels = ['OK']
     nc_time_label = 'time'
 
-    path_to_output = 'test.h5'
+    path_to_output = r'temperature_interpolation_validation\obs\ts_valid.h5'
 
     verbose = True
 
