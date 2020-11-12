@@ -32,9 +32,9 @@ def get_mean_temp_paths():
              r'temperature_avg.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'temperature_avg_coords_subset.csv')
+             r'temperature_avg_coords.csv')
 
-    out_dir = r'temperature_interpolation_validation/obs'
+    out_dir = r'temperature_kriging/obs'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
@@ -101,25 +101,25 @@ def get_ppt_paths():
              r'precipitation.csv')
 
     in_stn_coords_df_loc = os.path.join(
-             r'precipitation_coords_subset.csv')
+             r'precipitation_coords.csv')
 
-    out_dir = r'precipitation_interpolation_validation/obs'
+    out_dir = r'precipitation_kriging/obs'
 
     return in_vals_df_loc, in_stn_coords_df_loc, out_dir
 
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\multisite_phs_spec_corr')
     os.chdir(main_dir)
 
-    vg_vars = ['mean_temp']
+    vg_vars = ['ppt']
 
-    strt_date = '1989-01-01'
-    end_date = '1992-12-30'
+    strt_date = '1991-01-01'
+    end_date = '1991-12-30'
     min_valid_stns = 10
 
-    drop_stns = ['T3705', 'T1875', 'T5664', 'T1197']
+    drop_stns = []  # ['T3705', 'T1875', 'T5664', 'T1197']
 #     drop_stns = ['P3733', 'P3315', 'P3713', 'P3454']
 
     mdr = 0.7
@@ -128,7 +128,7 @@ def main():
     fil_nug_vg = 'Nug'
     n_best = 1
     ngp = 5
-    figs_flag = True
+    figs_flag = False
 
     n_cpus = 8
 

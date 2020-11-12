@@ -12,29 +12,29 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\multisite_phs_spec_corr\precipitation_kriging')
     os.chdir(main_dir)
 
     path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
 
     label_field = r'DN'
 
-    path_to_ras = r'P:\tot_prec_1901_2010_daysum.nc'
+    path_to_ras = r'kriging_1km_phs.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
 #     input_ras_type = 'gtiff'
 
-    nc_x_crds_label = 'lon'
-    nc_y_crds_label = 'lat'
-    nc_variable_labels = ['TOT_PREC']
-    nc_time_label = 'time'
+    nc_x_crds_label = 'X'
+    nc_y_crds_label = 'Y'
+    nc_variable_labels = ['OK']
+    nc_time_label = 'freq'
 
-#     src_epsg = None
-#     dst_epsg = None
+    src_epsg = None
+    dst_epsg = None
 
-    src_epsg = 4326
-    dst_epsg = 31467
+#     src_epsg = 4326
+#     dst_epsg = 31467
 
 #     main_dir = Path(r'P:\Downloads\spinterp_2d_nc_crds_test')
 #     os.chdir(main_dir)
@@ -51,7 +51,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'neckar_6cats_ppt_1901_2010_cosmo.h5')
+    path_to_output = Path(r'neckar_6cats_ppt_1991_1991_phs.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)

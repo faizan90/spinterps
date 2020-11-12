@@ -19,32 +19,32 @@ from spinterps import SpInterpMain
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
+        r'P:\Synchronize\IWS\Testings\fourtrans_practice\multisite_phs_spec_corr')
 
     os.chdir(main_dir)
 
     in_data_file = os.path.join(
-        r'temperature_avg.csv')
+        r'precipitation.csv')
 
     in_vgs_file = os.path.join(
-        r'temperature_interpolation_validation/obs/vg_strs.csv')
+        r'precipitation_kriging/obs/vg_strs.csv')
 
     in_stns_coords_file = os.path.join(
-        os.path.dirname(in_data_file), r'temperature_avg_coords_subset.csv')
+        os.path.dirname(in_data_file), r'precipitation_coords.csv')
 
     index_type = 'date'
 
-    out_dir = r'temperature_interpolation_validation/obs'
-    var_units = 'C'  # u'\u2103'  # 'centigrade'
-    var_name = 'temperature'
+    out_dir = r'precipitation_kriging/obs'
+    var_units = 'mm'  # u'\u2103'  # 'centigrade'
+    var_name = 'precipitation'
 
-    out_krig_net_cdf_file = r'temperature_kriging_%s_to_%s_1km_obs.nc'
+    out_krig_net_cdf_file = r'precipitation_kriging_%s_to_%s_1km_obs.nc'
 
     freq = 'D'
-    strt_date = r'1989-01-01'
-    end_date = r'1992-12-30'
+    strt_date = r'1991-01-01'
+    end_date = r'1991-12-30'
 
-    drop_stns = ['T3705', 'T1875', 'T5664', 'T1197']
+    drop_stns = []  # ['T3705', 'T1875', 'T5664', 'T1197']
 #     drop_stns = ['P3733', 'P3315', 'P3713', 'P3454']
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
@@ -60,9 +60,9 @@ def main():
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_var_val_thresh = -float('inf')  # 1
+    min_var_val_thresh = 1  # -float('inf')  # 1
 
-    min_var_val = None
+    min_var_val = 0.0  # None
     max_var_val = None
 
     max_steps_per_chunk = 2500
@@ -71,7 +71,7 @@ def main():
     # Replace all nan vgs with this.
     nan_vg = '0.0 Nug(0.0)'
 
-    min_nebor_dist_thresh = 0
+    min_nebor_dist_thresh = 1
 
     idw_exps = [1]
     n_cpus = 8
@@ -97,7 +97,7 @@ def main():
     sim_krige_flag = False
     edk_krige_flag = False
     idw_flag = False
-#     plot_figs_flag = False
+    plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False
 
