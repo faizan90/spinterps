@@ -642,7 +642,7 @@ class ExtractNetCDFValues:
                 steps_data = {}
                 for i in range(in_time.shape[0]):
                     step = in_time_data[i]
-                    step_data = in_var_data[i, rows_idxs, cols_idxs]
+                    step_data = in_var_data[i, rows_idxs, cols_idxs][0]
 
                     steps_data[step] = step_data
 

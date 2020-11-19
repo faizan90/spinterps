@@ -78,11 +78,13 @@ class FitVariograms(VI):
 
             assert time_idxs_reshuff.size == n_steps
 
+            n_cpus = min(self._n_cpus, self._data_df.shape[0])
+
             sub_data_dfs_gen = (
                 self._data_df.loc[time_idxs_reshuff[mp_idxs[i]:mp_idxs[i + 1]]]
-                for i in range(self._n_cpus))
+                for i in range(n_cpus))
 
-            mp_pool = Pool(self._n_cpus)
+            mp_pool = Pool(n_cpus)
 
             vg_strs_dfs = mp_pool.map(
                 fit_vgs_steps_cls.get_vgs_df, sub_data_dfs_gen)
@@ -159,18 +161,18 @@ class FitVariogramsSteps:
             y=y_crds,
             z=z_vals,
             mdr=self._mdr,
-            nk=10,
-            typ='cnst',
+            nk=100,
+            typ='var',
             perm_r_list=self._n_vgs_perms,
             fil_nug_vg=self._nug_vg,
             ld=None,
             uh=None,
             h_itrs=100,
             opt_meth='L-BFGS-B',
-            opt_iters=1000,
+            opt_iters=10000,
             fit_vgs=self._vg_names,
             n_best=self._n_best_vgs,
-            evg_name='classic',
+            evg_name='robust',
             use_wts=False,
             ngp=self._n_gps,
             fit_thresh=0.01)

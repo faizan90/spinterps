@@ -13,8 +13,6 @@ import pandas as pd
 
 from spinterps import SpInterpMain
 
-# raise Exception
-
 
 def main():
 

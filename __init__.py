@@ -22,3 +22,5 @@ from .extract import (
     GeomAndCrdsItsctIdxs,
     ReOrderIdxs,
     Extract)
+
+from .misc import get_theo_vg_vals

@@ -825,7 +825,9 @@ class GeomAndCrdsItsctIdxs:
                 'x_cen_crds': np.array(
                     [self._x_crds[min_x_crd_idx]], dtype=float),
                 'y_cen_crds': np.array(
-                    [self._y_crds[min_y_crd_idx]], dtype=float), }
+                    [self._y_crds[min_y_crd_idx]], dtype=float),
+                'x_crds': np.array([pt_x], dtype=float),
+                'y_crds': np.array([pt_y], dtype=float)}
 
         return itsct_idxs_dict
 

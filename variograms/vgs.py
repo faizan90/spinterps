@@ -5,7 +5,7 @@ from itertools import permutations
 
 import numpy as np
 from pandas import DataFrame
-from scipy.optimize import minimize, brute
+from scipy.optimize import differential_evolution
 
 __all__ = ['Variogram']
 
@@ -402,9 +402,12 @@ class Variogram:
             return np.nan
 #             raise ZeroDivisionError
         else:
-            sqs = (np.subtract(xs, ys)) ** 2
-            sum_vg = np.sum(sqs)
-            evg = (sum_vg / p2x)
+#             sqs = (np.subtract(xs, ys)) ** 2
+#             sum_vg = np.sum(sqs)
+#             evg = (sum_vg / p2x)
+
+            evg = np.median((np.subtract(xs, ys)) ** 2)
+
             return evg
 
     def evg_robust(self, xs, ys):
@@ -742,19 +745,23 @@ class Variogram:
                                           (self.vg_vg_arr[0], self.vg_vg_arr[0])]
 
                         else:
-                            sub_bounds = [(lb_thresh, self.max_dist),
+#                             sub_bounds = [(self.vg_h_arr[0], self.max_dist),
+#                                           (lb_thresh, 2 * self.variance)]
+
+                            sub_bounds = [(self.vg_h_arr[0], 1e9),
                                           (lb_thresh, 2 * self.variance)]
 
                         [bounds.append(tuple(l)) for l in sub_bounds]
 
-                    # minimize type
-                    opt_rough = brute(self._vg_calib, ranges=tuple(bounds),
-                                      args=tuple(mix_vg_names), full_output=True,
-                                      Ns=self.ngp)
+                    opt = differential_evolution(
+                        self._vg_calib,
+                        tuple(bounds),
+                        tuple(mix_vg_names),
+                        maxiter=self.opt_iters,
+                        popsize=len(bounds) * 50)
 
-                    opt = minimize(self._vg_calib, x0=tuple(opt_rough[0]),
-                                   args=tuple(mix_vg_names), method=self.opt_meth,
-                                   bounds=tuple(bounds))
+                    assert opt.success, 'Optimization did not succeed!'
+
                 else:
                     continue
 

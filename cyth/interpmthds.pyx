@@ -96,6 +96,31 @@ all_vg_ftns[b'Pow'] = pow_vg
 all_vg_ftns[b'Hol'] = hol_vg
 
 
+cpdef fill_theo_vg_vals(
+        vg_str, 
+        const DT_D[:] h_arr, 
+        DT_D r, 
+        DT_D s, 
+        DT_D[:] vg_arr) except +:
+
+    cdef:
+        Py_ssize_t i, n
+        
+        f_type vg_ftn = all_vg_ftns[bytes(vg_str, 'utf-8').strip()]
+
+    n = h_arr.shape[0]
+
+    assert n
+    assert h_arr.shape[0] == vg_arr.shape[0]
+    assert s >= 0
+    assert r >= 0
+
+    for i in range(n):
+        vg_arr[i] += vg_ftn(h_arr[i], r, s) 
+
+    return
+
+
 cpdef void fill_dists_2d_mat(
         const DT_D[::1] x1s,
         const DT_D[::1] y1s,

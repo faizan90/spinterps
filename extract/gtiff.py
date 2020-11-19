@@ -264,7 +264,7 @@ class ExtractGTiffValues:
         ----------
         path_to_output : None, string, pathlib.Path
             Path to the output file. If None, then extracted values can be
-            returned by a call to the get_extracted_data method as a
+            returned by a call to the get_values method as a
             dictionary. See the documentation of the get_extracted_data
             method for the output format. If the output file extension is
             h5 or hdf5 then the outputs are written to an HDF5 file.

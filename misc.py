@@ -15,7 +15,7 @@ import psutil as ps
 import netCDF4 as nc
 from cftime import utime, datetime
 
-from .cyth import fill_dists_2d_mat
+from .cyth import fill_dists_2d_mat, fill_theo_vg_vals
 
 print_line_str = 40 * '#'
 
@@ -378,6 +378,29 @@ def num2date(num_axis, units, calendar):
 
     assert res is not None
     return res
+
+
+def get_theo_vg_vals(in_model, h_arr):
+
+    in_model = str(in_model)
+
+    models = in_model.split('+')
+
+    vg_vals = np.zeros_like(h_arr)
+
+    for submodel in models:
+        submodel = submodel.strip()
+
+        sill, submodel = submodel.split(' ')
+        submodel, rng = submodel.split('(')
+        rng = rng.split(')')[0]
+
+        sill = float(sill)
+        rng = float(rng)
+
+        fill_theo_vg_vals(submodel, h_arr, rng, sill, vg_vals)
+
+    return vg_vals
 
 
 def check_full_nuggetness(in_model):
