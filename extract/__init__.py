@@ -96,8 +96,8 @@ class Extract:
             y_crds_label,
             variable_labels,
             time_label,
-            src_epsg,
-            dst_epsg):
+            src_epsg=None,
+            dst_epsg=None):
 
         assert isinstance(variable_labels, (list, tuple)), (
             'variable_labels can only be a list or tuple having strings!')

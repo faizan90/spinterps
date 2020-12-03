@@ -156,94 +156,103 @@ class FitVariogramsSteps:
 
         z_vals = in_vals_ser.loc[aval_stns].values
 
-        vg = VG(
-            x=x_crds,
-            y=y_crds,
-            z=z_vals,
-            mdr=self._mdr,
-            nk=100,
-            typ='var',
-            perm_r_list=self._n_vgs_perms,
-            fil_nug_vg=self._nug_vg,
-            ld=None,
-            uh=None,
-            h_itrs=100,
-            opt_meth='L-BFGS-B',
-            opt_iters=10000,
-            fit_vgs=self._vg_names,
-            n_best=self._n_best_vgs,
-            evg_name='robust',
-            use_wts=False,
-            ngp=self._n_gps,
-            fit_thresh=0.01)
+        z_vals_std = z_vals.std()
 
-        vg.fit()
+        if np.isclose(z_vals_std, 0.0):
+            print(f'No STD on {date}!')
+            return
 
-        fit_vg_list = vg.vg_str_list
-        fit_vgs_no = len(fit_vg_list) - 1
+        else:
+            vg = VG(
+                x=x_crds,
+                y=y_crds,
+                z=z_vals,
+                mdr=self._mdr,
+                nk=20,
+                typ='var',
+                perm_r_list=self._n_vgs_perms,
+                fil_nug_vg=self._nug_vg,
+                ld=None,
+                uh=None,
+                h_itrs=100,
+                opt_meth='L-BFGS-B',
+                opt_iters=10000,
+                fit_vgs=self._vg_names,
+                n_best=self._n_best_vgs,
+                evg_name='robust',
+                use_wts=False,
+                ngp=self._n_gps,
+                fit_thresh=0.01)
 
-        if self._vb:
-            if fit_vg_list:
-                print(f'{date}: {fit_vg_list[-1]}')
+            vg.fit()
 
-            else:
-                print(f'Could not fit any VG on date: {date}')
-                return
+            fit_vg_list = vg.vg_str_list
+            fit_vgs_no = len(fit_vg_list) - 1
 
-        for i, vg_str in enumerate(fit_vg_list):
-            vg_strs_df.loc[date][fit_vgs_no - i] = vg_str
+            if self._vb:
+                if fit_vg_list:
+                    print(f'{date}: {fit_vg_list[-1]}')
 
-        if self._out_figs_path is not None:
-            vg_names = vg.best_vg_names
-            if not vg_names:
-                return
+                else:
+                    print(f'Could not fit any VG on date: {date}')
+                    return
 
-            evg = vg.vg_vg_arr
-            h_arr = vg.vg_h_arr
-            vg_fit = vg.vg_fit
+            if self._out_figs_path is not None:
+                vg_names = vg.best_vg_names
+                if not vg_names:
+                    return
 
-            if self._index_type == 'date':
-                date_str = '%0.4d-%0.2d-%0.2d' % (
-                    date.year, date.month, date.day)
+                evg = vg.vg_vg_arr
+                h_arr = vg.vg_h_arr
+                vg_fit = vg.vg_fit
 
-            elif self._index_type == 'obj':
-                date_str = date
+                if self._index_type == 'date':
+    #                 date_str = '%0.4d-%0.2d-%0.2d' % (
+    #                     date.year, date.month, date.day)
 
-            else:
-                raise ValueError(
-                    f'Not programmed to handle given index_type: '
-                    f'{self._index_type}!')
+                    date_str = date.strftime('%Y%m%d%H%M%S')
 
-            plt.figure(figsize=fig_size)
+                elif self._index_type == 'obj':
+                    date_str = date
 
-            plt.plot(h_arr, evg, 'bo', alpha=0.3)
+                else:
+                    raise ValueError(
+                        f'Not programmed to handle given index_type: '
+                        f'{self._index_type}!')
 
-            for m in range(len(vg_names)):
-                plt.plot(
-                    vg_fit[m][:, 0],
-                    vg_fit[m][:, 1],
-                    c=np.random.rand(3,),
-                    linewidth=4,
-                    zorder=m,
-                    label=fit_vg_list[m],
-                    alpha=0.6)
+                plt.figure(figsize=fig_size)
 
-            plt.grid()
+                plt.plot(h_arr, evg, 'bo', alpha=0.3)
 
-            plt.xlabel('Distance')
-            plt.ylabel('Variogram')
+                for m in range(len(vg_names)):
+                    plt.plot(
+                        vg_fit[m][:, 0],
+                        vg_fit[m][:, 1],
+                        c=np.random.rand(3,),
+                        linewidth=4,
+                        zorder=m,
+                        label=fit_vg_list[m],
+                        alpha=0.6)
 
-            plt.title(
-                'Step label: %s' % (date_str), fontdict={'fontsize':15})
+                plt.grid()
 
-            if vg_names:
-                plt.legend(loc=4, framealpha=0.7)
+                plt.xlabel('Distance')
+                plt.ylabel('Variogram')
 
-            plt.savefig(
-                str(self._out_figs_path / f'{date_str}.png'),
-                bbox_inches='tight')
+                plt.title(
+                    'Step label: %s' % (date_str), fontdict={'fontsize':15})
 
-            plt.close()
+                if vg_names:
+                    plt.legend(loc=4, framealpha=0.7)
+
+                plt.savefig(
+                    str(self._out_figs_path / f'{date_str}.png'),
+                    bbox_inches='tight')
+
+                plt.close()
+
+            for i, vg_str in enumerate(fit_vg_list):
+                vg_strs_df.loc[date][fit_vgs_no - i] = vg_str
 
         return
 
@@ -254,7 +263,7 @@ class FitVariogramsSteps:
             columns=np.arange(self._n_best_vgs),
             dtype=object)
 
-        for date in sub_stns_time_ser_df.index:
+        for date in sub_stns_time_ser_df.index[::-1]:
             self._fit_vgs_step(date, sub_stns_time_ser_df, vg_strs_df)
 
         return vg_strs_df

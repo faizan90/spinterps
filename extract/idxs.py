@@ -976,23 +976,33 @@ class GeomAndCrdsItsctIdxs:
         geom_area = geom.Area()
         assert geom_area > 0, f'Polygon: {label} has no area!'
 
-        geom_buff = geom.Buffer(max(
+        buff_dist = max(
             abs(x_crds[+1] - x_crds[+0]),
             abs(x_crds[-1] - x_crds[-2]),
             abs(y_crds[+1] - y_crds[+0]),
             abs(y_crds[-1] - y_crds[-2]),
-            ))
+            )
 
-        assert geom_buff is not None, (
-            f'Buffer operation failed on polygon: {label}!')
+        assert buff_dist > 0, 'Buffer distance cannot be negative!'
 
-        geom_buff_area = geom_buff.Area()
-        assert geom_buff_area > 0, f'Buffered polygon: {label} has no area!'
+#         geom_buff = geom.Buffer(buff_dist)
+#
+#         assert geom_buff is not None, (
+#             f'Buffer operation failed on polygon: {label}!')
+#
+#         geom_buff_area = geom_buff.Area()
+#         assert geom_buff_area > 0, f'Buffered polygon: {label} has no area!'
+#
+#         assert geom_buff_area >= geom_area, (
+#             f'Buffered polygon: {label} area less than the original one!')
+#
+#         extents = geom_buff.GetEnvelope()
 
-        assert geom_buff_area >= geom_area, (
-            f'Buffered polygon: {label} area less than the original one!')
-
-        extents = geom_buff.GetEnvelope()
+        extents = list(geom.GetEnvelope())
+        extents[0] -= buff_dist
+        extents[1] += buff_dist
+        extents[2] -= buff_dist
+        extents[3] += buff_dist
 
         assert len(extents) == 4, 'Configured for 2D extents only!'
 
@@ -1094,23 +1104,33 @@ class GeomAndCrdsItsctIdxs:
         x_crds = self._x_crds
         y_crds = self._y_crds
 
-        geom_buff = geom.Buffer(max(
+        buff_dist = max(
             abs(x_crds[+1, +0] - x_crds[+0, +0]),
             abs(x_crds[-1, -1] - x_crds[-2, -1]),
             abs(y_crds[+1, +0] - y_crds[+0, 0]),
             abs(y_crds[-1, -1] - y_crds[-2, -1]),
-            ))
+            )
 
-        assert geom_buff is not None, (
-            f'Buffer operation failed on polygon: {label}!')
+        assert buff_dist > 0, 'Buffer distance cannot be negative!'
 
-        geom_buff_area = geom_buff.Area()
-        assert geom_buff_area > 0, f'Buffered Polygon: {label} has no area!'
+#         geom_buff = geom.Buffer(buff_dist)
+#
+#         assert geom_buff is not None, (
+#             f'Buffer operation failed on polygon: {label}!')
+#
+#         geom_buff_area = geom_buff.Area()
+#         assert geom_buff_area > 0, f'Buffered Polygon: {label} has no area!'
+#
+#         assert geom_buff_area >= geom_area, (
+#             f'Buffered polygon: {label} area less than the original one!')
+#
+#         extents = geom_buff.GetEnvelope()
 
-        assert geom_buff_area >= geom_area, (
-            f'Buffered polygon: {label} area less than the original one!')
-
-        extents = geom_buff.GetEnvelope()
+        extents = list(geom.GetEnvelope())
+        extents[0] -= buff_dist
+        extents[1] += buff_dist
+        extents[2] -= buff_dist
+        extents[3] += buff_dist
 
         assert len(extents) == 4, 'Configured for 2D extents only!'
 
