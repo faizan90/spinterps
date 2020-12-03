@@ -389,6 +389,14 @@ class GeomAndCrdsItsctIdxs:
                 f'dimensions and geometry type: {self._geom_type}!')
 
         if self._crds_tfmr is not None:
+            if self._crds_ndims == 1:
+                print(
+                    'INFO: Converting coordinates to 2D due to transformation!')
+
+                x_crds, y_crds = np.meshgrid(x_crds, y_crds)
+
+                self._crds_ndims = 2
+
             x_crds, y_crds = self._reproject(x_crds, y_crds)
 
         self._x_crds = x_crds
@@ -481,7 +489,7 @@ class GeomAndCrdsItsctIdxs:
                 itsct_idxs_dict = self._cmpt_1d_pt_idxs()
 
             else:
-                raise NotImplementedError
+                itsct_idxs_dict = self._cmpt_2d_pt_idxs()
 
         elif self._geom_type == 3:
             itsct_idxs_dict = {}
@@ -961,7 +969,9 @@ class GeomAndCrdsItsctIdxs:
                 'x_cen_crds': np.array(
                     [self._x_crds[min_row_crd_idx, min_col_crd_idx]], dtype=float),
                 'y_cen_crds': np.array(
-                    [self._y_crds[min_row_crd_idx, min_col_crd_idx]], dtype=float), }
+                    [self._y_crds[min_row_crd_idx, min_col_crd_idx]], dtype=float),
+                'x_crds': np.array([pt_x], dtype=float),
+                'y_crds': np.array([pt_y], dtype=float), }
 
         return itsct_idxs_dict
 
