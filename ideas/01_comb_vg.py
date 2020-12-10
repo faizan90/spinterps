@@ -19,7 +19,70 @@ import matplotlib.pyplot as plt
 
 plt.ioff()
 
-DEBUG_FLAG = False
+DEBUG_FLAG = True
+
+
+def get_postve_dfnt_vg(vg_vals):
+
+    n_vals = vg_vals.size
+
+    pd_vg_vals = np.full(n_vals, np.nan)
+    pd_vg_vals[0] = vg_vals[0]
+
+    for i in range(1, n_vals):
+        pval = pd_vg_vals[i - 1]
+        cval = vg_vals[i]
+
+        if cval < pval:
+            pd_vg_vals[i] = pval
+
+        else:
+            pd_vg_vals[i] = cval
+
+    assert np.all(np.isfinite(pd_vg_vals))
+    assert np.all((pd_vg_vals[1:] - pd_vg_vals [:-1]) >= 0)
+
+#     plt.title('Positive definite')
+#     plt.plot(vg_vals, lw=2)
+#     plt.plot(pd_vg_vals, lw=1)
+#     plt.show()
+#     plt.close()
+
+    return pd_vg_vals
+
+
+def get_simplified_vg(dists, vg_vals):
+
+    vg_vals_diffs = vg_vals[1:] - vg_vals[:-1]
+
+    take_idxs_raw = ~(np.isclose(vg_vals_diffs, 0))
+    take_idxs = take_idxs_raw.copy()
+
+    for i in range(1, take_idxs_raw.size):
+        if take_idxs_raw[i]:
+            take_idxs[i - 1] = True
+
+    take_idxs[-1] = True
+
+    sdists = np.full(take_idxs.sum() + 1, np.nan)
+    svg_vals = sdists.copy()
+
+    sdists[0] = dists[0]
+    svg_vals[0] = vg_vals[0]
+
+    sdists[1:] = dists[1:][take_idxs]
+    svg_vals[1:] = vg_vals[1:][take_idxs]
+
+    assert np.all(np.isfinite(sdists)) & np.all(np.isfinite(svg_vals))
+
+#     plt.title('Simplified')
+#     plt.plot(dists, vg_vals, lw=2)
+#     plt.plot(sdists, svg_vals, lw=1)
+#     plt.draw()
+#     plt.show()
+#     plt.close()
+
+    return sdists, svg_vals
 
 
 def get_smoothed_arr(in_arr, win_size, smooth_ftn_type):
@@ -28,8 +91,8 @@ def get_smoothed_arr(in_arr, win_size, smooth_ftn_type):
 
     smooth_ftn = getattr(np, smooth_ftn_type)
 
-    smoothed_arr = np.zeros(n_vals - win_size)
-    for i in range(n_vals - win_size):
+    smoothed_arr = np.zeros(n_vals - win_size + 1)
+    for i in range(smoothed_arr.size):
         smoothed_arr[i] = smooth_ftn(in_arr[i:i + win_size])
 
     return smoothed_arr
@@ -55,6 +118,8 @@ def cmpt_comb_vg(args):
      out_fig_path,
      dpi,
      y_lims,
+     postve_dfnt_flag,
+     simplify_flag,
     ) = args
 
     data_df = pd.read_csv(in_data_file, sep=sep, index_col=0)
@@ -173,7 +238,10 @@ def cmpt_comb_vg(args):
     vg_vals_sorted = vg_vals[dists_sort_idxs]
 
     if smoothing_ratio > 1:
-        n_smooth_vals = smoothing_ratio
+        n_smooth_vals = min(smoothing_ratio, dists_sorted.size)
+
+    elif smoothing_ratio == 0:
+        n_smooth_vals = 1
 
     else:
         n_smooth_vals = int(smoothing_ratio * dists_sorted.size)
@@ -184,6 +252,13 @@ def cmpt_comb_vg(args):
     dists_smoothed = get_smoothed_arr(dists_sorted, n_smooth_vals, 'mean')
     vg_vals_smoothed = get_smoothed_arr(
         vg_vals_sorted, n_smooth_vals, 'median')
+
+    if postve_dfnt_flag:
+        vg_vals_smoothed = get_postve_dfnt_vg(vg_vals_smoothed)
+
+    if simplify_flag:
+        dists_smoothed, vg_vals_smoothed = get_simplified_vg(
+            dists_smoothed, vg_vals_smoothed)
 
     plt.figure(figsize=fig_size)
 
@@ -199,6 +274,30 @@ def cmpt_comb_vg(args):
     plt.ylabel('Semi-variogram')
 
     plt.ylim(*y_lims)
+
+    ttl = (
+        f'ignore_zero_input_data_flag: {ignore_zero_input_data_flag}, '
+        f'ignore_zero_vg_flag: {ignore_zero_vg_flag}\n'
+        f'postve_dfnt_flag: {postve_dfnt_flag}, '
+        f'simplify_flag: {simplify_flag}\n'
+        f'smoothing_ratio: {smoothing_ratio}, '
+        f'n_thresh_vals: {n_thresh_vals}, '
+        f'crds_cols: {crds_cols}\n'
+        f'Class Type: {classi_type}')
+
+    if classi_type == 'months':
+        ttl += f', Use Months: {use_months} '
+
+    elif classi_type == 'years':
+        ttl += f', Use Years: {use_years} '
+
+    elif classi_type == 'none':
+        pass
+
+    else:
+        raise ValueError(f'Unknown classi_type: {classi_type}!')
+
+    plt.title(ttl, loc='left')
 
 #     plt.show()
 
@@ -225,15 +324,14 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Testings\variograms\comb_vg')
     os.chdir(main_dir)
 
-#     in_data_file = Path('../temperature_avg.csv')
-#     in_crds_file = Path('../temperature_avg_coords.csv')
-#
-#     out_fig_name = 'temp_comb_cloud_1961_2015'
+    in_data_file = Path('../temperature_avg.csv')
+    in_crds_file = Path('../temperature_avg_coords.csv')
+#     out_dir = Path('temp_1961_2015')
+    out_dir = Path('test_temp')
 
-    in_data_file = Path('../precipitation.csv')
-    in_crds_file = Path('../precipitation_coords.csv')
-
-    out_fig_name = 'ppt_no_zeros_comb_cloud_1961_2015'
+#     in_data_file = Path('../precipitation.csv')
+#     in_crds_file = Path('../precipitation_coords.csv')
+#     out_dir = Path('ppt_with_zeros_1961_2015')
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
@@ -261,10 +359,17 @@ def main():
     fig_size = (13, 7)
     dpi = 200
 
+    dist_prec = 1
+    vg_val_prec = 5
+
     n_cpus = 12
 
-    ignore_zero_input_data_flag = True
+    ignore_zero_input_data_flag = False
     ignore_zero_vg_flag = True
+    postve_dfnt_flag = True
+    simplify_flag = True
+
+    out_dir.mkdir(exist_ok=True)
 
     if classi_type == 'months':
         cb_lab = 'Month'
@@ -290,9 +395,11 @@ def main():
              ignore_zero_vg_flag,
              smoothing_ratio,
              fig_size,
-             main_dir / f'{out_fig_name}_{cmpr_id}{use_month}.png',
+             out_dir / f'{cmpr_id}{use_month}.png',
              dpi,
              y_lims,
+             postve_dfnt_flag,
+             simplify_flag,
         ) for use_month in use_months)
 
     elif classi_type == 'years':
@@ -324,12 +431,16 @@ def main():
              ignore_zero_vg_flag,
              smoothing_ratio,
              fig_size,
-             main_dir / f'{out_fig_name}_{cmpr_id}{use_year}.png',
+             out_dir / f'{cmpr_id}{use_year}.png',
              dpi,
              y_lims,
+             postve_dfnt_flag,
+             simplify_flag,
         ) for use_year in use_years)
 
     elif classi_type == 'none':
+        cmpr_id = 'N'
+
         args_gen = (
             (in_data_file,
              sep,
@@ -346,9 +457,11 @@ def main():
              ignore_zero_vg_flag,
              smoothing_ratio,
              fig_size,
-             main_dir / f'{out_fig_name}.png',
+             out_dir / f'full_ts.png',
              dpi,
              y_lims,
+             postve_dfnt_flag,
+             simplify_flag,
         ) for _ in range(1))
 
         n_cpus = 1
@@ -366,6 +479,24 @@ def main():
 
         # mp_pool.join()
 
+    with open(out_dir / f'{cmpr_id}_dists.csv', 'w') as dists_hdl:
+        for res in ress:
+            dists_hdl.write(f'{cmpr_id}{res[2]}{sep}')
+
+            dists_hdl.write(
+                f'{sep}'.join([f'{dist:0.{dist_prec}f}' for dist in res[0]]))
+
+            dists_hdl.write('\n')
+
+    with open(out_dir / f'{cmpr_id}_vg_vals.csv', 'w') as vg_vals_hdl:
+        for res in ress:
+            vg_vals_hdl.write(f'{cmpr_id}{res[2]}{sep}')
+
+            vg_vals_hdl.write(
+                f'{sep}'.join([f'{vg_val:0.{vg_val_prec}f}' for vg_val in res[1]]))
+
+            vg_vals_hdl.write('\n')
+
     if classi_type in ('months', 'years'):
         cmap = plt.get_cmap('winter')
         cmap_mappable = plt.cm.ScalarMappable(cmap=cmap)
@@ -376,7 +507,7 @@ def main():
         for res in ress:
             plt.plot(
                 res[0],
-                res[1] / np.median(res[1]),
+                res[1] / np.mean(res[1]),
                 alpha=0.3,
                 color=cmap((res[2] - cmap_vmin) / (cmap_vmax - cmap_vmin)))
 
@@ -402,7 +533,7 @@ def main():
     #     plt.show()
 
         plt.savefig(
-            str(main_dir / f'{out_fig_name}_{cmpr_id}cmpr.png'),
+            str(out_dir / f'{cmpr_id}cmpr.png'),
             dpi=dpi,
             bbox_inches='tight')
 
