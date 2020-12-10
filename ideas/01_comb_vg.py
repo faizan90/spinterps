@@ -324,14 +324,13 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Testings\variograms\comb_vg')
     os.chdir(main_dir)
 
-    in_data_file = Path('../temperature_avg.csv')
-    in_crds_file = Path('../temperature_avg_coords.csv')
+#     in_data_file = Path('../temperature_avg.csv')
+#     in_crds_file = Path('../temperature_avg_coords.csv')
 #     out_dir = Path('temp_1961_2015')
-    out_dir = Path('test_temp')
 
-#     in_data_file = Path('../precipitation.csv')
-#     in_crds_file = Path('../precipitation_coords.csv')
-#     out_dir = Path('ppt_with_zeros_1961_2015')
+    in_data_file = Path('../precipitation.csv')
+    in_crds_file = Path('../precipitation_coords.csv')
+    out_dir = Path('ppt_no_zeros_1961_2015')
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
@@ -345,8 +344,8 @@ def main():
 #     end_time = '1990-12-31'
 
 #     classi_type = 'none'
-#     classi_type = 'months'
-    classi_type = 'years'
+    classi_type = 'months'
+#     classi_type = 'years'
 
     use_months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, ]
     use_years = np.arange(1980, 1991, 1)
@@ -364,7 +363,7 @@ def main():
 
     n_cpus = 12
 
-    ignore_zero_input_data_flag = False
+    ignore_zero_input_data_flag = True
     ignore_zero_vg_flag = True
     postve_dfnt_flag = True
     simplify_flag = True
@@ -507,7 +506,8 @@ def main():
         for res in ress:
             plt.plot(
                 res[0],
-                res[1] / np.mean(res[1]),
+#                 res[1] / np.mean(res[1]),
+                res[1],
                 alpha=0.3,
                 color=cmap((res[2] - cmap_vmin) / (cmap_vmax - cmap_vmin)))
 
