@@ -403,6 +403,30 @@ def get_theo_vg_vals(in_model, h_arr):
     return vg_vals
 
 
+def disagg_vg_str(in_vg_strs):
+
+    assert in_vg_strs
+
+    vg_strs = in_vg_strs.split('+')
+
+    sills = []
+    vgs = []
+    rngs = []
+
+    for vg_str in vg_strs:
+        vg_str = vg_str.strip()
+
+        sill, vg_rng = vg_str.split(' ')
+        vg, rng = vg_rng.split('(')
+        rng = rng.split(')')[0]
+
+        sills.append(float(sill))
+        vgs.append(vg)
+        rngs.append(float(rng))
+
+    return (sills, vgs, rngs)
+
+
 def check_full_nuggetness(in_model):
 
     in_model = str(in_model)

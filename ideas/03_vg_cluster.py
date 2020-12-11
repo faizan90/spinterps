@@ -1,0 +1,366 @@
+'''
+@author: Faizan-Uni-Stuttgart
+
+Dec 11, 2020
+
+10:08:12 AM
+
+'''
+import os
+import time
+import timeit
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.stats import rankdata
+from scipy.interpolate import interp1d
+
+from comb_ftns import get_vg
+from spinterps import OrdinaryKriging
+from depth_funcs import gen_usph_vecs_norm_dist
+from spinterps.misc import disagg_vg_str, get_theo_vg_vals
+
+plt.ioff()
+
+DEBUG_FLAG = False
+
+
+def get_mean_vg(vg_strs_ser, dists):
+
+    assert vg_strs_ser.size
+
+    if vg_strs_ser.size == 1:
+        mean_vg_str = vg_strs_ser.iloc[0]
+
+    else:
+        vgs = []
+        vg_perm_rs = []
+        vg_vals = np.zeros_like(dists)
+        for vg_str in vg_strs_ser:
+            vg_vals += get_theo_vg_vals(vg_str, dists)
+
+            for i, vg in enumerate(disagg_vg_str(vg_str)[1], start=1):
+                if i not in vg_perm_rs:
+                    vg_perm_rs.append(i)
+
+                if vg in vgs:
+                    continue
+
+                vgs.append(vg)
+
+        vg_vals /= vg_strs_ser.size
+
+        get_vg_args = (
+            dists,
+            vg_vals,
+            'mean_vg',
+            vgs,
+            vg_perm_rs,
+            1000,
+            False,
+            False,
+            None,
+            None,
+            False,
+            dists[-1] + 1)
+
+        mean_vg_str = get_vg(get_vg_args)[1]
+
+    return mean_vg_str
+
+
+def get_sorted_krg_wts(vg_str, rnd_pts, abs_thresh_wt):
+
+    ord_krg_cls = OrdinaryKriging(
+        xi=rnd_pts[:, 0],
+        yi=rnd_pts[:, 1],
+        zi=np.zeros(rnd_pts.shape[0]),
+        xk=np.array([0.0]),
+        yk=np.array([0.0]),
+        model=vg_str)
+
+    ord_krg_cls.krige()
+
+    wts = ord_krg_cls.lambdas.ravel()
+
+    wts.sort()
+
+    if abs_thresh_wt:
+        abs_wts = np.abs(wts)
+
+        abs_wts_sum = abs_wts.sum()
+
+        rel_wts = abs_wts / abs_wts_sum
+
+        wts[rel_wts <= abs_thresh_wt] = 0.0
+
+    assert (wts[1:] - wts[:-1]).min() >= 0.0
+
+    return wts
+
+
+def get_rnd_pts(n_pts, max_dist, n_dims=2):
+
+    uvecs = gen_usph_vecs_norm_dist(n_pts, n_dims, 1)
+
+    pts = (np.linspace(1 / n_pts, 1 - (1 / n_pts), n_pts) * max_dist
+        ).reshape(-1, 1) * uvecs
+
+#     mags_pts = (pts ** 2).sum(axis=1) ** 0.5
+
+#     plt.scatter(pts[:, 0], pts[:, 1], alpha=0.005)
+#
+#     plt.gca().set_aspect('equal')
+#     plt.show()
+
+    return pts
+
+
+def main():
+
+    main_dir = Path(
+        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015\vgs_M')
+
+    os.chdir(main_dir)
+
+    # Something needed with an actual range.
+    allowed_vgs = ['Sph', 'Exp']  # , 'Gau']
+
+    in_vg_strs_file = Path('vgs.csv')
+
+    sep = ';'
+
+    # max_rng can be None or a float.
+    # When None, then maximum range from all vgs is taken.
+    max_rng = 50e3
+    n_fit_dists = 50
+
+    n_rnd_pts = int(1e2)
+    n_sims = int(1e2)
+
+    ks_alpha = 0.99
+    n_sel_thresh = 1
+
+    abs_thresh_wt = 1e-3
+
+#     krg_wts_exp = 0.1
+
+    vg_strs_ser_main = pd.read_csv(
+        in_vg_strs_file, sep=sep, index_col=0, squeeze=True)
+
+    if max_rng is None:
+        max_rng = -np.inf
+        for vg_str in vg_strs_ser_main:
+
+            _, vgs, rngs = disagg_vg_str(vg_str)
+
+            assert all([vg in allowed_vgs for vg in vgs])
+
+            rng = max(rngs)
+
+            if rng >= max_rng:
+                max_rng = rng
+
+    elif isinstance(max_rng, (int, float)):
+        max_rng = float(max_rng)
+
+    else:
+        raise ValueError('Invalid max_rng:', max_rng)
+
+    print('max_rng:', max_rng)
+
+    remn_labels = vg_strs_ser_main.index.tolist()
+
+    vg_clusters = []
+
+    ctr = 0
+    while True:
+        print('ctr:', ctr)
+
+        vg_strs_ser = vg_strs_ser_main.loc[remn_labels].copy()
+
+        vg_test_pass_ser = pd.Series(
+            index=vg_strs_ser.index,
+            data=np.zeros(vg_strs_ser.shape[0], dtype=int),
+            dtype=float)
+
+        print('vg_strs_ser:', vg_strs_ser)
+
+        print('Fitting stat_vg...')
+        stat_vg_str = get_mean_vg(
+            vg_strs_ser, np.linspace(0, max_rng, n_fit_dists))
+
+        print('Done fitting stat_vg:', stat_vg_str)
+
+#         plt.figure()
+        for sim_idx in range(n_sims):
+            print('Simulation:', sim_idx)
+
+            rnd_pts = get_rnd_pts(n_rnd_pts, max_rng)
+
+            krg_wts = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
+            krg_probs = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
+            for i, vg_str in enumerate(vg_strs_ser):
+                krg_wts[i, :] = get_sorted_krg_wts(vg_str, rnd_pts, abs_thresh_wt)
+
+                krg_probs[i, :] = rankdata(
+                    krg_wts[i, :], method='average') / (n_rnd_pts + 1.0)
+
+            assert np.all(np.isfinite(krg_wts))
+            assert np.all(np.isfinite(krg_probs))
+
+    #         stat_krg_wts = np.mean(krg_wts, axis=0)
+            stat_krg_wts = get_sorted_krg_wts(stat_vg_str, rnd_pts, abs_thresh_wt)
+
+            # KS test. N and M are same.
+            d_nm = 1 / (stat_krg_wts.size ** 0.5)
+
+            d_nm *= (-np.log(ks_alpha * 0.5)) ** 0.5
+
+            stat_probs = rankdata(
+                stat_krg_wts, method='average') / (n_rnd_pts + 1.0)
+
+            stat_interp_ftn = interp1d(
+                np.unique(stat_krg_wts),
+                np.unique(stat_probs),
+                bounds_error=False,
+                assume_sorted=True,
+                fill_value='extrapolate')
+
+            # upper and lower bounds.
+#             ks_u_bds = stat_probs - d_nm
+#             ks_l_bds = stat_probs + d_nm
+
+            for i, label in enumerate(vg_strs_ser.index):
+                interp_probs = stat_interp_ftn(krg_wts[i, :])
+
+                max_d_nm = np.abs(interp_probs - krg_probs[i, :]).max()
+
+                if max_d_nm > d_nm:
+                    vg_test_pass_ser.loc[label] += 1
+
+                    print(label)
+
+    #                 for j in range(ks_l_bds.size):
+    #                     acpt_flag = ks_u_bds[j] < interp_probs[j] < ks_l_bds[j]
+    #
+    #                     print(f'{krg_wts[i, j]:10.7f} | {ks_l_bds[j]:10.7f} | {interp_probs[j]:10.7f} | {ks_u_bds[j]:10.7f} | {acpt_flag} | {max_d_nm:10.7f}')
+
+#                     plt.plot(
+#                         np.sign(krg_wts[i, :]) * np.abs(krg_wts[i, :]) ** krg_wts_exp,
+#                         krg_probs[i, :],
+#                         color='b',
+#                         lw=1,
+#                         alpha=0.5)
+#
+#                     plt.plot(
+#                         np.sign(krg_wts[i, :]) * np.abs(krg_wts[i, :]) ** krg_wts_exp,
+#                         interp_probs,
+#                         color='k',
+#                         lw=1,
+#                         alpha=0.5)
+
+        print(vg_test_pass_ser)
+
+#         plt.plot(
+#             np.sign(stat_krg_wts) * np.abs(stat_krg_wts) ** krg_wts_exp,
+#             ks_u_bds,
+#             color='r',
+#             lw=1.5,
+#             alpha=0.75)
+#
+#         plt.plot(
+#             np.sign(stat_krg_wts) * np.abs(stat_krg_wts) ** krg_wts_exp,
+#             ks_l_bds,
+#             color='r',
+#             lw=1.5,
+#             alpha=0.75)
+#
+#         plt.xlim(-1.1, +1.1)
+#         plt.ylim(-0.1, +1.1)
+#
+#         plt.grid()
+#         plt.gca().set_axisbelow(True)
+#
+#         plt.xlabel(f'Kriging weight (exp={krg_wts_exp})')
+#         plt.ylabel('Probability')
+#
+#         plt.show()
+#         plt.close()
+
+        remn_labels = vg_test_pass_ser.loc[vg_test_pass_ser > n_sel_thresh].index.tolist()
+        cluster_labels = vg_test_pass_ser.loc[vg_test_pass_ser <= n_sel_thresh].index.tolist()
+
+        vg_clusters.append([stat_vg_str, cluster_labels])
+
+        if len(remn_labels) == 1:
+            vg_clusters.append(
+                (vg_strs_ser_main.loc[remn_labels[0]], remn_labels))
+
+            remn_labels = []
+
+        if not remn_labels:
+            break
+
+        ctr += 1
+        print('\n\n')
+
+    print('Done fitting.')
+    print('Refitting...')
+    for vg_cluster in vg_clusters:
+        print(vg_cluster)
+
+        refit_vg_str = get_mean_vg(
+            vg_strs_ser_main.loc[vg_cluster[1]],
+            np.linspace(0, max_rng, n_fit_dists))
+
+        print(vg_cluster[0], refit_vg_str)
+
+    return
+
+
+if __name__ == '__main__':
+
+    _save_log_ = False
+    if _save_log_:
+        from datetime import datetime
+        from std_logger import StdFileLoggerCtrl
+
+        # save all console activity to out_log_file
+        out_log_file = os.path.join(
+            r'P:\Synchronize\python_script_logs\\%s_log_%s.log' % (
+            os.path.basename(__file__),
+            datetime.now().strftime('%Y%m%d%H%M%S')))
+
+        log_link = StdFileLoggerCtrl(out_log_file)
+
+    print('#### Started on %s ####\n' % time.asctime())
+    START = timeit.default_timer()
+
+    #==========================================================================
+    # When in post_mortem:
+    # 1. "where" to show the stack
+    # 2. "up" move the stack up to an older frame
+    # 3. "down" move the stack down to a newer frame
+    # 4. "interact" start an interactive interpreter
+    #==========================================================================
+
+    if DEBUG_FLAG:
+        try:
+            main()
+
+        except:
+            import pdb
+            pdb.post_mortem()
+
+    else:
+        main()
+
+    STOP = timeit.default_timer()
+    print(('\n#### Done with everything on %s.\nTotal run time was'
+           ' about %0.4f seconds ####' % (time.asctime(), STOP - START)))
+
+    if _save_log_:
+        log_link.stop()
