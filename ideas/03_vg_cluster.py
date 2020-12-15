@@ -24,7 +24,7 @@ from spinterps.misc import disagg_vg_str, get_theo_vg_vals
 
 plt.ioff()
 
-DEBUG_FLAG = False
+DEBUG_FLAG = True
 
 
 def get_mean_vg(vg_strs_ser, dists):
@@ -37,9 +37,9 @@ def get_mean_vg(vg_strs_ser, dists):
     else:
         vgs = []
         vg_perm_rs = []
-        vg_vals = np.zeros_like(dists)
-        for vg_str in vg_strs_ser:
-            vg_vals += get_theo_vg_vals(vg_str, dists)
+        vg_stat_vals = np.zeros((vg_strs_ser.size, dists.size))
+        for j, vg_str in enumerate(vg_strs_ser):
+            vg_stat_vals[j, :] = get_theo_vg_vals(vg_str, dists)
 
             for i, vg in enumerate(disagg_vg_str(vg_str)[1], start=1):
                 if i not in vg_perm_rs:
@@ -50,7 +50,12 @@ def get_mean_vg(vg_strs_ser, dists):
 
                 vgs.append(vg)
 
-        vg_vals /= vg_strs_ser.size
+        vg_vals = vg_stat_vals.mean(axis=0)
+
+        # median might be a problem if vgs don't have the same rise rate.
+#         vg_vals = np.median(vg_stat_vals, axis=0)
+
+        assert dists.size == vg_vals.size
 
         get_vg_args = (
             dists,
@@ -94,7 +99,11 @@ def get_sorted_krg_wts(vg_str, rnd_pts, abs_thresh_wt):
 
         rel_wts = abs_wts / abs_wts_sum
 
-        wts[rel_wts <= abs_thresh_wt] = 0.0
+        zero_idxs = rel_wts <= abs_thresh_wt
+
+        assert zero_idxs.sum() < zero_idxs.size
+
+        wts[zero_idxs] = 0.0
 
     assert (wts[1:] - wts[:-1]).min() >= 0.0
 
@@ -118,58 +127,16 @@ def get_rnd_pts(n_pts, max_dist, n_dims=2):
     return pts
 
 
-def main():
+def get_clustered_vgs(args):
 
-    main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015\vgs_M')
-
-    os.chdir(main_dir)
-
-    # Something needed with an actual range.
-    allowed_vgs = ['Sph', 'Exp']  # , 'Gau']
-
-    in_vg_strs_file = Path('vgs.csv')
-
-    sep = ';'
-
-    # max_rng can be None or a float.
-    # When None, then maximum range from all vgs is taken.
-    max_rng = 50e3
-    n_fit_dists = 50
-
-    n_rnd_pts = int(1e2)
-    n_sims = int(1e2)
-
-    ks_alpha = 0.99
-    n_sel_thresh = 1
-
-    abs_thresh_wt = 1e-3
-
-#     krg_wts_exp = 0.1
-
-    vg_strs_ser_main = pd.read_csv(
-        in_vg_strs_file, sep=sep, index_col=0, squeeze=True)
-
-    if max_rng is None:
-        max_rng = -np.inf
-        for vg_str in vg_strs_ser_main:
-
-            _, vgs, rngs = disagg_vg_str(vg_str)
-
-            assert all([vg in allowed_vgs for vg in vgs])
-
-            rng = max(rngs)
-
-            if rng >= max_rng:
-                max_rng = rng
-
-    elif isinstance(max_rng, (int, float)):
-        max_rng = float(max_rng)
-
-    else:
-        raise ValueError('Invalid max_rng:', max_rng)
-
-    print('max_rng:', max_rng)
+    (vg_strs_ser_main,
+     max_rng,
+     n_fit_dists,
+     n_sims,
+     n_rnd_pts,
+     abs_thresh_wt,
+     ks_alpha,
+     n_sel_thresh) = args
 
     remn_labels = vg_strs_ser_main.index.tolist()
 
@@ -203,7 +170,8 @@ def main():
             krg_wts = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
             krg_probs = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
             for i, vg_str in enumerate(vg_strs_ser):
-                krg_wts[i, :] = get_sorted_krg_wts(vg_str, rnd_pts, abs_thresh_wt)
+                krg_wts[i, :] = get_sorted_krg_wts(
+                    vg_str, rnd_pts, abs_thresh_wt)
 
                 krg_probs[i, :] = rankdata(
                     krg_wts[i, :], method='average') / (n_rnd_pts + 1.0)
@@ -212,7 +180,8 @@ def main():
             assert np.all(np.isfinite(krg_probs))
 
     #         stat_krg_wts = np.mean(krg_wts, axis=0)
-            stat_krg_wts = get_sorted_krg_wts(stat_vg_str, rnd_pts, abs_thresh_wt)
+            stat_krg_wts = get_sorted_krg_wts(
+                stat_vg_str, rnd_pts, abs_thresh_wt)
 
             # KS test. N and M are same.
             d_nm = 1 / (stat_krg_wts.size ** 0.5)
@@ -307,16 +276,148 @@ def main():
         ctr += 1
         print('\n\n')
 
+    return vg_clusters
+
+
+def main():
+
+    main_dir = Path(
+        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015\vgs_M')
+
+    os.chdir(main_dir)
+
+    # Something needed with an actual range.
+    allowed_vgs = ['Sph', 'Exp']  # , 'Gau']
+
+    in_vg_strs_file = Path('vgs.csv')
+
+    sep = ';'
+
+    # max_rng can be None or a float.
+    # When None, then maximum range from all vgs is taken.
+    max_rng = 50e3
+    n_fit_dists = 50
+
+    n_rnd_pts = int(1e2)
+    n_sims = int(1e3)
+
+    ks_alpha = 0.99
+    n_sel_thresh = 50
+
+    abs_thresh_wt = 1e-2
+
+    out_fig_name = 'clustered_vgs.png'
+    fig_size = (10, 7)
+    out_vgs_sers_name = 'clustered_vgs.csv'
+
+#     krg_wts_exp = 0.1
+
+    vg_strs_ser_main = pd.read_csv(
+        in_vg_strs_file, sep=sep, index_col=0, squeeze=True)
+
+    if max_rng is None:
+        max_rng = -np.inf
+        for vg_str in vg_strs_ser_main:
+
+            _, vgs, rngs = disagg_vg_str(vg_str)
+
+            assert all([vg in allowed_vgs for vg in vgs])
+
+            rng = max(rngs)
+
+            if rng >= max_rng:
+                max_rng = rng
+
+    elif isinstance(max_rng, (int, float)):
+        max_rng = float(max_rng)
+
+    else:
+        raise ValueError('Invalid max_rng:', max_rng)
+
+    print('max_rng:', max_rng)
+
+    cluster_args = (
+        vg_strs_ser_main,
+        max_rng,
+        n_fit_dists,
+        n_sims,
+        n_rnd_pts,
+        abs_thresh_wt,
+        ks_alpha,
+        n_sel_thresh)
+
+    vg_clusters = get_clustered_vgs(cluster_args)
+
     print('Done fitting.')
     print('Refitting...')
+    theo_dists = np.linspace(0, max_rng, n_fit_dists)
+    refit_vgs = []
+
+    out_clustered_ser = pd.Series(
+        index=vg_strs_ser_main.index, dtype=object)
+
     for vg_cluster in vg_clusters:
         print(vg_cluster)
 
         refit_vg_str = get_mean_vg(
-            vg_strs_ser_main.loc[vg_cluster[1]],
-            np.linspace(0, max_rng, n_fit_dists))
+            vg_strs_ser_main.loc[vg_cluster[1]], theo_dists)
+
+        refit_vgs.append(refit_vg_str)
 
         print(vg_cluster[0], refit_vg_str)
+
+        for vg_label in vg_cluster[1]:
+            out_clustered_ser.loc[vg_label] = refit_vg_str
+
+    out_clustered_ser.to_csv(out_vgs_sers_name, sep=sep)
+
+    plt.figure(figsize=fig_size)
+    leg_flag = True
+    for vg_str in vg_strs_ser_main:
+
+        if leg_flag:
+            label = f'old(n={vg_strs_ser_main.size})'
+            leg_flag = False
+
+        else:
+            label = None
+
+        plt.plot(
+            theo_dists,
+            get_theo_vg_vals(vg_str, theo_dists),
+            label=label,
+            alpha=0.5,
+            c='red')
+
+    leg_flag = True
+    for vg_str in refit_vgs:
+
+        if leg_flag:
+            label = f'new(n={len(refit_vgs)})'
+            leg_flag = False
+
+        else:
+            label = None
+
+        plt.plot(
+            theo_dists,
+            get_theo_vg_vals(vg_str, theo_dists),
+            label=label,
+            alpha=0.5,
+            c='blue')
+
+    plt.legend()
+
+    plt.grid()
+    plt.gca().set_axisbelow(True)
+
+    plt.xlabel('Distance')
+    plt.ylabel('Semi-variogram')
+
+#     plt.show()
+
+    plt.savefig(out_fig_name, bbox_inches='tight')
+    plt.close()
 
     return
 
