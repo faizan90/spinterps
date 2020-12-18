@@ -120,6 +120,7 @@ def cmpt_comb_vg(args):
      y_lims,
      postve_dfnt_flag,
      simplify_flag,
+     norm_flag,
     ) = args
 
     data_df = pd.read_csv(in_data_file, sep=sep, index_col=0)
@@ -304,6 +305,9 @@ def cmpt_comb_vg(args):
     plt.savefig(str(out_fig_path), dpi=dpi, bbox_inches='tight')
     plt.close()
 
+    if norm_flag:
+        vg_vals_smoothed /= vg_vals_smoothed.mean()
+
     if classi_type == 'months':
         out_tup = (dists_smoothed, vg_vals_smoothed, use_months[0])
 
@@ -330,7 +334,7 @@ def main():
 
     in_data_file = Path('../precipitation.csv')
     in_crds_file = Path('../precipitation_coords.csv')
-    out_dir = Path('ppt_no_zeros_1961_2015')
+    out_dir = Path('ppt_no_zeros_1961_2015_normed')
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
@@ -344,11 +348,11 @@ def main():
 #     end_time = '1990-12-31'
 
 #     classi_type = 'none'
-    classi_type = 'months'
-#     classi_type = 'years'
+#     classi_type = 'months'
+    classi_type = 'years'
 
     use_months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, ]
-    use_years = np.arange(1980, 1991, 1)
+    use_years = np.arange(1961, 2015, 1)
 
     crds_cols = ['X', 'Y']
 
@@ -367,6 +371,7 @@ def main():
     ignore_zero_vg_flag = True
     postve_dfnt_flag = True
     simplify_flag = True
+    norm_flag = True
 
     out_dir.mkdir(exist_ok=True)
 
@@ -375,7 +380,7 @@ def main():
         cmap_vmin = 1.0
         cmap_vmax = 12.0
         cmap_xticks = np.linspace(0, 1, 12)
-        cmap_xticklabels = np.linspace(1, 12, 12)
+        cmap_xticklabels = np.linspace(1, 12, 12).astype(int)
         cmpr_id = 'M'
 
         args_gen = (
@@ -399,6 +404,7 @@ def main():
              y_lims,
              postve_dfnt_flag,
              simplify_flag,
+             norm_flag,
         ) for use_month in use_months)
 
     elif classi_type == 'years':
@@ -410,7 +416,7 @@ def main():
             0, 1, len(use_years))
 
         cmap_xticklabels = np.linspace(
-            min(use_years), max(use_years), len(use_years))
+            min(use_years), max(use_years), len(use_years)).astype(int)
 
         cmpr_id = 'Y'
 
@@ -435,6 +441,7 @@ def main():
              y_lims,
              postve_dfnt_flag,
              simplify_flag,
+             norm_flag,
         ) for use_year in use_years)
 
     elif classi_type == 'none':
@@ -461,6 +468,7 @@ def main():
              y_lims,
              postve_dfnt_flag,
              simplify_flag,
+             norm_flag,
         ) for _ in range(1))
 
         n_cpus = 1
@@ -492,7 +500,8 @@ def main():
             vg_vals_hdl.write(f'{cmpr_id}{res[2]}{sep}')
 
             vg_vals_hdl.write(
-                f'{sep}'.join([f'{vg_val:0.{vg_val_prec}f}' for vg_val in res[1]]))
+                f'{sep}'.join([f'{vg_val:0.{vg_val_prec}f}'
+                               for vg_val in res[1]]))
 
             vg_vals_hdl.write('\n')
 

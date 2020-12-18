@@ -57,22 +57,22 @@ def get_vg_fit_inputs(args):
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015')
+        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015_normed')
 
     os.chdir(main_dir)
 
-    in_dists_file = Path(r'Y_dists.csv')
-    in_vg_vals_file = Path(r'Y_vg_vals.csv')
+    in_dists_file = Path(r'M_dists.csv')
+    in_vg_vals_file = Path(r'M_vg_vals.csv')
 
     sep = ';'
 
     fig_size = (10, 7)
 
     # TODO: Norm vgs ftn.
-    out_dir = Path('vgs_Y')
+    out_dir = Path('vgs_M')
 
     wt_by_dist_flag = False
-    max_fit_dist = 100e3
+    max_fit_dist = 250e3
 
     plt_at_zero_dist_flag = True
     max_legend_vals = 15

@@ -482,7 +482,8 @@ class SpInterpSteps:
             self._interp_y_crds_plt_msh,
             interp_fld,
             vmin=grd_min,
-            vmax=grd_max)
+            vmax=grd_max,
+            shading='nearest')
 
         cb = fig.colorbar(pclr)
 
@@ -496,7 +497,7 @@ class SpInterpSteps:
             c='r',
             alpha=0.7)
 
-        ax.legend(framealpha=0.5)
+        ax.legend(framealpha=0.5, loc=1)
 
         if self._plot_polys is not None:
             for poly in self._plot_polys:

@@ -101,11 +101,18 @@ def get_sorted_krg_wts(vg_str, rnd_pts, abs_thresh_wt):
 
         zero_idxs = rel_wts <= abs_thresh_wt
 
+        non_zero_wts = wts[~zero_idxs]
+
+        sclr = 1 / non_zero_wts.sum()
+
         assert zero_idxs.sum() < zero_idxs.size
 
         wts[zero_idxs] = 0.0
+        wts[~zero_idxs] *= sclr
 
     assert (wts[1:] - wts[:-1]).min() >= 0.0
+
+    assert np.isclose(wts.sum(), 1.0)
 
     return wts
 
@@ -136,7 +143,8 @@ def get_clustered_vgs(args):
      n_rnd_pts,
      abs_thresh_wt,
      ks_alpha,
-     n_sel_thresh) = args
+     n_sel_thresh,
+     max_nbr_dist) = args
 
     remn_labels = vg_strs_ser_main.index.tolist()
 
@@ -161,11 +169,11 @@ def get_clustered_vgs(args):
 
         print('Done fitting stat_vg:', stat_vg_str)
 
-#         plt.figure()
+        plt.figure()
         for sim_idx in range(n_sims):
             print('Simulation:', sim_idx)
 
-            rnd_pts = get_rnd_pts(n_rnd_pts, max_rng)
+            rnd_pts = get_rnd_pts(n_rnd_pts, max_nbr_dist)
 
             krg_wts = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
             krg_probs = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
@@ -196,11 +204,11 @@ def get_clustered_vgs(args):
                 np.unique(stat_probs),
                 bounds_error=False,
                 assume_sorted=True,
-                fill_value='extrapolate')
+                fill_value=(0, 1))
 
             # upper and lower bounds.
-#             ks_u_bds = stat_probs - d_nm
-#             ks_l_bds = stat_probs + d_nm
+            ks_u_bds = stat_probs - d_nm
+            ks_l_bds = stat_probs + d_nm
 
             for i, label in enumerate(vg_strs_ser.index):
                 interp_probs = stat_interp_ftn(krg_wts[i, :])
@@ -217,53 +225,55 @@ def get_clustered_vgs(args):
     #
     #                     print(f'{krg_wts[i, j]:10.7f} | {ks_l_bds[j]:10.7f} | {interp_probs[j]:10.7f} | {ks_u_bds[j]:10.7f} | {acpt_flag} | {max_d_nm:10.7f}')
 
-#                     plt.plot(
-#                         np.sign(krg_wts[i, :]) * np.abs(krg_wts[i, :]) ** krg_wts_exp,
-#                         krg_probs[i, :],
-#                         color='b',
-#                         lw=1,
-#                         alpha=0.5)
-#
-#                     plt.plot(
-#                         np.sign(krg_wts[i, :]) * np.abs(krg_wts[i, :]) ** krg_wts_exp,
-#                         interp_probs,
-#                         color='k',
-#                         lw=1,
-#                         alpha=0.5)
+                    plt.plot(
+                        krg_wts[i, :],
+                        krg_probs[i, :],
+                        color='b',
+                        lw=1,
+                        alpha=0.5)
+
+                    plt.plot(
+                        krg_wts[i, :],
+                        interp_probs,
+                        color='k',
+                        lw=1,
+                        alpha=0.5)
 
         print(vg_test_pass_ser)
 
-#         plt.plot(
-#             np.sign(stat_krg_wts) * np.abs(stat_krg_wts) ** krg_wts_exp,
-#             ks_u_bds,
-#             color='r',
-#             lw=1.5,
-#             alpha=0.75)
-#
-#         plt.plot(
-#             np.sign(stat_krg_wts) * np.abs(stat_krg_wts) ** krg_wts_exp,
-#             ks_l_bds,
-#             color='r',
-#             lw=1.5,
-#             alpha=0.75)
-#
-#         plt.xlim(-1.1, +1.1)
-#         plt.ylim(-0.1, +1.1)
-#
-#         plt.grid()
-#         plt.gca().set_axisbelow(True)
-#
-#         plt.xlabel(f'Kriging weight (exp={krg_wts_exp})')
-#         plt.ylabel('Probability')
-#
-#         plt.show()
-#         plt.close()
+        plt.plot(
+            stat_krg_wts,
+            ks_u_bds,
+            color='r',
+            lw=1.5,
+            alpha=0.75)
+
+        plt.plot(
+            stat_krg_wts,
+            ks_l_bds,
+            color='r',
+            lw=1.5,
+            alpha=0.75)
+
+        plt.xlim(-1.1, +1.1)
+        plt.ylim(-0.1, +1.1)
+
+        plt.grid()
+        plt.gca().set_axisbelow(True)
+
+        plt.xlabel(f'Kriging weight')
+        plt.ylabel('Probability')
+
+#         plt.show(block=False)
+        plt.show()
+        plt.close()
 
         remn_labels = vg_test_pass_ser.loc[vg_test_pass_ser > n_sel_thresh].index.tolist()
         cluster_labels = vg_test_pass_ser.loc[vg_test_pass_ser <= n_sel_thresh].index.tolist()
 
         vg_clusters.append([stat_vg_str, cluster_labels])
 
+#         plt.close()
         if len(remn_labels) == 1:
             vg_clusters.append(
                 (vg_strs_ser_main.loc[remn_labels[0]], remn_labels))
@@ -282,7 +292,7 @@ def get_clustered_vgs(args):
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015\vgs_M')
+        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015_normed\vgs_Y')
 
     os.chdir(main_dir)
 
@@ -295,16 +305,17 @@ def main():
 
     # max_rng can be None or a float.
     # When None, then maximum range from all vgs is taken.
-    max_rng = 50e3
+    max_rng = 250e3
     n_fit_dists = 50
+    max_nbr_dist = 50e3
 
     n_rnd_pts = int(1e2)
-    n_sims = int(1e3)
+    n_sims = int(1e2)
 
     ks_alpha = 0.99
-    n_sel_thresh = 50
+    n_sel_thresh = 1000
 
-    abs_thresh_wt = 1e-2
+    abs_thresh_wt = (1e-2)  # * n_rnd_pts
 
     out_fig_name = 'clustered_vgs.png'
     fig_size = (10, 7)
@@ -344,7 +355,8 @@ def main():
         n_rnd_pts,
         abs_thresh_wt,
         ks_alpha,
-        n_sel_thresh)
+        n_sel_thresh,
+        max_nbr_dist)
 
     vg_clusters = get_clustered_vgs(cluster_args)
 
