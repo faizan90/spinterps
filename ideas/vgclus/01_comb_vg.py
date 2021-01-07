@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 plt.ioff()
 
-DEBUG_FLAG = True
+DEBUG_FLAG = False
 
 
 def get_postve_dfnt_vg(vg_vals):
@@ -121,6 +121,8 @@ def cmpt_comb_vg(args):
      postve_dfnt_flag,
      simplify_flag,
      norm_flag,
+     in_cp_file,
+     use_cps,
     ) = args
 
     data_df = pd.read_csv(in_data_file, sep=sep, index_col=0)
@@ -145,6 +147,30 @@ def cmpt_comb_vg(args):
         assert year_idxs.sum()
 
         data_df = data_df.loc[year_idxs]
+
+    elif classi_type == 'cps':
+        cp_ser = pd.read_csv(in_cp_file, sep=sep, index_col=0)['cp']
+
+        cp_ser.index = pd.to_datetime(cp_ser.index, format=time_fmt)
+
+        cp_ser = cp_ser.loc[beg_time:end_time]
+
+        diff_idxs = data_df.index.difference(cp_ser.index)
+        if diff_idxs.size:
+            print(f'{diff_idxs.size} steps are different in data and cps!')
+
+        cp_ser = cp_ser.reindex(data_df.index, fill_value=99)
+
+        assert cp_ser.shape[0] == data_df.shape[0]
+
+        cp_idxs = np.zeros(data_df.shape[0], dtype=bool)
+
+        for use_cp in use_cps:
+            cp_idxs |= cp_ser.values == use_cp
+
+        assert cp_idxs.sum()
+
+        data_df = data_df.loc[cp_idxs]
 
     elif classi_type == 'none':
         pass
@@ -292,6 +318,9 @@ def cmpt_comb_vg(args):
     elif classi_type == 'years':
         ttl += f', Use Years: {use_years} '
 
+    elif classi_type == 'cps':
+        ttl += f', Use CPs: {use_cps} '
+
     elif classi_type == 'none':
         pass
 
@@ -314,6 +343,9 @@ def cmpt_comb_vg(args):
     elif classi_type == 'years':
         out_tup = (dists_smoothed, vg_vals_smoothed, use_years[0])
 
+    elif classi_type == 'cps':
+        out_tup = (dists_smoothed, vg_vals_smoothed, use_cps[0])
+
     elif classi_type == 'none':
         out_tup = (dists_smoothed, vg_vals_smoothed)
 
@@ -328,19 +360,22 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Testings\variograms\comb_vg')
     os.chdir(main_dir)
 
-#     in_data_file = Path('../temperature_avg.csv')
-#     in_crds_file = Path('../temperature_avg_coords.csv')
-#     out_dir = Path('temp_1961_2015')
+    in_data_file = Path('../temperature_avg.csv')
+    in_crds_file = Path('../temperature_avg_coords.csv')
+    out_dir = Path('temp_1961_2015_with_zeros')
 
-    in_data_file = Path('../precipitation.csv')
-    in_crds_file = Path('../precipitation_coords.csv')
-    out_dir = Path('ppt_no_zeros_1961_2015_normed')
+#     in_data_file = Path('../precipitation.csv')
+#     in_crds_file = Path('../precipitation_coords.csv')
+
+    # Should have the column "cp". Steps with no cp or a cp greater than 89
+    # are not considered. CP can be integers starting from 0 up to 89 only.
+    in_cp_file = Path(r'../cp_time_ser_neckar_1910_2014.csv')
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
 
     beg_time = '1961-01-01'
-    end_time = '2015-12-31'
+    end_time = '2014-12-31'
 
     y_lims = ((1e-2, 1e+2))
 
@@ -349,15 +384,18 @@ def main():
 
 #     classi_type = 'none'
 #     classi_type = 'months'
-    classi_type = 'years'
+#     classi_type = 'years'
+    classi_type = 'cps'
 
     use_months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, ]
     use_years = np.arange(1961, 2015, 1)
+    # use_cps are taken from the cp file.
 
     crds_cols = ['X', 'Y']
+#     crds_cols = ['X']
 
     n_thresh_vals = 10
-    smoothing_ratio = 500
+    smoothing_ratio = 100
 
     fig_size = (13, 7)
     dpi = 200
@@ -365,7 +403,7 @@ def main():
     dist_prec = 1
     vg_val_prec = 5
 
-    n_cpus = 12
+    n_cpus = 8
 
     ignore_zero_input_data_flag = True
     ignore_zero_vg_flag = True
@@ -382,6 +420,8 @@ def main():
         cmap_xticks = np.linspace(0, 1, 12)
         cmap_xticklabels = np.linspace(1, 12, 12).astype(int)
         cmpr_id = 'M'
+
+        n_cpus_req = 12
 
         args_gen = (
             (in_data_file,
@@ -405,6 +445,8 @@ def main():
              postve_dfnt_flag,
              simplify_flag,
              norm_flag,
+             None,
+             None,
         ) for use_month in use_months)
 
     elif classi_type == 'years':
@@ -419,6 +461,8 @@ def main():
             min(use_years), max(use_years), len(use_years)).astype(int)
 
         cmpr_id = 'Y'
+
+        n_cpus_req = len(use_years)
 
         args_gen = (
             (in_data_file,
@@ -442,10 +486,63 @@ def main():
              postve_dfnt_flag,
              simplify_flag,
              norm_flag,
+             None,
+             None,
         ) for use_year in use_years)
+
+    elif classi_type == 'cps':
+        cp_ser = pd.read_csv(in_cp_file, sep=sep, index_col=0)['cp']
+
+        cp_ser.index = pd.to_datetime(cp_ser.index, format=time_fmt)
+
+        cp_ser = cp_ser.loc[beg_time:end_time]
+
+        use_cps = np.unique(cp_ser[cp_ser < 90].values)
+
+        cb_lab = 'CP'
+
+        cmap_vmin = 0
+        cmap_vmax = use_cps.max()
+
+        cmap_xticks = np.linspace(0, 1, cmap_vmax)
+
+        cmap_xticklabels = np.linspace(
+            0, cmap_vmax, cmap_vmax + 1).astype(int)
+
+        cmpr_id = 'CP'
+
+        n_cpus_req = len(use_cps)
+
+        args_gen = (
+            (in_data_file,
+             sep,
+             classi_type,
+             None,
+             None,
+             time_fmt,
+             beg_time,
+             end_time,
+             ignore_zero_input_data_flag,
+             in_crds_file,
+             crds_cols,
+             n_thresh_vals,
+             ignore_zero_vg_flag,
+             smoothing_ratio,
+             fig_size,
+             out_dir / f'{cmpr_id}{use_cp}.png',
+             dpi,
+             y_lims,
+             postve_dfnt_flag,
+             simplify_flag,
+             norm_flag,
+             in_cp_file,
+             [use_cp],
+        ) for use_cp in use_cps)
 
     elif classi_type == 'none':
         cmpr_id = 'N'
+
+        n_cpus_req = 1
 
         args_gen = (
             (in_data_file,
@@ -469,6 +566,8 @@ def main():
              postve_dfnt_flag,
              simplify_flag,
              norm_flag,
+             None,
+             None,
         ) for _ in range(1))
 
         n_cpus = 1
@@ -480,6 +579,10 @@ def main():
         ress = cmpt_comb_vg(next(args_gen))
 
     else:
+        n_cpus = min(n_cpus, n_cpus_req)
+
+        print(f'Using {n_cpus} threads.')
+
         mp_pool = Pool(n_cpus)
 
         ress = list(mp_pool.imap_unordered(cmpt_comb_vg, args_gen))
@@ -505,7 +608,7 @@ def main():
 
             vg_vals_hdl.write('\n')
 
-    if classi_type in ('months', 'years'):
+    if classi_type in ('months', 'years', 'cps'):
         cmap = plt.get_cmap('winter')
         cmap_mappable = plt.cm.ScalarMappable(cmap=cmap)
         cmap_mappable.set_array([])
@@ -515,7 +618,6 @@ def main():
         for res in ress:
             plt.plot(
                 res[0],
-#                 res[1] / np.mean(res[1]),
                 res[1],
                 alpha=0.3,
                 color=cmap((res[2] - cmap_vmin) / (cmap_vmax - cmap_vmin)))

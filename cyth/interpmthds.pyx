@@ -5,7 +5,6 @@
 # cython: embedsignature=True
 # cython: language_level=3
 
-from __future__ import division
 import numpy as np
 cimport numpy as np
 from libcpp.vector cimport vector

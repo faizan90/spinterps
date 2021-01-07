@@ -39,7 +39,7 @@ def get_mean_vg(vg_strs_ser, dists):
         vg_perm_rs = []
         vg_stat_vals = np.zeros((vg_strs_ser.size, dists.size))
         for j, vg_str in enumerate(vg_strs_ser):
-            vg_stat_vals[j, :] = get_theo_vg_vals(vg_str, dists)
+            vg_stat_vals[j,:] = get_theo_vg_vals(vg_str, dists)
 
             for i, vg in enumerate(disagg_vg_str(vg_str)[1], start=1):
                 if i not in vg_perm_rs:
@@ -178,11 +178,11 @@ def get_clustered_vgs(args):
             krg_wts = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
             krg_probs = np.full((vg_strs_ser.shape[0], n_rnd_pts), np.nan)
             for i, vg_str in enumerate(vg_strs_ser):
-                krg_wts[i, :] = get_sorted_krg_wts(
+                krg_wts[i,:] = get_sorted_krg_wts(
                     vg_str, rnd_pts, abs_thresh_wt)
 
-                krg_probs[i, :] = rankdata(
-                    krg_wts[i, :], method='average') / (n_rnd_pts + 1.0)
+                krg_probs[i,:] = rankdata(
+                    krg_wts[i,:], method='average') / (n_rnd_pts + 1.0)
 
             assert np.all(np.isfinite(krg_wts))
             assert np.all(np.isfinite(krg_probs))
@@ -211,9 +211,9 @@ def get_clustered_vgs(args):
             ks_l_bds = stat_probs + d_nm
 
             for i, label in enumerate(vg_strs_ser.index):
-                interp_probs = stat_interp_ftn(krg_wts[i, :])
+                interp_probs = stat_interp_ftn(krg_wts[i,:])
 
-                max_d_nm = np.abs(interp_probs - krg_probs[i, :]).max()
+                max_d_nm = np.abs(interp_probs - krg_probs[i,:]).max()
 
                 if max_d_nm > d_nm:
                     vg_test_pass_ser.loc[label] += 1
@@ -226,14 +226,14 @@ def get_clustered_vgs(args):
     #                     print(f'{krg_wts[i, j]:10.7f} | {ks_l_bds[j]:10.7f} | {interp_probs[j]:10.7f} | {ks_u_bds[j]:10.7f} | {acpt_flag} | {max_d_nm:10.7f}')
 
                     plt.plot(
-                        krg_wts[i, :],
-                        krg_probs[i, :],
+                        krg_wts[i,:],
+                        krg_probs[i,:],
                         color='b',
                         lw=1,
                         alpha=0.5)
 
                     plt.plot(
-                        krg_wts[i, :],
+                        krg_wts[i,:],
                         interp_probs,
                         color='k',
                         lw=1,
@@ -292,7 +292,7 @@ def get_clustered_vgs(args):
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\ppt_no_zeros_1961_2015_normed\vgs_Y')
+        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\temp_1961_2015_with_zeros\vgs_CP')
 
     os.chdir(main_dir)
 
