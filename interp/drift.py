@@ -4,9 +4,9 @@ Created on Nov 25, 2018
 @author: Faizan
 '''
 
-import gdal
 import numpy as np
 import pandas as pd
+from osgeo import gdal
 
 from ..misc import print_sl, print_el
 

@@ -4,10 +4,9 @@ Created on May 27, 2019
 @author: Faizan-Uni
 '''
 
-import ogr
-import gdal
 import pyproj
 import numpy as np
+from osgeo import ogr, gdal
 
 from ..misc import print_sl, print_el, gdal_err_hdlr
 

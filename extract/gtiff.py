@@ -6,9 +6,9 @@ Created on May 27, 2019
 
 from pathlib import Path
 
-import gdal
 import h5py
 import numpy as np
+from osgeo import gdal
 
 from ..misc import print_sl, print_el
 

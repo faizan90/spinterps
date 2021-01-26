@@ -7,10 +7,11 @@ Created on Nov 25, 2018
 from math import ceil
 from multiprocessing import Pool
 
-import ogr
+
 import numpy as np
 import pandas as pd
 import netCDF4 as nc
+from osgeo import ogr
 import shapefile as shp
 
 from .drift import KrigingDrift as KDT

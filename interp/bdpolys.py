@@ -4,8 +4,8 @@ Created on Nov 25, 2018
 @author: Faizan
 '''
 
-import ogr
 import numpy as np
+from osgeo import ogr
 
 from ..misc import cnvt_to_pt, chk_cntmt, print_sl, print_el
 

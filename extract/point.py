@@ -6,7 +6,7 @@ Created on Jun 12, 2019
 
 from pathlib import Path
 
-import ogr
+from osgeo import ogr
 
 from ..misc import print_sl, print_el
 

@@ -8,11 +8,10 @@ import sys
 from functools import wraps
 import traceback as tb
 
-import ogr
-import gdal
 import numpy as np
 import psutil as ps
 import netCDF4 as nc
+from osgeo import ogr, gdal
 from cftime import utime, datetime
 
 from .cyth import fill_dists_2d_mat, fill_theo_vg_vals
