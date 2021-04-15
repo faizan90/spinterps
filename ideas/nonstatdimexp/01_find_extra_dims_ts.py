@@ -154,7 +154,8 @@ def main():
         bounds=bds,
         args=(crds, evgs, n_extra_dims, n_lags, fit_vg_str, calls_ctr),
         maxiter=500,
-        popsize=1)
+        popsize=1,
+        polish=False)
 
     # Cython version is 15 to 20% slower than python somehow.
     # NOTE: Reimplement for range and sill optimization.
@@ -163,7 +164,8 @@ def main():
 #         bounds=bds,
 #         args=(old_crds, crds, evgs, tvgs, dists, n_extra_dims, n_lags, fit_vg_str, calls_ctr),
 #         maxiter=1,
-#         popsize=1)
+#         popsize=1,
+#         polish=False)
 
     print('Done.')
 

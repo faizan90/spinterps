@@ -170,7 +170,8 @@ def main():
         bounds=bds,
         args=(crds, evgs, n_extra_dims, fit_vg_str, calls_ctr),
         maxiter=500,
-        popsize=1)
+        popsize=1,
+        polish=False)
 
     print('Done.')
 

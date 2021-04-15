@@ -758,7 +758,8 @@ class Variogram:
                         tuple(bounds),
                         tuple(mix_vg_names),
                         maxiter=self.opt_iters,
-                        popsize=len(bounds) * 50)
+                        popsize=len(bounds) * 50,
+                        polish=False)
 
                     assert opt.success, 'Optimization did not succeed!'
 

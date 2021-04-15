@@ -175,7 +175,8 @@ def get_vg(args):
                 tuple(bounds),
                 args=(mix_vg_names, dists_fit, vg_val_fit, wt_by_dist_flag),
                 maxiter=opt_iters,
-                popsize=len(bounds) * 50)
+                popsize=len(bounds) * 50,
+                polish=False)
 
             assert opt.success, 'Optimization did not succeed!'
 

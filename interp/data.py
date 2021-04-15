@@ -523,7 +523,7 @@ class SpInterpData(VD):
             n_cpus=1,
             plot_figs_flag=False,
             cell_size=None,
-            min_value_to_interp_thresh=None,
+            min_value_to_interp_thresh=-np.inf,
             min_cutoff_value=None,
             max_cutoff_value=None,
             max_steps_per_chunk=None):
@@ -585,16 +585,15 @@ class SpInterpData(VD):
 
             self._cell_size = float(cell_size)
 
-        if min_value_to_interp_thresh is not None:
-            assert isinstance(min_value_to_interp_thresh, (int, float)), (
-                'min_value_to_interp_thresh can be a float or an int if '
-                'not None!')
+        assert isinstance(min_value_to_interp_thresh, (int, float)), (
+            'min_value_to_interp_thresh can be a float or an int if '
+            'not None!')
 
-            assert -np.inf <= min_value_to_interp_thresh < np.inf, (
-                'min_value_to_interp_thresh has to be in between -infinity '
-                'and +infinity!')
+        assert -np.inf <= min_value_to_interp_thresh < np.inf, (
+            'min_value_to_interp_thresh has to be in between -infinity '
+            'and +infinity!')
 
-            self._min_var_thr = float(min_value_to_interp_thresh)
+        self._min_var_thr = float(min_value_to_interp_thresh)
 
         if min_cutoff_value is not None:
             assert isinstance(min_cutoff_value, (int, float)), (
@@ -671,6 +670,16 @@ class SpInterpData(VD):
 
         assert self._neb_sel_mthd_set_flag, (
             'Call set_neighbor_selection_method method first!')
+
+        if self._index_type == 'date':
+            pass
+
+        elif self._index_type == 'obj':
+            idx_union = self._data_df.index.difference(self._vgs_ser.index)
+
+            assert idx_union.size, (
+                'For object type index, data and variograms must have the '
+                'index!')
 
         if self._vb:
             if not self._vg_ser_set_flag:
