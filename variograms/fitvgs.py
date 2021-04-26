@@ -23,6 +23,7 @@ class FitVariograms(VI):
         VI.__init__(self, verbose)
 
         self._vgs_fitted_flag = False
+        self._vgs_drop_zeros_flag = False
         return
 
     def verify(self):
@@ -30,9 +31,11 @@ class FitVariograms(VI):
         VI._VariogramsInput__verify(self)
         return
 
-    def fit_vgs(self):
+    def fit_vgs(self, drop_zeros_flag=False):
 
         assert self._inputs_vrfd_flag, 'Call the verify method first!'
+
+        self._vgs_drop_zeros_flag = drop_zeros_flag
 
         fit_vgs_steps_cls = FitVariogramsSteps(self)
 
@@ -133,6 +136,7 @@ class FitVariogramsSteps:
         self._min_vld_stns = fit_vg_cls._min_vld_stns
 
         self._out_figs_path = fit_vg_cls._out_figs_path
+        self._vgs_drop_zeros_flag = fit_vg_cls._vgs_drop_zeros_flag
         return
 
     @traceback_wrapper
@@ -155,6 +159,22 @@ class FitVariogramsSteps:
         y_crds = self._crds_df.loc[aval_stns]['Y'].values
 
         z_vals = in_vals_ser.loc[aval_stns].values
+
+        if self._vgs_drop_zeros_flag:
+            take_idxs = z_vals != 0
+
+            x_crds = x_crds[take_idxs]
+            y_crds = y_crds[take_idxs]
+
+            z_vals = z_vals[take_idxs]
+
+            if take_idxs.sum() < self._min_vld_stns:
+                if self._vb:
+                    print(
+                        f'No VG on {date}, too few stations after '
+                        f'dropping zeros!')
+
+                return
 
         z_vals_std = z_vals.std()
 

@@ -7,7 +7,6 @@ Created on Nov 25, 2018
 from math import ceil
 from multiprocessing import Pool
 
-
 import numpy as np
 import pandas as pd
 import netCDF4 as nc
@@ -329,7 +328,7 @@ class SpInterpPrepare(SIBD, KDT):
         '''
 
         nc_hdl = nc.Dataset(
-            str(self._out_dir / (self._nc_out.split('.')[0] + '.nc')),
+            str(self._out_dir / (self._nc_out.split('.', 1)[0] + '.nc')),
             mode='w')
 
         nc_hdl.set_auto_mask(False)

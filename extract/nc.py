@@ -556,7 +556,8 @@ class ExtractNetCDFValues:
                             f'time_strs in input and output files!')
 
                     assert np.all(
-                        out_time_grp['time_strs'][...] == in_time_strs), (
+                        out_time_grp['time_strs'][:].astype(str) ==
+                        in_time_strs), (
                             f'Unequal corresponding values of the variable: '
                             f'time_strs in input and output files!')
 
