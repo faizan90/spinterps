@@ -665,10 +665,10 @@ class GeomAndCrdsItsctIdxs:
                 0.5 * (y_crds[+0, -1] - y_crds[+1, -1]))
 
             y_crds_rect[+0, +1:-1] = y_crds[+0, +1:] - (
-                0.5 * (y_crds[+1, +1:] - y_crds[+0, :-1]))
+                0.5 * (y_crds[+1, +1:] - y_crds[+0,:-1]))
 
             y_crds_rect[-1, +1:-1] = y_crds[-1, +1:] + (
-                0.5 * (y_crds[-1, :-1] - y_crds[-2, +1:]))
+                0.5 * (y_crds[-1,:-1] - y_crds[-2, +1:]))
 
             y_crds_rect[+1:-1, +0] = y_crds[+1:, +0] - (
                 0.5 * (y_crds[+1:, +0] - y_crds[:-1, +0]))
@@ -689,10 +689,10 @@ class GeomAndCrdsItsctIdxs:
                 0.5 * (x_crds[+0, -1] - x_crds[+0, -2]))
 
             x_crds_rect[+0, +1:-1] = x_crds[+0, +1:] - (
-                0.5 * (x_crds[+0, +1:] - x_crds[+0, :-1]))
+                0.5 * (x_crds[+0, +1:] - x_crds[+0,:-1]))
 
             x_crds_rect[-1, +1:-1] = x_crds[-1, +1:] - (
-                0.5 * (x_crds[-1, +1:] - x_crds[-1, :-1]))
+                0.5 * (x_crds[-1, +1:] - x_crds[-1,:-1]))
 
             x_crds_rect[+1:-1, +0] = x_crds[+1:, +0] + (
                 0.5 * (x_crds[:-1, +0] - x_crds[+1:, +1]))

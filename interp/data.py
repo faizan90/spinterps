@@ -677,7 +677,7 @@ class SpInterpData(VD):
         elif self._index_type == 'obj':
             idx_union = self._data_df.index.difference(self._vgs_ser.index)
 
-            assert idx_union.size, (
+            assert not idx_union.size, (
                 'For object type index, data and variograms must have the '
                 'index!')
 

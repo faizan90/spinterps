@@ -26,7 +26,7 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
     os.chdir(main_dir)
 
-    in_h5_file = Path(r'temp_edk_1961_to_2015_daily_1km_rockenau_six_cats.h5')
+    in_h5_file = Path(r'neckar_all_subcats_watersheds_cumm_1961_2015_1km_daily_tem_mean.h5')
 
     data_grp = 'full_neckar_avg_temp_kriging_1961-01-01_to_2015-12-31_1km_all'
 
@@ -39,24 +39,26 @@ def main():
 
     sep = ';'
 
-    float_fmt = '%0.3f'
+    float_fmt = '%0.16f'
 
     out_time_fmt = '%Y-%m-%d'
 
     fig_size = (15, 7)
 
     fig_xlabel = 'Time (days)'
-    fig_ylabel = 'Precipitation (mm)'
+    fig_ylabel = 'Temperature (C)'
 
     set_na_to_zero_flag = False
 
-    save_df_pkl_flag = True
+    save_df_pkl_flag = False
 
-    out_dir = main_dir
+    out_dir = Path('watersheds_cumm_neckar')
+
+    out_dir.mkdir(exist_ok=True)
 
     with h5py.File(in_h5_file, mode='r', driver=None) as h5_hdl:
         h5_times = pd.to_datetime(
-            h5_hdl[time_label][...], format='%Y%m%dT%H%M%S')
+            h5_hdl[time_label][...].astype(str), format='%Y%m%dT%H%M%S')
 
         data_ds = h5_hdl[data_grp]
 
