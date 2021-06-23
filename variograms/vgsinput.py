@@ -196,7 +196,8 @@ class VariogramsInput(VariogramsData):
             nugget_vg,
             n_opt_grid_points,
             vg_names,
-            n_best_vgs):
+            n_best_vgs,
+            nk=50):
 
         '''Set some of the inputs to the Variogram class
 
@@ -223,6 +224,9 @@ class VariogramsInput(VariogramsData):
             variogram series. These will be in ascending value of the
             objective function value for each step i.e. the best is the first
             one.
+        nk : int
+            Number of values per bin. Should be greater than zero and less
+            than the maximum number of possible pairs.
         '''
 
         assert isinstance(maximum_distance_ratio, float), (
@@ -264,12 +268,16 @@ class VariogramsInput(VariogramsData):
         assert 0 < n_best_vgs < np.inf, (
             'n_best_vgs should be greater than zero and less than infinity!')
 
+        assert isinstance(nk, int), 'nk not an integer!'
+        assert nk > 0, 'Invalid nk!'
+
         self._mdr = maximum_distance_ratio
         self._n_vgs_perms = n_vgs_perms
         self._nug_vg = nugget_vg
         self._n_gps = n_opt_grid_points
         self._vg_names = vg_names
         self._n_best_vgs = n_best_vgs
+        self._nk = nk
 
         if self._vb:
             print('Variogram parameters set successfully!')

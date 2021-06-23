@@ -91,7 +91,7 @@ class SpInterpSteps:
 
         time_steps = data_df.index
 
-        interp_flds_dict = {interp_label :np.full(
+        interp_flds_dict = {interp_label:np.full(
             (time_steps.shape[0], np.prod(self._interp_crds_orig_shape)),
             np.nan,
             dtype=np.float32)
@@ -186,8 +186,7 @@ class SpInterpSteps:
                 sub_ref_xs = time_stn_grp_ref_xs[sub_ref_idxs]
                 sub_ref_ys = time_stn_grp_ref_ys[sub_ref_idxs]
 
-                sub_ref_data = time_stn_grp_data_vals[
-                    :, sub_ref_idxs].copy('c')
+                sub_ref_data = time_stn_grp_data_vals[:, sub_ref_idxs].copy('c')
 
                 interp_steps_flags = np.ones(sub_ref_data.shape[0], dtype=bool)
                 for j in range(sub_ref_data.shape[0]):
@@ -197,7 +196,7 @@ class SpInterpSteps:
                     interp_steps_flags[j] = False
 
                 if edk_flag:
-                    sub_ref_drifts = time_stn_grp_drifts[sub_ref_idxs, :]
+                    sub_ref_drifts = time_stn_grp_drifts[sub_ref_idxs,:]
                     sub_dst_drifts = drft_arrs[:, time_neb_idxs_grp]
 
                 else:
@@ -304,7 +303,7 @@ class SpInterpSteps:
 
                 for i in range(max_rng):
                     nc_hdl[interp_label][
-                        nc_is[i]:nc_is[i + 1], :, :] = (
+                        nc_is[i]:nc_is[i + 1],:,:] = (
                             interp_flds[ar_is[i]:ar_is[i + 1]])
 
                 nc_hdl.sync()
@@ -391,7 +390,7 @@ class SpInterpSteps:
 
                 if (not interp_steps_flags[j]) or (nuggetness_flags[j]):
 
-                    dst_data[j, :] = ref_means[j]
+                    dst_data[j,:] = ref_means[j]
                     continue
 
                 if model == 'nan':
@@ -404,7 +403,7 @@ class SpInterpSteps:
                     dst_ref_2d_dists, dst_ref_2d_vars, covar_flag, 0, model)
 
                 if interp_type == 'OK':
-                    ref_2d_vars[n_refs, :n_refs] = 1.0
+                    ref_2d_vars[n_refs,:n_refs] = 1.0
                     ref_2d_vars[:, n_refs] = 1.0
                     ref_2d_vars[n_refs, n_refs] = 0.0
                     dst_ref_2d_vars[:, n_refs] = 1.0
@@ -413,15 +412,15 @@ class SpInterpSteps:
                     pass
 
                 elif interp_type == 'EDK':
-                    ref_2d_vars[n_refs, :n_refs] = 1.0
+                    ref_2d_vars[n_refs,:n_refs] = 1.0
                     ref_2d_vars[:n_refs, n_refs] = 1.0
                     dst_ref_2d_vars[:, n_refs] = 1.0
 
                     for k in range(ref_drfts.shape[1]):
-                        ref_2d_vars[n_refs + 1 + k, :n_refs] = ref_drfts[:, k]
+                        ref_2d_vars[n_refs + 1 + k,:n_refs] = ref_drfts[:, k]
                         ref_2d_vars[:n_refs, n_refs + 1 + k] = ref_drfts[:, k]
 
-                        dst_ref_2d_vars[:, n_refs + 1 + k] = dst_drfts[k, :]
+                        dst_ref_2d_vars[:, n_refs + 1 + k] = dst_drfts[k,:]
 
                 else:
                     raise NotImplementedError
@@ -469,13 +468,17 @@ class SpInterpSteps:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
 
-            if not np.all(np.isfinite(interp_fld)):
+            if not np.any(np.isfinite(interp_fld)):
                 grd_min = np.nanmin(data_vals)
                 grd_max = np.nanmax(data_vals)
+                grd_mean = np.nanmean(data_vals)
+                grd_var = np.nanvar(data_vals)
 
             else:
-                grd_min = interp_fld.min()
-                grd_max = interp_fld.max()
+                grd_min = np.nanmin(interp_fld)
+                grd_max = np.nanmax(interp_fld)
+                grd_mean = np.nanmean(interp_fld)
+                grd_var = np.nanvar(interp_fld)
 
         pclr = ax.pcolormesh(
             self._interp_x_crds_plt_msh,
@@ -508,7 +511,10 @@ class SpInterpSteps:
 
         title = (
             f'Time: {time_str}\n(VG: {model})\n'
-            f'Min.: {grd_min:0.4f}, Max.: {grd_max:0.4f}')
+            f'Mean: {grd_mean:0.4f}, '
+            f'Var.: {grd_var:0.4f}\n'
+            f'Min.: {grd_min:0.4f}, '
+            f'Max.: {grd_max:0.4f}\n')
 
         ax.set_title(title)
 

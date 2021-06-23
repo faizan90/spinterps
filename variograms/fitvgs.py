@@ -130,6 +130,7 @@ class FitVariogramsSteps:
         self._n_gps = fit_vg_cls._n_gps
         self._vg_names = fit_vg_cls._vg_names
         self._n_best_vgs = fit_vg_cls._n_best_vgs
+        self._nk = fit_vg_cls._nk
 
         self._index_type = fit_vg_cls._index_type
 
@@ -188,7 +189,7 @@ class FitVariogramsSteps:
                 y=y_crds,
                 z=z_vals,
                 mdr=self._mdr,
-                nk=20,
+                nk=self._nk,
                 typ='var',
                 perm_r_list=self._n_vgs_perms,
                 fil_nug_vg=self._nug_vg,
