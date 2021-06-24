@@ -57,22 +57,27 @@ def get_vg_fit_inputs(args):
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\temp_1961_2015_with_zeros')
+        r'P:\Synchronize\IWS\Testings\variograms\vgs_cmpr_monthly\ppt_monthly_1971_2010__no_0s')
 
     os.chdir(main_dir)
 
-    in_dists_file = Path(r'CP_dists.csv')
-    in_vg_vals_file = Path(r'CP_vg_vals.csv')
+    cmpr_id = 'Y'
+
+    in_dists_file = Path(r'%s_dists.csv' % cmpr_id)
+    in_vg_vals_file = Path(r'%s_vg_vals.csv' % cmpr_id)
 
     sep = ';'
 
     fig_size = (10, 7)
 
     # TODO: Norm vgs ftn.
-    out_dir = Path('vgs_CP')
+    out_dir = Path('vgs_%s' % cmpr_id)
 
+    # More weight give to values that are closer.
     wt_by_dist_flag = False
-    max_fit_dist = 250e3
+
+    # VG values after this distance not considered for optimization.
+    max_fit_dist = 120e3
 
     plt_at_zero_dist_flag = True
     max_legend_vals = 15
@@ -81,7 +86,7 @@ def main():
     opt_iters = 1000
     plot_flag = True
 
-    n_cpus = 12
+    n_cpus = 8
 
     out_dir.mkdir(exist_ok=True)
 

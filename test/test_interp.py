@@ -17,41 +17,40 @@ from spinterps import SpInterpMain
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\fourtrans_practice\multisite_phs_spec_corr')
+        r'P:\cluster_vg_tests')
 
     os.chdir(main_dir)
 
-    in_data_file = os.path.join(
-        r'precipitation.csv')
+    in_data_file = Path(
+        r'P:\dwd_meteo\daily\dfs__merged_subset\daily_neckar_ppt_Y1971_2010.pkl')
 
-    in_vgs_file = os.path.join(
-        r'precipitation_kriging/obs/vg_strs.csv')
+    in_vgs_file = Path(
+        r'P:\Synchronize\IWS\Testings\variograms\vgs_cmpr_monthly\ppt_monthly_1971_2010__no_0s\vgs_M\clustered_vg_ts.csv')
 
-    in_stns_coords_file = os.path.join(
-        os.path.dirname(in_data_file), r'precipitation_coords.csv')
+    in_stns_coords_file = Path(
+        r'P:\Synchronize\IWS\Testings\variograms\ppt_monthly_1971_2010_crds.csv')
 
     index_type = 'date'
 
-    out_dir = r'precipitation_kriging/obs'
+    out_dir = Path(r'ppt/monthly_cluster_vg')
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
-    out_krig_net_cdf_file = r'precipitation_kriging_%s_to_%s_1km_obs.nc'
+    out_krig_net_cdf_file = r'precipitation_kriging_%s_to_%s_1km.nc'
 
     freq = 'D'
-    strt_date = r'1991-01-01'
-    end_date = r'1991-12-30'
+    strt_date = r'1971-01-01'
+    end_date = r'2010-12-31'
 
-    drop_stns = []  # ['T3705', 'T1875', 'T5664', 'T1197']
-#     drop_stns = ['P3733', 'P3315', 'P3713', 'P3454']
+    drop_stns = []
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif'])
+        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif')])
 
     in_bounds_shp_file = (
-        os.path.join(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'))
+        Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'))
 
     align_ras_file = in_drift_rasters_list[0]
 
@@ -73,7 +72,7 @@ def main():
 
     idw_exps = [1]
     n_cpus = 8
-    buffer_dist = 20e3
+    buffer_dist = 22e3
     sec_buffer_dist = 2e3
 
     neighbor_selection_method = 'nrst'
@@ -93,17 +92,25 @@ def main():
 
 #     ord_krige_flag = False
     sim_krige_flag = False
-    edk_krige_flag = False
+#     edk_krige_flag = False
     idw_flag = False
     plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False
 
-    in_data_df = pd.read_csv(
-        in_data_file,
-        sep=in_sep,
-        index_col=0,
-        encoding='utf-8')
+    if in_data_file.suffix == 'csv':
+        in_data_df = pd.read_csv(
+            in_data_file,
+            sep=in_sep,
+            index_col=0,
+            encoding='utf-8')
+
+    elif in_data_file.suffix == '.pkl':
+        in_data_df = pd.read_pickle(in_data_file)
+
+    else:
+        raise NotImplementedError(
+            f'Unknown file extension: {in_data_file.suffix}!')
 
     in_vgs_df = pd.read_csv(
         in_vgs_file,

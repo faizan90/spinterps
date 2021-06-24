@@ -292,7 +292,7 @@ def get_clustered_vgs(args):
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\comb_vg\temp_1961_2015_with_zeros\vgs_CP')
+        r'P:\Synchronize\IWS\Testings\variograms\vgs_cmpr_monthly\ppt_monthly_1971_2010__no_0s\vgs_M')
 
     os.chdir(main_dir)
 
@@ -305,7 +305,7 @@ def main():
 
     # max_rng can be None or a float.
     # When None, then maximum range from all vgs is taken.
-    max_rng = 250e3
+    max_rng = 120e3
     n_fit_dists = 50
     max_nbr_dist = 50e3
 

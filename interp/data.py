@@ -118,7 +118,7 @@ class SpInterpData(VD):
         assert out_dir.parents[0].exists(), (
             'Parent directory of out_dir does not exist!')
 
-        self._out_dir = out_dir
+        self._out_dir = Path(out_dir)
 
         if self._vb:
             print_sl()

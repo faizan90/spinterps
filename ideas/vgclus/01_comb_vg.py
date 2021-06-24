@@ -357,51 +357,59 @@ def cmpt_comb_vg(args):
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\variograms\comb_vg')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\variograms\vgs_cmpr_monthly')
     os.chdir(main_dir)
 
-    in_data_file = Path('../temperature_avg.csv')
-    in_crds_file = Path('../temperature_avg_coords.csv')
-    out_dir = Path('temp_1961_2015_with_zeros')
+    in_data_file = Path('../ppt_monthly_1971_2010_data.csv')
+    in_crds_file = Path('../ppt_monthly_1971_2010_crds.csv')
+    out_dir = Path('ppt_monthly_1971_2010__no_0s')
 
 #     in_data_file = Path('../precipitation.csv')
 #     in_crds_file = Path('../precipitation_coords.csv')
+#     out_dir = Path('ppt_daily_1971_2010__no_0s')
 
     # Should have the column "cp". Steps with no cp or a cp greater than 89
     # are not considered. CP can be integers starting from 0 up to 89 only.
-    in_cp_file = Path(r'../cp_time_ser_neckar_1910_2014.csv')
+#     in_cp_file = Path(r'../cp_time_ser_neckar_1910_2014.csv')
+    in_cp_file = Path(r'')
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
 
-    beg_time = '1961-01-01'
-    end_time = '2014-12-31'
+    beg_time = '1971-01-01'
+    end_time = '2010-12-31'
 
-    y_lims = ((1e-2, 1e+2))
+    y_lims = ((1e-2, 1e+2))  # Daily data.
+#     y_lims = ((1e-1, 1e+4))  # Monthly data.
 
 #     beg_time = '1990-01-01'
 #     end_time = '1990-12-31'
 
 #     classi_type = 'none'
-#     classi_type = 'months'
+    classi_type = 'months'
 #     classi_type = 'years'
-    classi_type = 'cps'
+#     classi_type = 'cps'
 
     use_months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, ]
-    use_years = np.arange(1961, 2015, 1)
+    use_years = np.arange(1971, 2010 + 1, 1)
     # use_cps are taken from the cp file.
 
     crds_cols = ['X', 'Y']
 #     crds_cols = ['X']
 
+    # Minimum values to form a mean value per pair.
     n_thresh_vals = 10
+
+    # Number of value to compute the smoothed empirical variogram.
+    # Works as a running statistic.
     smoothing_ratio = 100
 
     fig_size = (13, 7)
     dpi = 200
 
-    dist_prec = 1
-    vg_val_prec = 5
+    # Rounding precision for output text files.
+    dist_prec = 1  # Distances.
+    vg_val_prec = 5  # Variogram values.
 
     n_cpus = 8
 

@@ -15,11 +15,11 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_neckar_20180624\watersheds_cumm_till_454.shp'
+    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
 
     label_field = r'DN'
 
-    path_to_ras = r'T:\Synchronize_LDs\full_neckar_temperature_avg_interpolation\full_neckar_avg_temp_kriging_1961-01-01_to_2015-12-31_1km_all.nc'
+    path_to_ras = r'P:\cluster_vg_tests\ppt\monthly_cluster_vg\precipitation_kriging_1971-01-01_to_2010-12-31_1km.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
@@ -27,7 +27,7 @@ def main():
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
-    nc_variable_labels = ['EDK']
+    nc_variable_labels = ['OK', 'EDK']
     nc_time_label = 'time'
 
     src_epsg = None
@@ -51,7 +51,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'neckar_all_subcats_watersheds_cumm_1961_2015_1km_daily_tem_mean.h5')
+    path_to_output = Path(r'ppt_edk_1971_to_2010_daily_1km_rockenau_six_cats__vgclus.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)
