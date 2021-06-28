@@ -24,7 +24,7 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\cluster_vg_tests\ppt\vg_clus_test__new_code3')
+    main_dir = Path(r'P:\cluster_vg_tests\ppt\vg_clus_test__old_code')
     os.chdir(main_dir)
 
     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Bianca\neckar_interps\ppt\stns_within_ppt.shp'

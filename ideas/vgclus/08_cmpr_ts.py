@@ -33,10 +33,10 @@ def main():
     os.chdir(main_dir)
 
     in_data_files = [
-        Path(r'vg_clus_test__new_code3/ts_EDK.csv'),
-        Path(r'monthly_cluster_vg/ts_EDK.csv'), ]
+        Path(r'vg_clus_test__old_code/ts_OK.csv'),
+        Path(r'vg_clus_test__new_code3/ts_OK.csv'), ]
 
-    data_labels = ['EDK', 'EDKC']
+    data_labels = ['OK', 'OKC']
 
     sep = ';'
 
@@ -50,7 +50,7 @@ def main():
 
     replace_nan_with_zero_flag = True
 
-    out_dir = Path(f'new_code3__cmpr_figs__tss_ref_stns_edk')
+    out_dir = Path(f'old_code__cmpr_figs__tss_ref_stns_ok')
     #==========================================================================
 
     out_dir.mkdir(exist_ok=True)
