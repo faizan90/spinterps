@@ -54,15 +54,15 @@ def roll_real_2arrs(arr1, arr2, lag):
 def main():
 
     main_dir = Path(
-        r'P:\cluster_vg_tests\ppt\monthly_cluster_vg')
+        r'P:\cluster_vg_tests\ppt')
 
     os.chdir(main_dir)
 
     in_data_files = [
-        Path(r'T:\Synchronize_LDs\full_neckar_precipitation_interpolation\ts_EDK.csv'),
-        Path(r'ts_EDK.csv'), ]
+        Path(r'each_day_vg\ts_OK.csv'),
+        Path(r'monthly_cluster_vg/ts_OK.csv'), ]
 
-    data_labels = ['EDK', 'EDKC']
+    data_labels = ['OK', 'OKC']
 
     lags = np.arange(1, 10 + 1, dtype=np.int64)
 
@@ -79,7 +79,7 @@ def main():
 
     replace_nan_with_zero_flag = True
 
-    out_dir = Path(f'cmpr_figs__lag_corrs_edk')
+    out_dir = Path(f'cmpr_figs__lag_corrs_ok')
     #==========================================================================
 
     out_dir.mkdir(exist_ok=True)

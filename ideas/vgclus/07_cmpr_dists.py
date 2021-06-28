@@ -24,15 +24,15 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'P:\cluster_vg_tests\ppt\monthly_cluster_vg')
+        r'P:\cluster_vg_tests\ppt')
 
     os.chdir(main_dir)
 
     in_data_files = [
-        Path(r'T:\Synchronize_LDs\full_neckar_precipitation_interpolation\ts_OK.csv'),
-        Path(r'ts_OK.csv'), ]
+        Path(r'each_day_vg/ts_EDK.csv'),
+        Path(r'monthly_cluster_vg/ts_EDK.csv'), ]
 
-    data_labels = ['OK', 'OKC']
+    data_labels = ['EDK', 'EDKC']
 
     aggs = np.arange(1, 10 + 1, 1, dtype=np.int64)
 
@@ -54,7 +54,7 @@ def main():
 
     replace_nan_with_zero_flag = True
 
-    out_dir = Path(f'cmpr_figs__dists_ok')
+    out_dir = Path(f'cmpr_figs__dists_edk')
     #==========================================================================
 
     out_dir.mkdir(exist_ok=True)

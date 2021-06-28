@@ -28,17 +28,15 @@ DEBUG_FLAG = True
 def main():
 
     main_dir = Path(
-        r'P:\cluster_vg_tests\ppt\monthly_cluster_vg')
+        r'P:\cluster_vg_tests\ppt')
 
     os.chdir(main_dir)
 
     in_data_files = [
-        Path(r'T:\Synchronize_LDs\full_neckar_precipitation_interpolation\ts_EDK.csv'),
-        Path(r'ts_EDK.csv'), ]
+        Path(r'vg_clus_test__new_code3/ts_EDK.csv'),
+        Path(r'monthly_cluster_vg/ts_EDK.csv'), ]
 
     data_labels = ['EDK', 'EDKC']
-
-    # First_rounded than threshold applied.
 
     sep = ';'
 
@@ -52,7 +50,7 @@ def main():
 
     replace_nan_with_zero_flag = True
 
-    out_dir = Path(f'cmpr_figs__tss_ref_stns_edk')
+    out_dir = Path(f'new_code3__cmpr_figs__tss_ref_stns_edk')
     #==========================================================================
 
     out_dir.mkdir(exist_ok=True)

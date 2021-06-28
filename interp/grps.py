@@ -52,7 +52,6 @@ class SpInterpNeighborGrouping:
         self._not_neb_flag = -1
 
         self._n_dst_pts = dst_xs.shape[0]
-
         return
 
     def get_grps_in_time(self, data_df):
@@ -120,7 +119,7 @@ class SpInterpNeighborGrouping:
         n_unique_hashes = np.unique(hashes).size
 
         if self._vb_debug:
-            print('N crds unique hashes:', n_unique_hashes)
+            print('Total crds unique hashes:', n_unique_hashes)
 
         neb_idxs_grps = []
         sel_flags = np.zeros(self._n_dst_pts, dtype=bool)
@@ -160,7 +159,7 @@ class SpInterpNeighborGrouping:
                 ((dst_x - ref_xs) ** 2) +
                 ((dst_y - ref_ys) ** 2)) ** 0.5
 
-            all_neb_idxs[i, :] = np.sort(np.argsort(dists)[:self._n_nebs])
+            all_neb_idxs[i,:] = np.sort(np.argsort(dists)[:self._n_nebs])
 
         assert np.all(all_neb_idxs != self._not_neb_flag)
 
@@ -241,13 +240,18 @@ class SpInterpNeighborGrouping:
                     (full_sorted_nebs_idxs.size == 1) or
                     (full_sorted_nebs_idxs.size == dists.size))
 
-            all_neb_idxs[i, :] = np.sort(full_sorted_nebs_idxs[:self._n_nebs])
+            all_neb_idxs[i,:] = np.sort(full_sorted_nebs_idxs[:self._n_nebs])
 
         assert np.all(np.any(all_neb_idxs != self._not_neb_flag, axis=1))
 
         return all_neb_idxs
 
     def get_neb_idxs_and_grps(self, ref_xs, ref_ys):
+
+        '''
+        Select which interpolation points have similar reference station
+        configurations around them.
+        '''
 
         assert isinstance(ref_xs, np.ndarray)
         assert isinstance(ref_ys, np.ndarray)

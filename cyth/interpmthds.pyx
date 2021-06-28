@@ -148,7 +148,8 @@ cpdef void fill_vg_var_arr(
               DT_D[:, ::1] in_vars,
         int covar_flag,
         int diag_mat_flag,
-        vg_models_str) except +:
+        vg_models_str,
+        const DT_D min_vg_val) except +:
 
     cdef:
         Py_ssize_t g, h
@@ -202,10 +203,48 @@ cpdef void fill_vg_var_arr(
     if diag_mat_flag:
         for h in range(row_ct):
             for g in range(col_ct):
+                if g < h:
+                    continue
+
+                if in_vars[h, g] <= min_vg_val:
+                    in_vars[h, g] = 0.0
+
+    else:
+        for h in range(row_ct):
+            for g in range(col_ct):
+                if in_vars[h, g] <= min_vg_val:
+                    in_vars[h, g] = 0.0
+
+    if diag_mat_flag:
+        for h in range(row_ct):
+            for g in range(col_ct):
                 if g >= h:
                     continue
 
                 in_vars[h, g] = in_vars[g, h]
+
+    return
+
+
+cpdef void copy_2d_arr_at_idxs(
+        const DT_D[:, ::1] arr,
+        const long long[::1] row_idxs,
+        const long long[::1] col_idxs,
+              DT_D[:, ::1] subset_arr,
+        ) except +:
+
+    '''
+    Don't rely on the shape of subset_arr as it can be different than
+    row_idxs' and col_idxs' size.
+    ''' 
+
+    cdef:
+        Py_ssize_t i, j
+
+    for i in range(row_idxs.shape[0]):
+        for j in range(col_idxs.shape[0]):
+            subset_arr[i, j] = arr[row_idxs[i], col_idxs[j]]
+
     return
 
 

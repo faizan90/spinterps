@@ -38,6 +38,7 @@ class SpInterpData(VD):
         self._min_var_cut = None
         self._max_var_cut = None
         self._max_steps_per_chunk = None
+        self._min_vg_val = None
 
         self._neb_sel_mthds = ('all', 'nrst', 'pie')
 
@@ -526,7 +527,8 @@ class SpInterpData(VD):
             min_value_to_interp_thresh=-np.inf,
             min_cutoff_value=None,
             max_cutoff_value=None,
-            max_steps_per_chunk=None):
+            max_steps_per_chunk=None,
+            min_vg_val=0):
 
         '''
         Set some more parameters
@@ -561,6 +563,9 @@ class SpInterpData(VD):
             Maximum number of steps that can be interpolated per thread.
             Final number of steps is the minimum based on available memory
             and max_steps_per_chunk.
+        min_vg_val : float
+            Variogram values below or equal to this are set to zero.
+            Should be >= 0 and < infinity.
         '''
 
         assert isinstance(n_cpus, int), 'n_cpus not an integer!'
@@ -641,6 +646,12 @@ class SpInterpData(VD):
                 'min_value_to_interp_thresh has to be less than '
                 'max_cutoff_value!')
 
+        assert isinstance(min_vg_val, float), 'min_vg_val must be a float!'
+
+        assert 0 <= min_vg_val < np.inf, 'Invalid value of min_vg_vals!'
+
+        self._min_vg_val = min_vg_val
+
         if self._vb:
             print_sl()
             print('Set the following misc. settings:')
@@ -651,6 +662,7 @@ class SpInterpData(VD):
             print('min_cutoff_value:', self._min_var_cut)
             print('max_cutoff_value:', self._max_var_cut)
             print('max_steps_per_chunk:', self._max_steps_per_chunk)
+            print('min_vg_val:', self._min_vg_val)
             print_el()
 
         self._misc_settings_set_flag = True

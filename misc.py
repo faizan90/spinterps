@@ -426,7 +426,7 @@ def disagg_vg_str(in_vg_strs):
     return (sills, vgs, rngs)
 
 
-def check_full_nuggetness(in_model):
+def check_full_nuggetness(in_model, min_vg_val):
 
     in_model = str(in_model)
 
@@ -451,7 +451,7 @@ def check_full_nuggetness(in_model):
             Sill += float(submodel.split('(')[0].strip()[:-3].strip())
             Range = max(Range, float(submodel.split('(')[1].split(')')[0]))
 
-        if np.any(np.isclose(np.array([Sill, Range]), 0.0)):
+        if np.any(np.array([Sill, Range]) <= min_vg_val):
             nuggetness = True
 
         if (len(models) == 1) and models[0] == 'Nug':

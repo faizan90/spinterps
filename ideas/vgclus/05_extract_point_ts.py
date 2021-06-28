@@ -24,13 +24,13 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'T:\Synchronize_LDs\full_neckar_precipitation_interpolation')
+    main_dir = Path(r'P:\cluster_vg_tests\ppt\vg_clus_test__new_code3')
     os.chdir(main_dir)
 
     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Bianca\neckar_interps\ppt\stns_within_ppt.shp'
     label_field = 'STN_ID'
 
-    path_to_ras = Path(r'full_neckar_ppt_interp__1961-01-01_to_2015-12-31_1km_all.nc')
+    path_to_ras = Path(r'precipitation_kriging_1971-01-01_to_2010-12-31_1km.nc')
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'

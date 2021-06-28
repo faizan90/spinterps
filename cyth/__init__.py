@@ -16,4 +16,5 @@ from .interpmthds import (
     OrdinaryKriging,
     SimpleKriging,
     ExternalDriftKriging_MD,
-    fill_theo_vg_vals)
+    fill_theo_vg_vals,
+    copy_2d_arr_at_idxs)

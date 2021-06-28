@@ -14,11 +14,13 @@ from descartes import PolygonPatch
 from .grps import SpInterpNeighborGrouping as SIG
 from ..misc import traceback_wrapper, check_full_nuggetness
 from ..cyth import (
-    fill_dists_one_pt,
     fill_wts_and_sum,
     get_mults_sum,
     fill_dists_2d_mat,
-    fill_vg_var_arr)
+    fill_vg_var_arr,
+    copy_2d_arr_at_idxs)
+
+from .vgclus import VariogramCluster as VC
 
 plt.ioff()
 
@@ -52,6 +54,7 @@ class SpInterpSteps:
             '_neb_sel_mthd',
             '_n_nebs',
             '_n_pies',
+            '_min_vg_val',
             ]
 
         for read_lab in read_labs:
@@ -59,6 +62,177 @@ class SpInterpSteps:
 
         self._n_dst_pts = self._interp_x_crds_msh.shape[0]
         return
+
+    def _get_dists_arr(self, x1s, y1s, x2s, y2s, order='c'):
+
+        '''
+        Order depends on how we want the array to be laid out.
+        In some cases order='c' is better, in others order='f'.
+        '''
+
+        assert x1s.ndim == y1s.ndim == x2s.ndim == y2s.ndim == 1
+
+        assert x1s.size == y1s.size
+        assert x2s.size == y2s.size
+
+#         assert np.all(np.isfinite(x1s))
+#         assert np.all(np.isfinite(y1s))
+#         assert np.all(np.isfinite(x2s))
+#         assert np.all(np.isfinite(y2s))
+
+        n1s, n2s = x1s.size, x2s.size
+
+        dists_arr = np.full((n1s, n2s), np.nan)
+
+        fill_dists_2d_mat(x1s, y1s, x2s, y2s, dists_arr)
+
+        return dists_arr.copy(order=order)
+
+    def _get_svars_arr(self, dists_arr, vgs, interp_types, diag_mat_flag):
+
+#         assert np.all(np.isfinite(dists_arr))
+
+        assert isinstance(interp_types, (list, tuple))
+
+        diag_mat_flag = int(diag_mat_flag)
+
+        assert diag_mat_flag >= 0
+
+        if 'SK' in interp_types:
+            covar_flag = 1
+
+        else:
+            covar_flag = 0
+
+        # Keys are (vg and covar_flag).
+        # covar_flag is 1 for SK and 0 for OK and EDK.
+        svars_dict = {}
+        for vg in vgs:
+            svars_arr = np.full_like(dists_arr, np.nan)
+
+            fill_vg_var_arr(
+                dists_arr, svars_arr, 0, diag_mat_flag, vg, self._min_vg_val)
+
+            svars_dict[(vg, 0)] = svars_arr
+
+            if not covar_flag:
+                continue
+
+            # With covar being 1.
+            svars_arr = np.full_like(dists_arr, np.nan)
+
+            fill_vg_var_arr(
+                dists_arr,
+                svars_arr,
+                covar_flag,
+                diag_mat_flag,
+                vg,
+                self._min_vg_val)
+
+            svars_dict[(vg, 1)] = svars_arr
+
+        return svars_dict
+
+    def _get_2d_arr_subset(
+            self, arr, row_idxs, col_idxs, rows_add_rc=0, cols_add_rc=0):
+
+        assert arr.ndim == 2
+
+        assert row_idxs.ndim == 1
+        assert col_idxs.ndim == 1
+
+        assert arr.size
+        assert row_idxs.size
+        assert col_idxs.size
+
+        assert row_idxs.min() >= 0
+        assert row_idxs.max() < arr.shape[0]
+
+        assert col_idxs.min() >= 0
+        assert col_idxs.max() < arr.shape[1]
+
+        assert rows_add_rc >= 0
+        assert cols_add_rc >= 0
+
+        subset_arr = np.full(
+            (row_idxs.size + rows_add_rc, col_idxs.size + cols_add_rc),
+            np.nan,
+            dtype=np.float64)
+
+        copy_2d_arr_at_idxs(arr, row_idxs, col_idxs, subset_arr)
+        return subset_arr
+
+    def _get_vars_arr_subset(
+            self,
+            model,
+            interp_type,
+            ref_drfts,
+            ref_ref_2d_vars_arr_all,
+            dst_ref_2d_vars_arr_all,
+            ref_ref_sub_idxs,
+            time_neb_idxs_grp,
+            dst_drfts):
+
+        if interp_type == 'OK':
+            add_rc = 1
+            covar_flag = 0
+
+        elif interp_type == 'SK':
+            add_rc = 0
+            covar_flag = 1
+
+        elif interp_type == 'EDK':
+            add_rc = 1 + ref_drfts.shape[1]
+            covar_flag = 0
+
+        else:
+            raise NotImplementedError
+
+        ref_ref_2d_vars_arr_sub = self._get_2d_arr_subset(
+            ref_ref_2d_vars_arr_all[(model, covar_flag)],
+            ref_ref_sub_idxs,
+            ref_ref_sub_idxs,
+            add_rc,
+            add_rc)
+
+        dst_ref_2d_vars_arr_sub = self._get_2d_arr_subset(
+            dst_ref_2d_vars_arr_all[(model, covar_flag)],
+            time_neb_idxs_grp,
+            ref_ref_sub_idxs,
+            0,
+            add_rc)
+
+        n_refs_sub = ref_ref_sub_idxs.size
+
+        if interp_type == 'OK':
+            ref_ref_2d_vars_arr_sub[n_refs_sub,:n_refs_sub] = 1.0
+            ref_ref_2d_vars_arr_sub[:, n_refs_sub] = 1.0
+            ref_ref_2d_vars_arr_sub[n_refs_sub, n_refs_sub] = 0.0
+            dst_ref_2d_vars_arr_sub[:, n_refs_sub] = 1.0
+
+        elif interp_type == 'SK':
+            pass
+
+        elif interp_type == 'EDK':
+
+            ref_ref_2d_vars_arr_sub[n_refs_sub,:n_refs_sub] = 1.0
+            ref_ref_2d_vars_arr_sub[:n_refs_sub, n_refs_sub] = 1.0
+            dst_ref_2d_vars_arr_sub[:, n_refs_sub] = 1.0
+            ref_ref_2d_vars_arr_sub[n_refs_sub:, n_refs_sub:] = 0.0
+
+            for k in range(ref_drfts.shape[1]):
+                ref_ref_2d_vars_arr_sub[n_refs_sub + 1 + k,:n_refs_sub] = ref_drfts[:, k]
+                ref_ref_2d_vars_arr_sub[:n_refs_sub, n_refs_sub + 1 + k] = ref_drfts[:, k]
+
+                dst_ref_2d_vars_arr_sub[:, n_refs_sub + 1 + k] = dst_drfts[k,:]
+
+        else:
+            raise NotImplementedError
+
+#         assert np.all(np.isfinite(ref_ref_2d_vars_arr_sub))
+#         assert np.all(np.isfinite(dst_ref_2d_vars_arr_sub))
+
+        return ref_ref_2d_vars_arr_sub, dst_ref_2d_vars_arr_sub
 
     @traceback_wrapper
     def interpolate_subset(self, args):
@@ -73,9 +247,20 @@ class SpInterpSteps:
          stns_drft_df,
          vgs_ser) = args
 
+        assert np.all(data_df.columns == self._crds_df.index)
+
+        # Check uniqueness elsewhere?
+        assert np.unique(data_df.columns.values).size == data_df.shape[1]
+
         if vgs_ser is not None:
             assert not data_df.index.difference(vgs_ser.index).shape[0], (
                 'Data and variogram series have non-intersecting indices!')
+
+#                 if True:  # Vg clustering flag comes here.
+#             old_vgs_ser = vgs_ser
+            vc_cls = VC(vgs_ser)
+
+            vgs_clus_dict, vgs_ser = vc_cls.get_vgs_cluster()
 
         interp_types = [interp_arg[0] for interp_arg in interp_args]
         interp_labels = [interp_arg[2] for interp_arg in interp_args]
@@ -119,7 +304,59 @@ class SpInterpSteps:
         # proximity. Because, if a very close nebor is active at a time
         # when others are inactive than there is no need to drop one.
 
+        # TODO: At some timesteps, the inversion result is wrong. Probably
+        # due to very small values. Have a test for this and rectify it.
+        # Use known time steps that result in such a problem.
+
+        # TODO: Use IDW for steps that have problems.
+        # TODO: Revise the memory manangement part.
+        # TODO: Have a threshold of min and max stations for which the
+        # neighbors are considered the same.
+
+        #======================================================================
+        # Instead of each thread computing them, they can be filled parallely
+        # if possible before entering the function and read by each thread
+        # afterwards as a pickle.
+
+        # Make these conditional on vg_ser's presence.
+        if vgs_ser is not None:
+            ref_ref_2d_dists_arr_all = self._get_dists_arr(
+                self._crds_df.loc[:, 'X'].values,
+                self._crds_df.loc[:, 'Y'].values,
+                self._crds_df.loc[:, 'X'].values,
+                self._crds_df.loc[:, 'Y'].values)
+
+        else:
+            ref_ref_2d_dists_arr_all = None
+
+        dst_ref_2d_dists_arr_all = self._get_dists_arr(
+            self._interp_x_crds_msh,
+            self._interp_y_crds_msh,
+            self._crds_df.loc[:, 'X'].values,
+            self._crds_df.loc[:, 'Y'].values)
+
+        if vgs_ser is not None:
+            ref_ref_2d_vars_arr_all = self._get_svars_arr(
+                ref_ref_2d_dists_arr_all,
+                list(vgs_clus_dict.keys()),
+                interp_types,
+                1)
+
+            dst_ref_2d_vars_arr_all = self._get_svars_arr(
+                dst_ref_2d_dists_arr_all,
+                list(vgs_clus_dict.keys()),
+                interp_types,
+                0)
+        else:
+            ref_ref_2d_vars_arr_all = None
+            dst_ref_2d_vars_arr_all = None
+        #======================================================================
+
         prblm_time_steps = []
+
+        # time_stn_grp: The stations.
+        # cmn_time_stn_grp_idxs: Time steps at which time_stn_grp stations are
+        # active.
 
         for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
 
@@ -141,13 +378,24 @@ class SpInterpSteps:
             assert time_stn_grp.size == np.unique(time_stn_grp).size, (
                 'Non-unique stations in step group!')
 
+            # These are used to take out a subset of values from the distances
+            # and variances arrays.
+            time_stn_grp_idxs = self._crds_df.index.get_indexer_for(
+                time_stn_grp)
+
+            # Coordinates of time_stn_grp stations.
+            # Remember, the order of station labels in data_df and crds_df
+            # should be the same.
             time_stn_grp_ref_xs = self._crds_df.loc[time_stn_grp, 'X'].values
             time_stn_grp_ref_ys = self._crds_df.loc[time_stn_grp, 'Y'].values
 
+            # Values of time_stn_grp stations at cmn_time_stn_grp_idxs time
+            # steps.
             time_stn_grp_data_vals = data_df.loc[
                 cmn_time_stn_grp_idxs, time_stn_grp].values
 
             if edk_flag:
+                # Drift of time_stn_grp stations.
                 time_stn_grp_drifts = stns_drft_df.loc[time_stn_grp].values
 
             else:
@@ -158,17 +406,15 @@ class SpInterpSteps:
                 nuggetness_flags = np.zeros(vg_models.shape[0], dtype=bool)
 
                 for i, vg_model in enumerate(vg_models):
-                    nuggetness_flags[i] = check_full_nuggetness(vg_model)
-
-#                 with lock:
-#                     for i in range(nuggetness_flags.shape[0]):
-#                         if nuggetness_flags[i] and self._vb:
-#                             print('Full nugget at step:', sub_time_steps[i])
+                    nuggetness_flags[i] = check_full_nuggetness(
+                        vg_model, self._min_vg_val)
 
             else:
                 vg_models = None
                 nuggetness_flags = None
 
+            # time_neb_idxs: time_stn_grp stations that are close to points
+            # at time_neb_idxs_grps indices of the interpolation grid.
             time_neb_idxs, time_neb_idxs_grps = grp_cls.get_neb_idxs_and_grps(
                 time_stn_grp_ref_xs, time_stn_grp_ref_ys)
 
@@ -178,16 +424,24 @@ class SpInterpSteps:
             sub_pts_flags = np.zeros(self._n_dst_pts, dtype=bool)
 
             for time_neb_idxs_grp in time_neb_idxs_grps:
-                sub_dst_xs = self._interp_x_crds_msh[time_neb_idxs_grp]
-                sub_dst_ys = self._interp_y_crds_msh[time_neb_idxs_grp]
-
+                # Any index from time_neb_idxs_grp will do as
+                # time_neb_idxs have same indices for each time step.
                 sub_ref_idxs = time_neb_idxs[time_neb_idxs_grp[0]]
-
-                sub_ref_xs = time_stn_grp_ref_xs[sub_ref_idxs]
-                sub_ref_ys = time_stn_grp_ref_ys[sub_ref_idxs]
 
                 sub_ref_data = time_stn_grp_data_vals[:, sub_ref_idxs].copy('c')
 
+                #==============================================================
+                ref_ref_sub_idxs = time_stn_grp_idxs[sub_ref_idxs]
+
+                dst_ref_2d_dists_arr_sub = self._get_2d_arr_subset(
+                    dst_ref_2d_dists_arr_all,
+                    time_neb_idxs_grp,
+                    ref_ref_sub_idxs,
+                    0,
+                    0)
+                #==============================================================
+
+                # Take mean when all values are too low.
                 interp_steps_flags = np.ones(sub_ref_data.shape[0], dtype=bool)
                 for j in range(sub_ref_data.shape[0]):
                     if np.any(sub_ref_data[j] >= self._min_var_thr):
@@ -211,13 +465,9 @@ class SpInterpSteps:
                         idw_exp = interp_args[i][3]
 
                     else:
-                        idw_exp = None
+                        idw_exp = 1  # In case inversion fails.
 
                     interp_vals = self._get_interp(
-                        sub_dst_xs,
-                        sub_dst_ys,
-                        sub_ref_xs,
-                        sub_ref_ys,
                         sub_ref_data,
                         interp_type,
                         sub_ref_drifts,
@@ -227,7 +477,12 @@ class SpInterpSteps:
                         interp_steps_flags,
                         nuggetness_flags,
                         sub_time_steps,
-                        prblm_time_steps)
+                        prblm_time_steps,
+                        dst_ref_2d_dists_arr_sub,
+                        ref_ref_2d_vars_arr_all,
+                        dst_ref_2d_vars_arr_all,
+                        ref_ref_sub_idxs,
+                        time_neb_idxs_grp)
 
                     self._mod_min_max(interp_vals)
 
@@ -320,10 +575,6 @@ class SpInterpSteps:
 
     def _get_interp(
             self,
-            dst_xs,
-            dst_ys,
-            ref_xs,
-            ref_ys,
             ref_data,
             interp_type,
             ref_drfts,
@@ -333,25 +584,27 @@ class SpInterpSteps:
             interp_steps_flags,
             nuggetness_flags,
             sub_time_steps,
-            prblm_time_steps):
+            prblm_time_steps,
+            dst_ref_2d_dists_arr_sub,
+            ref_ref_2d_vars_arr_all,
+            dst_ref_2d_vars_arr_all,
+            ref_ref_sub_idxs,
+            time_neb_idxs_grp):
 
-        n_dsts = dst_xs.size
-        n_refs = ref_xs.size
+        n_dsts = dst_ref_2d_dists_arr_sub.shape[0]
+        n_refs = ref_data.shape[1]
         n_time = ref_data.shape[0]
 
         dst_data = np.full((n_time, n_dsts), np.nan)
 
         ref_means = ref_data.mean(axis=1)
 
+        wts = np.full(n_refs, np.nan)
+
         if interp_type == 'IDW':
-            wts = np.full(n_refs, np.nan)
-            ref_dst_dists = np.full(n_refs, np.nan)
-
             for i in range(n_dsts):
-                fill_dists_one_pt(
-                    dst_xs[i], dst_ys[i], ref_xs, ref_ys, ref_dst_dists)
-
-                wts_sum = fill_wts_and_sum(ref_dst_dists, wts, idw_exp)
+                wts_sum = fill_wts_and_sum(
+                    dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
 
                 for j in range(n_time):
                     if interp_steps_flags[j]:
@@ -362,30 +615,14 @@ class SpInterpSteps:
                         dst_data[j, i] = ref_means[j]
 
         else:
-            if interp_type == 'OK':
-                add_rc = 1
-                covar_flag = 0
+            old_model = ''
+            last_failed_flag = False
 
-            elif interp_type == 'SK':
-                add_rc = 0
-                covar_flag = 1
+            # Sorting is better to avoid flipping between same strings.
+            models_sort_idxs = np.argsort(models)
 
-            elif interp_type == 'EDK':
-                add_rc = 1 + ref_drfts.shape[1]
-                covar_flag = 0
-
-            else:
-                raise NotImplementedError
-
-            ref_2d_vars = np.zeros((n_refs + add_rc, n_refs + add_rc))
-            ref_2d_dists = np.full((n_refs, n_refs), np.nan)
-            dst_ref_2d_dists = np.full((n_dsts, n_refs), np.nan)
-            dst_ref_2d_vars = np.zeros((n_dsts, n_refs + add_rc))
-
-            fill_dists_2d_mat(ref_xs, ref_ys, ref_xs, ref_ys, ref_2d_dists)
-            fill_dists_2d_mat(dst_xs, dst_ys, ref_xs, ref_ys, dst_ref_2d_dists)
-
-            for j in range(n_time):
+#             for j in range(n_time):
+            for j in models_sort_idxs:
                 model = models[j]
 
                 if (not interp_steps_flags[j]) or (nuggetness_flags[j]):
@@ -396,47 +633,48 @@ class SpInterpSteps:
                 if model == 'nan':
                     continue
 
-                fill_vg_var_arr(
-                    ref_2d_dists, ref_2d_vars, covar_flag, 1, model)
+                if model != old_model:
+                    (ref_ref_2d_vars_arr_sub,
+                     dst_ref_2d_vars_arr_sub) = self._get_vars_arr_subset(
+                        model,
+                        interp_type,
+                        ref_drfts,
+                        ref_ref_2d_vars_arr_all,
+                        dst_ref_2d_vars_arr_all,
+                        ref_ref_sub_idxs,
+                        time_neb_idxs_grp,
+                        dst_drfts)
 
-                fill_vg_var_arr(
-                    dst_ref_2d_dists, dst_ref_2d_vars, covar_flag, 0, model)
+                    old_model = model
 
-                if interp_type == 'OK':
-                    ref_2d_vars[n_refs,:n_refs] = 1.0
-                    ref_2d_vars[:, n_refs] = 1.0
-                    ref_2d_vars[n_refs, n_refs] = 0.0
-                    dst_ref_2d_vars[:, n_refs] = 1.0
+                    try:
+                        ref_2d_vars_inv = np.linalg.inv(
+                            ref_ref_2d_vars_arr_sub)
 
-                elif interp_type == 'SK':
-                    pass
+                        last_failed_flag = False
 
-                elif interp_type == 'EDK':
-                    ref_2d_vars[n_refs,:n_refs] = 1.0
-                    ref_2d_vars[:n_refs, n_refs] = 1.0
-                    dst_ref_2d_vars[:, n_refs] = 1.0
+                    except Exception:
+                        if sub_time_steps[j] not in prblm_time_steps:
+                            prblm_time_steps.append(sub_time_steps[j])
 
-                    for k in range(ref_drfts.shape[1]):
-                        ref_2d_vars[n_refs + 1 + k,:n_refs] = ref_drfts[:, k]
-                        ref_2d_vars[:n_refs, n_refs + 1 + k] = ref_drfts[:, k]
+                        last_failed_flag = True
 
-                        dst_ref_2d_vars[:, n_refs + 1 + k] = dst_drfts[k,:]
+                if last_failed_flag:
+                    # IDW used when kriging fails.
+                    # TODO: have a flag for this.
+                    for i in range(n_dsts):
+                        wts_sum = fill_wts_and_sum(
+                            dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
+
+                        mults_sum = get_mults_sum(wts, ref_data[j])
+                        dst_data[j, i] = mults_sum / wts_sum
 
                 else:
-                    raise NotImplementedError
+                    for i in range(n_dsts):
+                        lmds = np.matmul(
+                            ref_2d_vars_inv, dst_ref_2d_vars_arr_sub[i])
 
-                try:
-                    ref_2d_vars_inv = np.linalg.inv(ref_2d_vars)
-
-                except Exception:
-                    if sub_time_steps[j] not in prblm_time_steps:
-                        prblm_time_steps.append(sub_time_steps[j])
-
-                    continue
-
-                for i in range(n_dsts):
-                    lmds = np.matmul(ref_2d_vars_inv, dst_ref_2d_vars[i])
-                    dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
+                        dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
 
         return dst_data
 

@@ -4,6 +4,11 @@ Nov 25, 2018
 
 '''
 
+import sys
+
+if ('P:\\Synchronize\\Python3Codes' not in sys.path):
+    sys.path.append('P:\\Synchronize\\Python3Codes')
+
 import os
 import timeit
 import time
@@ -24,6 +29,9 @@ def main():
     in_data_file = Path(
         r'P:\dwd_meteo\daily\dfs__merged_subset\daily_neckar_ppt_Y1971_2010.pkl')
 
+#     in_vgs_file = Path(
+#         r'T:\Synchronize_LDs\full_neckar_precipitation_interpolation\ppt_fitted_variograms__nk_1.000__evg_name_robust__ngp_5__h_typ_var.csv')
+
     in_vgs_file = Path(
         r'P:\Synchronize\IWS\Testings\variograms\vgs_cmpr_monthly\ppt_monthly_1971_2010__no_0s\vgs_M\clustered_vg_ts.csv')
 
@@ -32,7 +40,7 @@ def main():
 
     index_type = 'date'
 
-    out_dir = Path(r'ppt/monthly_cluster_vg')
+    out_dir = Path(r'vg_clus_test__new_code4')
     var_units = 'mm'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'
 
@@ -62,6 +70,8 @@ def main():
     min_var_val = 0.0  # None
     max_var_val = None
 
+    min_vg_val = 0.0
+
     max_steps_per_chunk = 2500
 
     # Can be None or a string vg.
@@ -90,10 +100,10 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-#     ord_krige_flag = False
+    ord_krige_flag = False
     sim_krige_flag = False
-#     edk_krige_flag = False
-    idw_flag = False
+    edk_krige_flag = False
+#     idw_flag = False
     plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False
@@ -194,7 +204,8 @@ def main():
         min_var_val_thresh,
         min_var_val,
         max_var_val,
-        max_steps_per_chunk)
+        max_steps_per_chunk,
+        min_vg_val)
 
     if ord_krige_flag:
         spinterp_cls.turn_ordinary_kriging_on()
