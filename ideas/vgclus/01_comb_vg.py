@@ -123,10 +123,22 @@ def cmpt_comb_vg(args):
      norm_flag,
      in_cp_file,
      use_cps,
+     max_dist_thresh,
     ) = args
 
-    data_df = pd.read_csv(in_data_file, sep=sep, index_col=0)
-    data_df.index = pd.to_datetime(data_df.index, format=time_fmt)
+#     data_df = pd.read_csv(in_data_file, sep=sep, index_col=0)
+#     data_df.index = pd.to_datetime(data_df.index, format=time_fmt)
+
+    if in_data_file.suffix == 'csv':
+        data_df = pd.read_csv(in_data_file, sep=sep, index_col=0)
+        data_df.index = pd.to_datetime(data_df.index, format=time_fmt)
+
+    elif in_data_file.suffix == '.pkl':
+        data_df = pd.read_pickle(in_data_file)
+
+    else:
+        raise NotImplementedError(
+            f'Unknown file extension: {in_data_file.suffix}!')
 
     data_df = data_df.loc[beg_time:end_time]
 
@@ -218,6 +230,13 @@ def cmpt_comb_vg(args):
 
             comb_ctr += 1
 
+            crds_j = crds_df.loc[stn_j, crds_cols].values
+
+            dist = ((crds_i - crds_j) ** 2).sum() ** 0.5
+
+            if dist > max_dist_thresh:
+                continue
+
             stn_j_nnan_idxs = nnan_idxs_df[stn_j].values
 
             cmn_nnan_idxs = stn_i_nnan_idxs & stn_j_nnan_idxs
@@ -227,8 +246,6 @@ def cmpt_comb_vg(args):
                 continue
 
             stn_j_vals = data_df[stn_j].values.copy()
-            crds_j = crds_df.loc[stn_j, crds_cols].values
-
             comb_vg_vals = 0.5 * (
                 (stn_i_vals[cmn_nnan_idxs] - stn_j_vals[cmn_nnan_idxs]) ** 2)
 
@@ -242,8 +259,6 @@ def cmpt_comb_vg(args):
                 comb_vg_vals = comb_vg_vals[zero_vg_idxs]
 
             comb_vg_vals_stat = np.median(comb_vg_vals)
-
-            dist = ((crds_i - crds_j) ** 2).sum() ** 0.5
 
             vg_vals[comb_ctr] = comb_vg_vals_stat
             dists[comb_ctr] = dist
@@ -357,16 +372,16 @@ def cmpt_comb_vg(args):
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\variograms\vgs_cmpr_monthly')
+    main_dir = Path(r'P:\hydmod_de')
     os.chdir(main_dir)
 
-    in_data_file = Path('../ppt_monthly_1971_2010_data.csv')
-    in_crds_file = Path('../ppt_monthly_1971_2010_crds.csv')
-    out_dir = Path('ppt_monthly_1971_2010__no_0s')
+    in_data_file = Path(r'P:\dwd_meteo\daily_de_buff_100km_tem__merged__daily_hourly_dwd__daily_ecad\dfs__resampled\daily_de_tg_Y1961_2020__merged_data__RRm_RTmean.pkl')
+    in_crds_file = Path(r'P:\dwd_meteo\daily_de_buff_100km_tem__merged__daily_hourly_dwd__daily_ecad\daily_de_tg_Y1961_2020__merged_crds.csv')
+    out_dir = Path(r'tg_monthly_1961_2020__no_0s')
 
-#     in_data_file = Path('../precipitation.csv')
-#     in_crds_file = Path('../precipitation_coords.csv')
-#     out_dir = Path('ppt_daily_1971_2010__no_0s')
+#     in_data_file = Path(r'P:\dwd_meteo\daily_de_buff_100km_ppt___merged__daily_hourly_dwd_neg7h__daily_ecad\dfs__resampled\daily_de_ppt_Y1961_2020__merged_data__RRm_RTsum.pkl')
+#     in_crds_file = Path(r'P:\dwd_meteo\daily_de_buff_100km_ppt___merged__daily_hourly_dwd_neg7h__daily_ecad\daily_de_ppt_Y1961_2020__merged_crds.csv')
+#     out_dir = Path(r'ppt_monthly_1971_1980__no_0s')
 
     # Should have the column "cp". Steps with no cp or a cp greater than 89
     # are not considered. CP can be integers starting from 0 up to 89 only.
@@ -376,11 +391,11 @@ def main():
     sep = ';'
     time_fmt = '%Y-%m-%d'
 
-    beg_time = '1971-01-01'
-    end_time = '2010-12-31'
+    beg_time = '1961-01-01'
+    end_time = '2020-12-31'
 
-    y_lims = ((1e-2, 1e+2))  # Daily data.
-#     y_lims = ((1e-1, 1e+4))  # Monthly data.
+#     y_lims = ((1e-2, 1e+2))  # Daily data.
+    y_lims = ((1e-3, 1e+3))  # Monthly data.
 
 #     beg_time = '1990-01-01'
 #     end_time = '1990-12-31'
@@ -391,7 +406,7 @@ def main():
 #     classi_type = 'cps'
 
     use_months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, ]
-    use_years = np.arange(1971, 2010 + 1, 1)
+    use_years = np.arange(1961, 2020 + 1, 1)
     # use_cps are taken from the cp file.
 
     crds_cols = ['X', 'Y']
@@ -411,7 +426,9 @@ def main():
     dist_prec = 1  # Distances.
     vg_val_prec = 5  # Variogram values.
 
-    n_cpus = 8
+    max_dist_thresh = 3e5
+
+    n_cpus = 12
 
     ignore_zero_input_data_flag = True
     ignore_zero_vg_flag = True
@@ -455,6 +472,7 @@ def main():
              norm_flag,
              None,
              None,
+             max_dist_thresh,
         ) for use_month in use_months)
 
     elif classi_type == 'years':
@@ -496,6 +514,7 @@ def main():
              norm_flag,
              None,
              None,
+             max_dist_thresh,
         ) for use_year in use_years)
 
     elif classi_type == 'cps':
@@ -545,6 +564,7 @@ def main():
              norm_flag,
              in_cp_file,
              [use_cp],
+             max_dist_thresh,
         ) for use_cp in use_cps)
 
     elif classi_type == 'none':
@@ -576,6 +596,7 @@ def main():
              norm_flag,
              None,
              None,
+             max_dist_thresh,
         ) for _ in range(1))
 
         n_cpus = 1
