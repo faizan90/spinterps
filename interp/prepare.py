@@ -14,6 +14,7 @@ from osgeo import ogr
 import shapefile as shp
 
 from .drift import KrigingDrift as KDT
+from .vgclus import VariogramCluster as VC
 from .bdpolys import SpInterpBoundaryPolygons as SIBD
 from ..misc import (
     get_aligned_shp_bds_and_cell_size,
@@ -420,6 +421,51 @@ class SpInterpPrepare(SIBD, KDT):
 
         return
 
+    def _cluster_vgs(self):
+
+        '''
+        Should be called when final data_df and vg_ser are ready.
+        This reorders the time series such that clustered variograms
+        follow each other in time. This results in an efficient memory use,
+        by having fewer variograms to compute for per thread.
+        '''
+
+        assert self._vgs_ser is not None
+
+        vc_cls = VC(self._vgs_ser)
+
+        clus_dict, self._vgs_ser = vc_cls.get_vgs_cluster()
+
+        # Holds the indices that tell where to right to in the netcdf file.
+        vgs_rord_tidxs_ser = pd.Series(
+            index=self._vgs_ser.index, data=np.arange(self._vgs_ser.shape[0]))
+
+        # Used to get the unique number of vgs per thread to compute memory
+        # requirements.
+        vgs_unq_ids = pd.Series(index=self._vgs_ser.index, dtype=np.int64)
+
+        unq_id = 0
+        vg_clus_tidxs = []
+        for vg in clus_dict.keys():
+            clus_idxs = clus_dict[vg]
+
+            vg_clus_tidxs.extend(clus_idxs.tolist())
+
+            vgs_unq_ids.loc[clus_idxs] = unq_id
+
+            unq_id += 1
+
+        assert len(vg_clus_tidxs) == self._vgs_ser.shape[0]
+
+        vg_clus_tidxs = np.array(vg_clus_tidxs)
+
+        self._data_df = self._data_df.reindex(index=vg_clus_tidxs)
+        self._vgs_ser = self._vgs_ser.reindex(index=vg_clus_tidxs)
+        self._vgs_unq_ids = vgs_unq_ids.reindex(index=vg_clus_tidxs)
+        self._vgs_rord_tidxs_ser = vgs_rord_tidxs_ser.reindex(
+            index=vg_clus_tidxs)
+        return
+
     def _prepare(self):
 
         '''Main call for the preparation of required variables.'''
@@ -572,6 +618,8 @@ class SpInterpPrepare(SIBD, KDT):
 
         if self._vg_ser_set_flag:
             self._vgs_ser = self._vgs_ser.reindex(self._time_rng).astype(str)
+
+            self._cluster_vgs()
 
         self._prpd_flag = True
         return

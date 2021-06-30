@@ -22,57 +22,56 @@ from spinterps import SpInterpMain
 def main():
 
     main_dir = Path(
-        r'P:\cluster_vg_tests')
+        r'P:\hydmod_de')
 
     os.chdir(main_dir)
 
     in_data_file = Path(
-        r'P:\dwd_meteo\daily\dfs__merged_subset\daily_neckar_ppt_Y1971_2010.pkl')
-
-#     in_vgs_file = Path(
-#         r'T:\Synchronize_LDs\full_neckar_precipitation_interpolation\ppt_fitted_variograms__nk_1.000__evg_name_robust__ngp_5__h_typ_var.csv')
-
-    in_vgs_file = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\vgs_cmpr_monthly\ppt_monthly_1971_2010__no_0s\vgs_M\clustered_vg_ts.csv')
+        r'P:\dwd_meteo\daily_de_ppt_Y1961_2020__merged_data.pkl')
 
     in_stns_coords_file = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\ppt_monthly_1971_2010_crds.csv')
+        r'P:\dwd_meteo\daily_de_ppt_Y1961_2020__merged_crds.csv')
+
+    in_vgs_file = Path(
+        r'P:\hydmod_de\ppt_daily_1961_2020__no_0s\vgs_M\vgs_ts.csv')
 
     index_type = 'date'
 
-    out_dir = Path(r'vg_clus_test__new_code4')
-    var_units = 'mm'  # u'\u2103'  # 'centigrade'
-    var_name = 'precipitation'
+    out_dir = Path(r'ppt_daily_1961_2020_interp_5km')
+    var_units = 'mm'  # 'C'  # u'\u2103'  # 'centigrade'
+    var_name = 'precipitation'  # 'temperature'  #
 
-    out_krig_net_cdf_file = r'precipitation_kriging_%s_to_%s_1km.nc'
+    out_krig_net_cdf_file = r'kriging_%s_to_%s_5km.nc'
 
     freq = 'D'
-    strt_date = r'1971-01-01'
-    end_date = r'2010-12-31'
+    strt_date = r'1961-01-01'
+    end_date = r'2020-12-31'
 
     drop_stns = []
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif')])
+        [Path(r'P:\Synchronize\IWS\Hydrological_Modeling\data\grdc\de\srtm_de_mosaic_utm32N_5km.tif')])
 
-    in_bounds_shp_file = (
-        Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'))
+#     in_bounds_shp_file = (
+#         Path(r'P:\Synchronize\IWS\Hydrological_Modeling\data\grdc\de\dem_ansys_taudem\watersheds.shp'))
+
+    in_bounds_shp_file = None
 
     align_ras_file = in_drift_rasters_list[0]
 
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_var_val_thresh = 1  # -float('inf')  # 1
+    min_var_val_thresh = -float('inf')  # 1
 
-    min_var_val = 0.0  # None
+    min_var_val = None
     max_var_val = None
 
-    min_vg_val = 0.0
+    min_vg_val = 1e-4
 
-    max_steps_per_chunk = 2500
+    max_steps_per_chunk = None
 
     # Can be None or a string vg.
     # Replace all nan vgs with this.
@@ -81,7 +80,7 @@ def main():
     min_nebor_dist_thresh = 1
 
     idw_exps = [1]
-    n_cpus = 8
+    n_cpus = 4
     buffer_dist = 22e3
     sec_buffer_dist = 2e3
 
@@ -102,11 +101,11 @@ def main():
 
     ord_krige_flag = False
     sim_krige_flag = False
-    edk_krige_flag = False
-#     idw_flag = False
+#     edk_krige_flag = False
+    idw_flag = False
     plot_figs_flag = False
 #     verbose = False
-#     interp_around_polys_flag = False
+    interp_around_polys_flag = False
 
     if in_data_file.suffix == 'csv':
         in_data_df = pd.read_csv(
@@ -186,11 +185,12 @@ def main():
     spinterp_cls.set_interp_time_parameters(
         strt_date, end_date, freq, in_date_fmt)
 
-    spinterp_cls.set_cell_selection_parameters(
-        in_bounds_shp_file,
-        buffer_dist,
-        interp_around_polys_flag,
-        sec_buffer_dist)
+    if in_bounds_shp_file is not None:
+        spinterp_cls.set_cell_selection_parameters(
+            in_bounds_shp_file,
+            buffer_dist,
+            interp_around_polys_flag,
+            sec_buffer_dist)
 
     spinterp_cls.set_alignment_raster(align_ras_file)
 

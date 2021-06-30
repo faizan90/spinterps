@@ -6,7 +6,6 @@ Created on Nov 25, 2018
 
 import os
 import timeit
-from math import ceil
 from pathlib import Path
 from functools import partial
 from multiprocessing import Pool, Manager, Lock
@@ -14,8 +13,8 @@ from multiprocessing import Pool, Manager, Lock
 import numpy as np
 import psutil as ps
 
-from .steps import SpInterpSteps as SIS
 from .data import SpInterpData as SID
+from .steps import SpInterpSteps as SIS
 from .prepare import SpInterpPrepare as SIP
 from ..misc import ret_mp_idxs, get_current_proc_size, print_sl, print_el
 
@@ -316,9 +315,11 @@ class SpInterpMain(SID, SIP):
              for interp_arg in self._interp_args]):
 
             vgs_ser = self._vgs_ser.loc[data_df.index]
+            vgs_rord_tidxs_ser = self._vgs_rord_tidxs_ser.loc[data_df.index]
 
         else:
             vgs_ser = None
+            vgs_rord_tidxs_ser = None
 
         if 'EDK' in [interp_arg[0] for interp_arg in self._interp_args]:
             drft_arrs = self._drft_arrs
@@ -336,7 +337,8 @@ class SpInterpMain(SID, SIP):
             self._lock,
             drft_arrs,
             stns_drft_df,
-            vgs_ser)
+            vgs_ser,
+            vgs_rord_tidxs_ser)
 
     def _get_thread_steps_idxs(self):
 
@@ -345,9 +347,9 @@ class SpInterpMain(SID, SIP):
         '''
         megabytes = 1024 ** 2
 
-        bytes_per_number = 4
+        bytes_per_number = 8
 
-        # actual interpreter size will probably be much smaller than this
+        # Actual interpreter size will probably be much smaller than this.
         interpreter_size = get_current_proc_size()
 
         assert 0 < self._max_mem_usage_ratio <= 1
@@ -355,7 +357,8 @@ class SpInterpMain(SID, SIP):
         tot_avail_mem = int(
             ps.virtual_memory().free * self._max_mem_usage_ratio)
 
-        avail_threads_mem = tot_avail_mem - (self._n_cpus * interpreter_size)
+#         avail_threads_mem = tot_avail_mem - (self._n_cpus * interpreter_size)
+        avail_threads_mem = tot_avail_mem - interpreter_size
 
         assert avail_threads_mem > 0, 'Memory too little or too many threads!'
 
@@ -363,6 +366,7 @@ class SpInterpMain(SID, SIP):
 
         assert max_mem_per_thread > 0, 'Memory too little or too many threads!'
 
+        # Size of the netcdf array to write.
         tot_interp_arr_size = bytes_per_number * len(self._interp_args) * (
             self._data_df.shape[0] *
             self._interp_crds_orig_shape[0] *
@@ -373,30 +377,91 @@ class SpInterpMain(SID, SIP):
             np.prod(self._interp_crds_orig_shape) *
             len(self._interp_args))
 
-        assert max_mem_per_thread > bytes_per_step, (
-                'Interpolation grid too fine or too many threads!')
+        dst_ref_2d_dists_size = bytes_per_number * (
+            self._interp_x_crds_msh.size *
+            self._crds_df.shape[0])
 
-        if tot_interp_arr_size < avail_threads_mem:
-            step_idxs = ret_mp_idxs(self._data_df.shape[0], self._n_cpus)
+        if self._vgs_ser is not None:
+            ref_ref_2d_dists_size = bytes_per_number * (
+                self._crds_df.shape[0] ** 2)
+
+            ref_ref_2d_vars_size = ref_ref_2d_dists_size * (
+                1)
+
+            dst_ref_2d_vars_size = dst_ref_2d_dists_size * (
+                1)
 
         else:
-            max_concurrent_steps = avail_threads_mem // (
-                bytes_per_number *
-                len(self._interp_args) *
-                self._interp_crds_orig_shape[0] *
-                self._interp_crds_orig_shape[1])
+            ref_ref_2d_dists_size = 0
+            ref_ref_2d_vars_size = 0
+            dst_ref_2d_vars_size = 0
+            max_vgs_per_thread = 0
 
-            assert max_concurrent_steps > 0, 'Grid too fine!'
+        assert max_mem_per_thread > bytes_per_step, (
+                'Interpolation grid too fine!')
 
-            steps_scale_cnst = ceil(
-                self._data_df.shape[0] / max_concurrent_steps)
+        max_cpus_ctr = self._n_cpus
+        max_chunks_ctr = self._n_cpus
+        cpu_chunk_flag = 0
+        while True:
 
-            assert steps_scale_cnst > 1, 'This should not happen!'
+            assert max_cpus_ctr > 0, 'Not enough memory for the given grid!'
 
-            step_idxs = ret_mp_idxs(
-                self._data_df.shape[0], self._n_cpus * steps_scale_cnst)
+            assert max_chunks_ctr < self._data_df.shape[0], (
+                'Not enough memory for the given grid!')
 
-        steps_per_thread = step_idxs[1] - step_idxs[0]
+            step_idxs = ret_mp_idxs(self._data_df.shape[0], max_chunks_ctr)
+
+            if self._vgs_ser is not None:
+                mult_arrs_ct = 0
+
+                max_vgs_per_thread = max([
+                    np.unique(self._vgs_unq_ids.iloc[
+                        step_idxs[i]:step_idxs[i + 1]].values).size
+                    for i in range(step_idxs.size - 1)])
+
+                if any([self._ork_flag, self._edk_flag]):
+                    mult_arrs_ct += 1
+
+                if self._spk_flag:
+                    mult_arrs_ct += 1
+
+                max_vgs_per_thread *= mult_arrs_ct
+
+            else:
+                max_vgs_per_thread = 0
+
+            misc_size = 0
+
+            misc_size += dst_ref_2d_dists_size * max_cpus_ctr
+
+            misc_size += ref_ref_2d_dists_size * max_cpus_ctr
+
+            misc_size += (
+                ref_ref_2d_vars_size * max_vgs_per_thread * max_cpus_ctr)
+
+            misc_size += (
+                dst_ref_2d_vars_size * max_vgs_per_thread * max_cpus_ctr)
+
+            has_size = ((tot_interp_arr_size / max_chunks_ctr) + misc_size)
+
+            if has_size < tot_avail_mem:
+                self._n_cpus = max_cpus_ctr
+
+                max_mem_per_thread = avail_threads_mem // self._n_cpus
+
+                break
+
+            if cpu_chunk_flag and (max_cpus_ctr > 1):
+                max_cpus_ctr -= 1
+
+                cpu_chunk_flag = 0
+
+            else:
+                max_chunks_ctr += 1
+                cpu_chunk_flag = 1
+
+        steps_per_thread = (step_idxs[1:] - step_idxs[0:-1]).max()
 
         if ((self._max_steps_per_chunk is not None) and
             (steps_per_thread > self._max_steps_per_chunk)):
@@ -405,6 +470,8 @@ class SpInterpMain(SID, SIP):
                 0, self._data_df.shape[0], self._max_steps_per_chunk)
 
             step_idxs = np.concatenate((step_idxs, [self._data_df.shape[0]]))
+
+            steps_per_thread = self._max_steps_per_chunk
 
         if self._vb:
             print_sl()
@@ -425,10 +492,18 @@ class SpInterpMain(SID, SIP):
                 f'Total size of the interpolated array: '
                 f'{tot_interp_arr_size / megabytes:0.6f} MB')
 
-            print(
-                f'Size per step: {bytes_per_step / megabytes:0.6f} MB')
+            print(f'Size per step: {bytes_per_step / megabytes:0.6f} MB')
 
             print(f'No. of steps interpolated per thread: {steps_per_thread}')
+
+            print(f'Misc. memory required: {misc_size / megabytes:0.6f} MB')
+
+            print('Final number of threads to use:', self._n_cpus)
+
+            if max_vgs_per_thread:
+                print(
+                    'Maximum variogram strings per thread:',
+                    max_vgs_per_thread)
 
             print_el()
 

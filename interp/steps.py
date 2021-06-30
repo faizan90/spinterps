@@ -11,6 +11,7 @@ import netCDF4 as nc
 import matplotlib.pyplot as plt
 from descartes import PolygonPatch
 
+from .vgclus import VariogramCluster as VC
 from .grps import SpInterpNeighborGrouping as SIG
 from ..misc import traceback_wrapper, check_full_nuggetness
 from ..cyth import (
@@ -19,8 +20,6 @@ from ..cyth import (
     fill_dists_2d_mat,
     fill_vg_var_arr,
     copy_2d_arr_at_idxs)
-
-from .vgclus import VariogramCluster as VC
 
 plt.ioff()
 
@@ -63,12 +62,7 @@ class SpInterpSteps:
         self._n_dst_pts = self._interp_x_crds_msh.shape[0]
         return
 
-    def _get_dists_arr(self, x1s, y1s, x2s, y2s, order='c'):
-
-        '''
-        Order depends on how we want the array to be laid out.
-        In some cases order='c' is better, in others order='f'.
-        '''
+    def _get_dists_arr(self, x1s, y1s, x2s, y2s):
 
         assert x1s.ndim == y1s.ndim == x2s.ndim == y2s.ndim == 1
 
@@ -86,7 +80,7 @@ class SpInterpSteps:
 
         fill_dists_2d_mat(x1s, y1s, x2s, y2s, dists_arr)
 
-        return dists_arr.copy(order=order)
+        return dists_arr
 
     def _get_svars_arr(self, dists_arr, vgs, interp_types, diag_mat_flag):
 
@@ -98,38 +92,44 @@ class SpInterpSteps:
 
         assert diag_mat_flag >= 0
 
+        var_flag = 0
+        if any([interp_type in interp_types for interp_type in ['OK', 'EDK']]):
+            var_flag = 1
+
+        covar_flag = 0
         if 'SK' in interp_types:
             covar_flag = 1
-
-        else:
-            covar_flag = 0
 
         # Keys are (vg and covar_flag).
         # covar_flag is 1 for SK and 0 for OK and EDK.
         svars_dict = {}
         for vg in vgs:
-            svars_arr = np.full_like(dists_arr, np.nan)
+            if var_flag:
+                svars_arr = np.full_like(dists_arr, np.nan)
 
-            fill_vg_var_arr(
-                dists_arr, svars_arr, 0, diag_mat_flag, vg, self._min_vg_val)
+                fill_vg_var_arr(
+                    dists_arr,
+                    svars_arr,
+                    0,
+                    diag_mat_flag,
+                    vg,
+                    self._min_vg_val)
 
-            svars_dict[(vg, 0)] = svars_arr
+                svars_dict[(vg, 0)] = svars_arr
 
-            if not covar_flag:
-                continue
+            if covar_flag:
+                # With covar being 1.
+                svars_arr = np.full_like(dists_arr, np.nan)
 
-            # With covar being 1.
-            svars_arr = np.full_like(dists_arr, np.nan)
+                fill_vg_var_arr(
+                    dists_arr,
+                    svars_arr,
+                    covar_flag,
+                    diag_mat_flag,
+                    vg,
+                    self._min_vg_val)
 
-            fill_vg_var_arr(
-                dists_arr,
-                svars_arr,
-                covar_flag,
-                diag_mat_flag,
-                vg,
-                self._min_vg_val)
-
-            svars_dict[(vg, 1)] = svars_arr
+                svars_dict[(vg, 1)] = svars_arr
 
         return svars_dict
 
@@ -245,7 +245,8 @@ class SpInterpSteps:
          lock,
          drft_arrs,
          stns_drft_df,
-         vgs_ser) = args
+         vgs_ser,
+         vgs_rord_tidxs_ser) = args
 
         assert np.all(data_df.columns == self._crds_df.index)
 
@@ -256,8 +257,6 @@ class SpInterpSteps:
             assert not data_df.index.difference(vgs_ser.index).shape[0], (
                 'Data and variogram series have non-intersecting indices!')
 
-#                 if True:  # Vg clustering flag comes here.
-#             old_vgs_ser = vgs_ser
             vc_cls = VC(vgs_ser)
 
             vgs_clus_dict, vgs_ser = vc_cls.get_vgs_cluster()
@@ -279,7 +278,7 @@ class SpInterpSteps:
         interp_flds_dict = {interp_label:np.full(
             (time_steps.shape[0], np.prod(self._interp_crds_orig_shape)),
             np.nan,
-            dtype=np.float32)
+            dtype=np.float64)
             for interp_label in interp_labels}
 
         cntn_idxs_wh = np.where(self._cntn_idxs)[0]
@@ -326,8 +325,17 @@ class SpInterpSteps:
                 self._crds_df.loc[:, 'X'].values,
                 self._crds_df.loc[:, 'Y'].values)
 
+            ref_ref_2d_vars_arr_all = self._get_svars_arr(
+                ref_ref_2d_dists_arr_all,
+                list(vgs_clus_dict.keys()),
+                interp_types,
+                1)
+
         else:
-            ref_ref_2d_dists_arr_all = None
+            ref_ref_2d_vars_arr_all = None
+
+        # Set to None, to save on space.
+        ref_ref_2d_dists_arr_all = None
 
         dst_ref_2d_dists_arr_all = self._get_dists_arr(
             self._interp_x_crds_msh,
@@ -336,19 +344,13 @@ class SpInterpSteps:
             self._crds_df.loc[:, 'Y'].values)
 
         if vgs_ser is not None:
-            ref_ref_2d_vars_arr_all = self._get_svars_arr(
-                ref_ref_2d_dists_arr_all,
-                list(vgs_clus_dict.keys()),
-                interp_types,
-                1)
-
             dst_ref_2d_vars_arr_all = self._get_svars_arr(
                 dst_ref_2d_dists_arr_all,
                 list(vgs_clus_dict.keys()),
                 interp_types,
                 0)
+
         else:
-            ref_ref_2d_vars_arr_all = None
             dst_ref_2d_vars_arr_all = None
         #======================================================================
 
@@ -365,6 +367,8 @@ class SpInterpSteps:
             if not time_stn_grp.size:
                 print(sub_time_steps.size, 'step(s) have no station(s)!')
 
+                # There are no stations for these time steps. Hence, no
+                # interpolation at all.
                 for sub_time_step in sub_time_steps:
                     if sub_time_step in prblm_time_steps:
                         continue
@@ -428,7 +432,8 @@ class SpInterpSteps:
                 # time_neb_idxs have same indices for each time step.
                 sub_ref_idxs = time_neb_idxs[time_neb_idxs_grp[0]]
 
-                sub_ref_data = time_stn_grp_data_vals[:, sub_ref_idxs].copy('c')
+                sub_ref_data = time_stn_grp_data_vals[:, sub_ref_idxs].copy(
+                    'c')
 
                 #==============================================================
                 ref_ref_sub_idxs = time_stn_grp_idxs[sub_ref_idxs]
@@ -548,21 +553,38 @@ class SpInterpSteps:
                     data_df.index[0],
                     data_df.index[-1])
 
-            nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
-            ar_is = nc_is - beg_idx
-
             nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r+')
 
-            for interp_label in interp_labels:
-                interp_flds = interp_flds_dict[interp_label]
+            if vgs_ser is None:
+                nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
+                ar_is = nc_is - beg_idx
 
-                for i in range(max_rng):
-                    nc_hdl[interp_label][
-                        nc_is[i]:nc_is[i + 1],:,:] = (
-                            interp_flds[ar_is[i]:ar_is[i + 1]])
+                for interp_label in interp_labels:
+                    interp_flds = interp_flds_dict[interp_label]
 
-                nc_hdl.sync()
-                interp_flds_dict[interp_label] = None
+                    for i in range(max_rng):
+                        nc_hdl[interp_label][
+                            nc_is[i]:nc_is[i + 1],:,:] = (
+                                interp_flds[ar_is[i]:ar_is[i + 1]])
+
+                    nc_hdl.sync()
+                    interp_flds_dict[interp_label] = None
+
+            else:
+                nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
+                ar_is = nc_is - beg_idx
+
+                for interp_label in interp_labels:
+                    interp_flds = interp_flds_dict[interp_label]
+
+                    for i in range(vgs_ser.shape[0]):
+
+                        nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
+
+                        nc_hdl[interp_label][nc_idx,:,:] = interp_flds[i]
+
+                    nc_hdl.sync()
+                    interp_flds_dict[interp_label] = None
 
             interp_flds = None
             nc_hdl.close()
