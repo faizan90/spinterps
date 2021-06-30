@@ -461,7 +461,7 @@ class SpInterpMain(SID, SIP):
                 max_chunks_ctr += 1
                 cpu_chunk_flag = 1
 
-        steps_per_thread = (step_idxs[1:] - step_idxs[0:-1]).max()
+        steps_per_thread = (step_idxs[+1:] - step_idxs[:-1]).max()
 
         if ((self._max_steps_per_chunk is not None) and
             (steps_per_thread > self._max_steps_per_chunk)):

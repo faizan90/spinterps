@@ -27,17 +27,17 @@ def main():
     os.chdir(main_dir)
 
     in_data_file = Path(
-        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117\02_combined_station_outputs\infilled_var_df_infill_stns.csv')
+        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_clim_data_2\precipitation.csv')
 
     in_stns_coords_file = Path(
-        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117\02_combined_station_outputs\infilled_var_df_infill_stns_coords.csv')
+        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_clim_data_2\precipitation_coords.csv')
 
     in_vgs_file = Path(
         r'P:\hydmod_de\ppt_daily_1961_2020__no_0s\vgs_M\vgs_ts.csv')
 
     index_type = 'date'
 
-    out_dir = Path(r'ppt_daily_test_01')
+    out_dir = Path(r'ppt_daily_test_03')
     var_units = 'mm'  # 'C'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'  # 'temperature'  #
 
@@ -80,7 +80,7 @@ def main():
     min_nebor_dist_thresh = 1
 
     idw_exps = [1]
-    n_cpus = 4
+    n_cpus = 1
     buffer_dist = 22e3
     sec_buffer_dist = 5e3
 

@@ -211,7 +211,7 @@ class SpInterpPrepare(SIBD, KDT):
 
         if self._plot_figs_flag:
             self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = (
-                interp_x_coords_mesh.copy(), interp_y_coords_mesh.copy()))
+                interp_x_coords_mesh.copy(), interp_y_coords_mesh.copy())
 
         self._nc_x_crds = interp_x_coords
         self._nc_y_crds = interp_y_coords
@@ -232,8 +232,6 @@ class SpInterpPrepare(SIBD, KDT):
         '''
         If interp_around_polys_flag is True then interpolate only those
         cells that are near or inside the polygons.
-
-        This could be multithreaded.
         '''
 
         if self._vb:
