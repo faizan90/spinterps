@@ -27,17 +27,17 @@ def main():
     os.chdir(main_dir)
 
     in_data_file = Path(
-        r'P:\dwd_meteo\daily_de_ppt_Y1961_2020__merged_data.pkl')
+        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117\02_combined_station_outputs\infilled_var_df_infill_stns.csv')
 
     in_stns_coords_file = Path(
-        r'P:\dwd_meteo\daily_de_ppt_Y1961_2020__merged_crds.csv')
+        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_ppt_norm_cop_infill_1961_to_2015_20190117\02_combined_station_outputs\infilled_var_df_infill_stns_coords.csv')
 
     in_vgs_file = Path(
         r'P:\hydmod_de\ppt_daily_1961_2020__no_0s\vgs_M\vgs_ts.csv')
 
     index_type = 'date'
 
-    out_dir = Path(r'ppt_daily_1961_2020_interp_5km')
+    out_dir = Path(r'ppt_daily_test_01')
     var_units = 'mm'  # 'C'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'  # 'temperature'  #
 
@@ -45,19 +45,19 @@ def main():
 
     freq = 'D'
     strt_date = r'1961-01-01'
-    end_date = r'2020-12-31'
+    end_date = r'1961-12-31'
 
     drop_stns = []
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [Path(r'P:\Synchronize\IWS\Hydrological_Modeling\data\grdc\de\srtm_de_mosaic_utm32N_5km.tif')])
+        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_5km.tif')])
 
-#     in_bounds_shp_file = (
-#         Path(r'P:\Synchronize\IWS\Hydrological_Modeling\data\grdc\de\dem_ansys_taudem\watersheds.shp'))
+    in_bounds_shp_file = (
+        Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds_all.shp'))
 
-    in_bounds_shp_file = None
+#     in_bounds_shp_file = None
 
     align_ras_file = in_drift_rasters_list[0]
 
@@ -82,7 +82,7 @@ def main():
     idw_exps = [1]
     n_cpus = 4
     buffer_dist = 22e3
-    sec_buffer_dist = 2e3
+    sec_buffer_dist = 5e3
 
     neighbor_selection_method = 'nrst'
     n_neighbors = 50
@@ -102,12 +102,12 @@ def main():
     ord_krige_flag = False
     sim_krige_flag = False
 #     edk_krige_flag = False
-    idw_flag = False
+#     idw_flag = False
     plot_figs_flag = False
 #     verbose = False
-    interp_around_polys_flag = False
+#     interp_around_polys_flag = False
 
-    if in_data_file.suffix == 'csv':
+    if in_data_file.suffix == '.csv':
         in_data_df = pd.read_csv(
             in_data_file,
             sep=in_sep,

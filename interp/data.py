@@ -20,19 +20,32 @@ class SpInterpData(VD):
         VD.__init__(self, verbose)
 
         self._vgs_ser = None
-
-        self._cell_bdist = None
+        self._out_dir = None
 
         self._n_cpus = 1
         self._mp_flag = False
+        self._cell_size = None
 
         self._plot_figs_flag = False
+
+        self._nc_out = None
+        self._nc_vunits = None
+        self._nc_vlab = None
+        self._nc_tunits = None
+        self._nc_tcldr = None
+        self._nc_tlab = None
+        self._nc_xlab = None
+        self._nc_ylab = None
 
         self._tbeg = None
         self._tend = None
         self._tfreq = None
 
-        self._cell_size = None
+        self._algn_ras = None
+
+        self._poly_shp = None
+        self._ipoly_flag = False
+        self._cell_bdist = 0
 
         self._min_var_thr = None
         self._min_var_cut = None
@@ -284,11 +297,6 @@ class SpInterpData(VD):
             assert self._tend >= self._tbeg, (
                 'Begining time of interpolation cannot be less than the ending '
                 'time!')
-
-        else:
-            self._tbeg = None
-            self._tend = None
-            self._tfreq = None
 
         if self._vb:
             print_sl()

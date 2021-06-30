@@ -10,6 +10,23 @@ from osgeo import ogr
 from ..misc import cnvt_to_pt, chk_cntmt, print_sl, print_el
 
 
+def fill_sub_geoms(geom, geoms):
+
+    gct = geom.GetGeometryCount()
+
+    if gct == 1:
+        geoms.append(geom)
+
+    elif gct > 1:
+        for i in range(gct):
+            fill_sub_geoms(geom.GetGeometryRef(i).Clone(), geoms)
+
+    elif gct == 0:
+        pass
+
+    return geoms
+
+
 class SpInterpBoundaryPolygons:
 
     def __init__(self):
@@ -59,14 +76,15 @@ class SpInterpBoundaryPolygons:
 
             geom_type = geom.GetGeometryType()
 
-            if geom_type == 6:
-                for sub_geom in geom:
-                    temp_geoms.append(sub_geom.Clone())
-
-            if geom_type == 3:
-                temp_geoms.append(geom)
+            if geom_type in (3, 6):
+                fill_sub_geoms(geom, temp_geoms)
 
         assert temp_geoms, 'Zero usable polygons in the shapefile!'
+
+        g_cts = np.array([geom.GetGeometryCount() for geom in temp_geoms])
+
+        assert np.all(g_cts == 1), (
+            'Some geometries have a count not equal to one!')
 
         for geom in temp_geoms:
             assert geom is not None, (
@@ -88,12 +106,13 @@ class SpInterpBoundaryPolygons:
                 'Changing station_select_buffer_distance might help.')
 
             if self._ipoly_flag:
-
                 feat_buff_cells.append(geom.Buffer(self._cell_bdist))
 
-                assert (feat_buff_cells[-1].GetGeometryCount() == 1), (
-                    'Geometry count changed after buffering! '
-                    'Changing polygon_cell_buffer_distance might help.')
+                gct = feat_buff_cells[-1].GetGeometryCount()
+
+                assert (gct == 1), (
+                    f'Geometry count ({gct}) changed after buffering! '
+                    f'Changing polygon_cell_buffer_distance might help.')
 
         bds_vec.Destroy()
 
@@ -134,7 +153,7 @@ class SpInterpBoundaryPolygons:
             print_el()
 
         self._data_df = self._data_df.loc[:, fin_stns]
-        self._crds_df = self._crds_df.loc[fin_stns, :]
+        self._crds_df = self._crds_df.loc[fin_stns,:]
 
         if self._ipoly_flag:
             self._geom_buff_cells = feat_buff_cells

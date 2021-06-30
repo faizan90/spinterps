@@ -160,8 +160,8 @@ class KrigingDrift:
 
         self._drft_arrs = []  # the clipped ones, ndvs are set to NaNs
 
-        interp_cols = np.arange(self._min_col, self._max_col + 1, dtype=int)
-        interp_rows = np.arange(self._min_row, self._max_row + 1, dtype=int)
+        interp_cols = np.arange(self._min_col, self._max_col, dtype=int)
+        interp_rows = np.arange(self._min_row, self._max_row, dtype=int)
 
         assert self._nc_x_crds.shape[0] == interp_cols.shape[0]
         assert self._nc_y_crds.shape[0] == interp_rows.shape[0]

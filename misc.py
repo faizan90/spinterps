@@ -166,29 +166,6 @@ def get_aligned_shp_bds_and_cell_size(
 
     n_round = 6
 
-    in_ds = ogr.Open(str(bounds_shp_file))
-    assert in_ds, f'Could not open {bounds_shp_file}!'
-
-    lyr_count = in_ds.GetLayerCount()
-
-    assert lyr_count, f'No layers in {bounds_shp_file}!'
-    assert lyr_count == 1, f'More than one layer in {bounds_shp_file}!'
-
-    in_lyr = in_ds.GetLayer(0)
-    envelope = in_lyr.GetExtent()
-
-    assert envelope, f'No envelope for {bounds_shp_file}!'
-    in_ds.Destroy()
-
-    raw_shp_x_min, raw_shp_x_max, raw_shp_y_min, raw_shp_y_max = np.round(
-        envelope, n_round)
-
-    if cell_bdist:
-        raw_shp_x_min -= cell_bdist
-        raw_shp_x_max += cell_bdist
-        raw_shp_y_min -= cell_bdist
-        raw_shp_y_max += cell_bdist
-
     ras_props = get_ras_props(str(align_ras_file))
     ras_cell_size, _1 = np.round(ras_props[6:8], n_round)
 
@@ -197,6 +174,36 @@ def get_aligned_shp_bds_and_cell_size(
 
     ras_min_x, ras_max_x = np.round(ras_props[:2], n_round)
     ras_min_y, ras_max_y = np.round(ras_props[2:4], n_round)
+
+    if bounds_shp_file != 'None':
+        in_ds = ogr.Open(str(bounds_shp_file))
+        assert in_ds, f'Could not open {bounds_shp_file}!'
+
+        lyr_count = in_ds.GetLayerCount()
+
+        assert lyr_count, f'No layers in {bounds_shp_file}!'
+        assert lyr_count == 1, f'More than one layer in {bounds_shp_file}!'
+
+        in_lyr = in_ds.GetLayer(0)
+        envelope = in_lyr.GetExtent()
+
+        assert envelope, f'No envelope for {bounds_shp_file}!'
+        in_ds.Destroy()
+
+        raw_shp_x_min, raw_shp_x_max, raw_shp_y_min, raw_shp_y_max = np.round(
+            envelope, n_round)
+
+        if cell_bdist:
+            raw_shp_x_min -= cell_bdist
+            raw_shp_x_max += cell_bdist
+            raw_shp_y_min -= cell_bdist
+            raw_shp_y_max += cell_bdist
+
+    else:
+        raw_shp_x_min = ras_min_x
+        raw_shp_x_max = ras_max_x
+        raw_shp_y_min = ras_min_y
+        raw_shp_y_max = ras_max_y
 
     assert all(
         ((raw_shp_x_min >= ras_min_x),
@@ -221,8 +228,11 @@ def get_aligned_shp_bds_and_cell_size(
     x_max_adj = rem_max_col_width * ras_cell_size
     y_min_adj = rem_max_row_width * ras_cell_size
 
-    adj_shp_x_max = raw_shp_x_max + (ras_cell_size - x_max_adj)
-    adj_shp_y_min = raw_shp_y_min - (ras_cell_size - y_min_adj)
+#     adj_shp_x_max = raw_shp_x_max + (ras_cell_size - x_max_adj)
+#     adj_shp_y_min = raw_shp_y_min - (ras_cell_size - y_min_adj)
+
+    adj_shp_x_max = raw_shp_x_max + x_max_adj
+    adj_shp_y_min = raw_shp_y_min - y_min_adj
 
     return (
         (adj_shp_x_min, adj_shp_x_max, adj_shp_y_min, adj_shp_y_max),

@@ -70,9 +70,6 @@ class SpInterpPrepare(SIBD, KDT):
         alignment raster.
         '''
 
-        assert self._cell_sel_prms_set, (
-            'Call set_cell_selection_parameters first!')
-
         assert self._algn_ras_set_flag, (
             'Call set_alignment_raster first!')
 
@@ -199,29 +196,22 @@ class SpInterpPrepare(SIBD, KDT):
             (self._max_row - self._min_row) * self._cell_size)
 
         interp_x_coords = np.linspace(
-            strt_x_coord, end_x_coord, (self._max_col - self._min_col + 1))
+            strt_x_coord, end_x_coord, (self._max_col - self._min_col))
 
         interp_y_coords = np.linspace(
-            strt_y_coord, end_y_coord, (self._max_row - self._min_row + 1))
+            strt_y_coord, end_y_coord, (self._max_row - self._min_row))
 
         interp_x_coords_mesh, interp_y_coords_mesh = np.meshgrid(
             interp_x_coords, interp_y_coords)
 
-        # must not move
+        # Must not move.
         self._interp_crds_orig_shape = interp_x_coords_mesh.shape
 
         self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = None, None
 
         if self._plot_figs_flag:
-            # xy coords for pcolormesh
-            pcolmesh_x_coords = np.linspace(
-                self._x_min, self._x_max, (self._max_col - self._min_col + 1))
-
-            pcolmesh_y_coords = np.linspace(
-                self._y_max, self._y_min, (self._max_row - self._min_row + 1))
-
             self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = (
-                np.meshgrid(pcolmesh_x_coords, pcolmesh_y_coords))
+                interp_x_coords_mesh.copy(), interp_y_coords_mesh.copy()))
 
         self._nc_x_crds = interp_x_coords
         self._nc_y_crds = interp_y_coords
@@ -503,7 +493,7 @@ class SpInterpPrepare(SIBD, KDT):
             self._plot_polys = [
                 i.__geo_interface__ for i in sf.iterShapes()]
 
-        if self._cell_sel_prms_set and self._algn_ras_set_flag:
+        if self._algn_ras_set_flag:
             self._cmpt_aligned_coordinates()
 
         else:
