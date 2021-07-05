@@ -41,7 +41,7 @@ class SpInterpMain(SID, SIP):
         self._edk_flag = False
         self._idw_flag = False
 
-        self._max_mem_usage_ratio = 0.80
+        self._max_mem_usage_ratio = 0.95
 
         self._main_vrfd_flag = False
         return
@@ -66,7 +66,7 @@ class SpInterpMain(SID, SIP):
         if self._mp_flag:
             mp_pool = Pool(self._n_cpus)
 
-            # has to be a blocking one
+            # Has to be a blocking one.
             spi_map = partial(mp_pool.map, chunksize=1)
 
             self._lock = Manager().Lock()
@@ -74,7 +74,7 @@ class SpInterpMain(SID, SIP):
         else:
             spi_map = map
 
-            self._lock = Lock()  #  the manager might slow things down
+            self._lock = Lock()  #  The manager might slow things down.
 
         interp_steps_cls = SIS(self)
 
@@ -89,7 +89,8 @@ class SpInterpMain(SID, SIP):
         if self._vb:
             interp_beg_time = timeit.default_timer()
 
-            t_passes = int((interp_steps_idxs.shape[0] - 1) / self._n_cpus)
+            t_passes = int(np.ceil(
+                (interp_steps_idxs.shape[0] - 1) / self._n_cpus))
 
             print_sl()
             print('Current interpolation methods:', ivar_names)
@@ -343,7 +344,16 @@ class SpInterpMain(SID, SIP):
     def _get_thread_steps_idxs(self):
 
         '''
-        All sizes in bytes
+        All sizes in bytes.
+
+        To find the optimum number of steps to interpolate per thread per pass,
+        it is first checked if the entire thing can be executed in one go i.e.
+        having the user specified number of threads. If the memory won't be
+        enough, then first, time step groups per thread are reduced and then
+        the number of running threads at any given instance. This is done
+        alternately, till a solution is found. If not, the program stops.
+        The maximum number of running threads can be dropped to one and the
+        maximum number of steps per thread per pass can go as low as one.
         '''
         megabytes = 1024 ** 2
 
@@ -400,25 +410,35 @@ class SpInterpMain(SID, SIP):
         assert max_mem_per_thread > bytes_per_step, (
                 'Interpolation grid too fine!')
 
+        step_idxs = ret_mp_idxs(self._data_df.shape[0], self._n_cpus)
+
+        steps_per_thread = (step_idxs[+1:] - step_idxs[:-1]).max()
+
+        # This should take place before the while loop.
+        if ((self._max_steps_per_chunk is not None) and
+            (steps_per_thread > self._max_steps_per_chunk)):
+
+            step_idxs = np.arange(
+                0, self._data_df.shape[0], self._max_steps_per_chunk)
+
+            step_idxs = np.concatenate((step_idxs, [self._data_df.shape[0]]))
+
+            steps_per_thread = self._max_steps_per_chunk
+
         max_cpus_ctr = self._n_cpus
-        max_chunks_ctr = self._n_cpus
+        max_chunks_ctr = step_idxs.size - 1
         cpu_chunk_flag = 0
+
         while True:
-
-            assert max_cpus_ctr > 0, 'Not enough memory for the given grid!'
-
-            assert max_chunks_ctr < self._data_df.shape[0], (
-                'Not enough memory for the given grid!')
-
-            step_idxs = ret_mp_idxs(self._data_df.shape[0], max_chunks_ctr)
-
             if self._vgs_ser is not None:
                 mult_arrs_ct = 0
 
-                max_vgs_per_thread = max([
+                unq_vgs_cts = [
                     np.unique(self._vgs_unq_ids.iloc[
                         step_idxs[i]:step_idxs[i + 1]].values).size
-                    for i in range(step_idxs.size - 1)])
+                    for i in range(step_idxs.size - 1)]
+
+                max_vgs_per_thread = sum(unq_vgs_cts) / len(unq_vgs_cts)
 
                 if any([self._ork_flag, self._edk_flag]):
                     mult_arrs_ct += 1
@@ -454,24 +474,20 @@ class SpInterpMain(SID, SIP):
 
             if cpu_chunk_flag and (max_cpus_ctr > 1):
                 max_cpus_ctr -= 1
-
                 cpu_chunk_flag = 0
 
             else:
                 max_chunks_ctr += 1
                 cpu_chunk_flag = 1
 
-        steps_per_thread = (step_idxs[+1:] - step_idxs[:-1]).max()
+            assert max_cpus_ctr > 0, 'Not enough memory for the given grid!'
 
-        if ((self._max_steps_per_chunk is not None) and
-            (steps_per_thread > self._max_steps_per_chunk)):
+            assert max_chunks_ctr < self._data_df.shape[0], (
+                'Not enough memory for the given grid!')
 
-            step_idxs = np.arange(
-                0, self._data_df.shape[0], self._max_steps_per_chunk)
+            step_idxs = ret_mp_idxs(self._data_df.shape[0], max_chunks_ctr)
 
-            step_idxs = np.concatenate((step_idxs, [self._data_df.shape[0]]))
-
-            steps_per_thread = self._max_steps_per_chunk
+            steps_per_thread = (step_idxs[+1:] - step_idxs[:-1]).max()
 
         if self._vb:
             print_sl()
@@ -490,20 +506,22 @@ class SpInterpMain(SID, SIP):
 
             print(
                 f'Total size of the interpolated array: '
-                f'{tot_interp_arr_size / megabytes:0.6f} MB')
+                f'{tot_interp_arr_size / megabytes:0.1f} MB')
 
-            print(f'Size per step: {bytes_per_step / megabytes:0.6f} MB')
+            print(f'Size per step: {bytes_per_step / megabytes:0.1f} MB')
 
             print(f'No. of steps interpolated per thread: {steps_per_thread}')
 
-            print(f'Misc. memory required: {misc_size / megabytes:0.6f} MB')
+            print(
+                f'Misc. memory required by all threads: '
+                f'{misc_size / megabytes:0.1f} MB')
 
             print('Final number of threads to use:', self._n_cpus)
 
             if max_vgs_per_thread:
                 print(
-                    'Maximum variogram strings per thread:',
-                    max_vgs_per_thread)
+                    'Mean variogram strings per thread:',
+                    round(max_vgs_per_thread, 1))
 
             print_el()
 

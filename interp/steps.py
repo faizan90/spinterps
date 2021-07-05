@@ -3,6 +3,7 @@ Created on Nov 26, 2018
 
 @author: Faizan-Uni
 '''
+import timeit
 import warnings
 
 import numpy as np
@@ -27,8 +28,6 @@ plt.ioff()
 class SpInterpSteps:
 
     def __init__(self, spinterp_main_cls):
-
-        # don't forget to have same time index for all data with time
 
         read_labs = [
             '_vb',
@@ -160,6 +159,7 @@ class SpInterpSteps:
             dtype=np.float64)
 
         copy_2d_arr_at_idxs(arr, row_idxs, col_idxs, subset_arr)
+
         return subset_arr
 
     def _get_vars_arr_subset(
@@ -234,6 +234,207 @@ class SpInterpSteps:
 
         return ref_ref_2d_vars_arr_sub, dst_ref_2d_vars_arr_sub
 
+    def _get_interp(
+            self,
+            ref_data,
+            interp_type,
+            ref_drfts,
+            dst_drfts,
+            idw_exp,
+            models,
+            interp_steps_flags,
+            nuggetness_flags,
+            sub_time_steps,
+            prblm_time_steps,
+            dst_ref_2d_dists_arr_sub,
+            ref_ref_2d_vars_arr_all,
+            dst_ref_2d_vars_arr_all,
+            ref_ref_sub_idxs,
+            time_neb_idxs_grp):
+
+        n_dsts = dst_ref_2d_dists_arr_sub.shape[0]
+        n_refs = ref_data.shape[1]
+        n_time = ref_data.shape[0]
+
+        dst_data = np.full((n_time, n_dsts), np.nan)
+
+        ref_means = ref_data.mean(axis=1)
+
+        wts = np.full(n_refs, np.nan)
+
+        if interp_type == 'IDW':
+            for i in range(n_dsts):
+                wts_sum = fill_wts_and_sum(
+                    dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
+
+                for j in range(n_time):
+                    if interp_steps_flags[j]:
+                        mults_sum = get_mults_sum(wts, ref_data[j])
+                        dst_data[j, i] = mults_sum / wts_sum
+
+                    else:
+                        dst_data[j, i] = ref_means[j]
+
+        else:
+            old_model = ''
+            last_failed_flag = False
+
+            # Sorting is better to avoid flipping between same strings.
+            models_sort_idxs = np.argsort(models)
+
+            for j in models_sort_idxs:
+                model = models[j]
+
+                if (not interp_steps_flags[j]) or (nuggetness_flags[j]):
+
+                    dst_data[j,:] = ref_means[j]
+                    continue
+
+                if model == 'nan':
+                    continue
+
+                if model != old_model:
+                    (ref_ref_2d_vars_arr_sub,
+                     dst_ref_2d_vars_arr_sub) = self._get_vars_arr_subset(
+                        model,
+                        interp_type,
+                        ref_drfts,
+                        ref_ref_2d_vars_arr_all,
+                        dst_ref_2d_vars_arr_all,
+                        ref_ref_sub_idxs,
+                        time_neb_idxs_grp,
+                        dst_drfts)
+
+                    old_model = model
+
+                    try:
+                        ref_2d_vars_inv = np.linalg.inv(
+                            ref_ref_2d_vars_arr_sub)
+
+                        last_failed_flag = False
+
+                    except Exception:
+                        if sub_time_steps[j] not in prblm_time_steps:
+                            prblm_time_steps.append(sub_time_steps[j])
+
+                        last_failed_flag = True
+
+                if last_failed_flag:
+                    # IDW used when kriging fails.
+                    # TODO: have a flag for this.
+                    for i in range(n_dsts):
+                        wts_sum = fill_wts_and_sum(
+                            dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
+
+                        mults_sum = get_mults_sum(wts, ref_data[j])
+                        dst_data[j, i] = mults_sum / wts_sum
+
+                else:
+                    for i in range(n_dsts):
+                        lmds = np.matmul(
+                            ref_2d_vars_inv, dst_ref_2d_vars_arr_sub[i])
+
+                        dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
+
+        return dst_data
+
+    def _plot_interp(
+            self,
+            interp_fld,
+            curr_x_coords,
+            curr_y_coords,
+            interp_time,
+            model,
+            interp_type,
+            out_figs_dir,
+            data_vals):
+
+        if self._index_type == 'date':
+            time_str = interp_time.strftime('%Y_%m_%d_T_%H_%M')
+
+        elif self._index_type == 'obj':
+            time_str = interp_time
+
+        else:
+            raise NotImplementedError(
+                f'Unknown index_type: {self._index_type}!')
+
+        out_fig_name = f'{interp_type.lower()}_{time_str}.png'
+
+        fig, ax = plt.subplots()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+
+            if not np.any(np.isfinite(interp_fld)):
+                grd_min = np.nanmin(data_vals)
+                grd_max = np.nanmax(data_vals)
+                grd_mean = np.nanmean(data_vals)
+                grd_var = np.nanvar(data_vals)
+
+            else:
+                grd_min = np.nanmin(interp_fld)
+                grd_max = np.nanmax(interp_fld)
+                grd_mean = np.nanmean(interp_fld)
+                grd_var = np.nanvar(interp_fld)
+
+        pclr = ax.pcolormesh(
+            self._interp_x_crds_plt_msh,
+            self._interp_y_crds_plt_msh,
+            interp_fld,
+            vmin=grd_min,
+            vmax=grd_max,
+            shading='nearest')
+
+        cb = fig.colorbar(pclr)
+
+        cb.set_label(self._nc_vlab + ' (' + self._nc_vunits + ')')
+
+        ax.scatter(
+            curr_x_coords,
+            curr_y_coords,
+            label='obs. pts.',
+            marker='+',
+            c='r',
+            alpha=0.7)
+
+        ax.legend(framealpha=0.5, loc=1)
+
+        if self._plot_polys is not None:
+            for poly in self._plot_polys:
+                ax.add_patch(PolygonPatch(poly, alpha=1, fc='None', ec='k'))
+
+        ax.set_xlabel('Easting')
+        ax.set_ylabel('Northing')
+
+        title = (
+            f'Time: {time_str}\n(VG: {model})\n'
+            f'Mean: {grd_mean:0.4f}, '
+            f'Var.: {grd_var:0.4f}\n'
+            f'Min.: {grd_min:0.4f}, '
+            f'Max.: {grd_max:0.4f}\n')
+
+        ax.set_title(title)
+
+        plt.setp(ax.get_xmajorticklabels(), rotation=70)
+        ax.set_aspect('equal', 'datalim')
+
+        plt.savefig(str(out_figs_dir / out_fig_name), bbox_inches='tight')
+        plt.close()
+
+        return
+
+    def _mod_min_max(self, interp_fld):
+
+        with np.errstate(invalid='ignore'):
+            if self._min_var_cut is not None:
+                interp_fld[interp_fld < self._min_var_cut] = self._min_var_cut
+
+            if self._max_var_cut is not None:
+                interp_fld[interp_fld > self._max_var_cut] = self._max_var_cut
+
+        return
+
     @traceback_wrapper
     def interpolate_subset(self, args):
 
@@ -247,6 +448,8 @@ class SpInterpSteps:
          stns_drft_df,
          vgs_ser,
          vgs_rord_tidxs_ser) = args
+
+        interp_beg_time = timeit.default_timer()
 
         assert np.all(data_df.columns == self._crds_df.index)
 
@@ -291,12 +494,6 @@ class SpInterpSteps:
             self._interp_y_crds_msh,
             verbose=self._vb)
 
-        # TODO: equalize the distribution of groups among
-        # threads. This whole thing becomes pretty inefficient
-        # if some threads get way more variety than others.
-        # A threshold for the change in station density can be given.
-        # All of this should be taken outside of the steps class.
-
         grps_in_time = grp_cls.get_grps_in_time(data_df)
 
         # TODO: min_nebor_dist_thresh should be related to time and not just
@@ -307,17 +504,10 @@ class SpInterpSteps:
         # due to very small values. Have a test for this and rectify it.
         # Use known time steps that result in such a problem.
 
-        # TODO: Use IDW for steps that have problems.
-        # TODO: Revise the memory manangement part.
         # TODO: Have a threshold of min and max stations for which the
         # neighbors are considered the same.
 
         #======================================================================
-        # Instead of each thread computing them, they can be filled parallely
-        # if possible before entering the function and read by each thread
-        # afterwards as a pickle.
-
-        # Make these conditional on vg_ser's presence.
         if vgs_ser is not None:
             ref_ref_2d_dists_arr_all = self._get_dists_arr(
                 self._crds_df.loc[:, 'X'].values,
@@ -589,208 +779,14 @@ class SpInterpSteps:
             interp_flds = None
             nc_hdl.close()
 
+            interp_end_time = timeit.default_timer()
+
             if self._vb:
                 print(
                     f'Done writing data between {beg_idx} and {end_idx} '
                     f'indices to disk...')
-        return
 
-    def _get_interp(
-            self,
-            ref_data,
-            interp_type,
-            ref_drfts,
-            dst_drfts,
-            idw_exp,
-            models,
-            interp_steps_flags,
-            nuggetness_flags,
-            sub_time_steps,
-            prblm_time_steps,
-            dst_ref_2d_dists_arr_sub,
-            ref_ref_2d_vars_arr_all,
-            dst_ref_2d_vars_arr_all,
-            ref_ref_sub_idxs,
-            time_neb_idxs_grp):
-
-        n_dsts = dst_ref_2d_dists_arr_sub.shape[0]
-        n_refs = ref_data.shape[1]
-        n_time = ref_data.shape[0]
-
-        dst_data = np.full((n_time, n_dsts), np.nan)
-
-        ref_means = ref_data.mean(axis=1)
-
-        wts = np.full(n_refs, np.nan)
-
-        if interp_type == 'IDW':
-            for i in range(n_dsts):
-                wts_sum = fill_wts_and_sum(
-                    dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
-
-                for j in range(n_time):
-                    if interp_steps_flags[j]:
-                        mults_sum = get_mults_sum(wts, ref_data[j])
-                        dst_data[j, i] = mults_sum / wts_sum
-
-                    else:
-                        dst_data[j, i] = ref_means[j]
-
-        else:
-            old_model = ''
-            last_failed_flag = False
-
-            # Sorting is better to avoid flipping between same strings.
-            models_sort_idxs = np.argsort(models)
-
-#             for j in range(n_time):
-            for j in models_sort_idxs:
-                model = models[j]
-
-                if (not interp_steps_flags[j]) or (nuggetness_flags[j]):
-
-                    dst_data[j,:] = ref_means[j]
-                    continue
-
-                if model == 'nan':
-                    continue
-
-                if model != old_model:
-                    (ref_ref_2d_vars_arr_sub,
-                     dst_ref_2d_vars_arr_sub) = self._get_vars_arr_subset(
-                        model,
-                        interp_type,
-                        ref_drfts,
-                        ref_ref_2d_vars_arr_all,
-                        dst_ref_2d_vars_arr_all,
-                        ref_ref_sub_idxs,
-                        time_neb_idxs_grp,
-                        dst_drfts)
-
-                    old_model = model
-
-                    try:
-                        ref_2d_vars_inv = np.linalg.inv(
-                            ref_ref_2d_vars_arr_sub)
-
-                        last_failed_flag = False
-
-                    except Exception:
-                        if sub_time_steps[j] not in prblm_time_steps:
-                            prblm_time_steps.append(sub_time_steps[j])
-
-                        last_failed_flag = True
-
-                if last_failed_flag:
-                    # IDW used when kriging fails.
-                    # TODO: have a flag for this.
-                    for i in range(n_dsts):
-                        wts_sum = fill_wts_and_sum(
-                            dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
-
-                        mults_sum = get_mults_sum(wts, ref_data[j])
-                        dst_data[j, i] = mults_sum / wts_sum
-
-                else:
-                    for i in range(n_dsts):
-                        lmds = np.matmul(
-                            ref_2d_vars_inv, dst_ref_2d_vars_arr_sub[i])
-
-                        dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
-
-        return dst_data
-
-    def _plot_interp(
-            self,
-            interp_fld,
-            curr_x_coords,
-            curr_y_coords,
-            interp_time,
-            model,
-            interp_type,
-            out_figs_dir,
-            data_vals):
-
-        if self._index_type == 'date':
-            time_str = interp_time.strftime('%Y_%m_%d_T_%H_%M')
-
-        elif self._index_type == 'obj':
-            time_str = interp_time
-
-        else:
-            raise NotImplementedError(
-                f'Unknown index_type: {self._index_type}!')
-
-        out_fig_name = f'{interp_type.lower()}_{time_str}.png'
-
-        fig, ax = plt.subplots()
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-
-            if not np.any(np.isfinite(interp_fld)):
-                grd_min = np.nanmin(data_vals)
-                grd_max = np.nanmax(data_vals)
-                grd_mean = np.nanmean(data_vals)
-                grd_var = np.nanvar(data_vals)
-
-            else:
-                grd_min = np.nanmin(interp_fld)
-                grd_max = np.nanmax(interp_fld)
-                grd_mean = np.nanmean(interp_fld)
-                grd_var = np.nanvar(interp_fld)
-
-        pclr = ax.pcolormesh(
-            self._interp_x_crds_plt_msh,
-            self._interp_y_crds_plt_msh,
-            interp_fld,
-            vmin=grd_min,
-            vmax=grd_max,
-            shading='nearest')
-
-        cb = fig.colorbar(pclr)
-
-        cb.set_label(self._nc_vlab + ' (' + self._nc_vunits + ')')
-
-        ax.scatter(
-            curr_x_coords,
-            curr_y_coords,
-            label='obs. pts.',
-            marker='+',
-            c='r',
-            alpha=0.7)
-
-        ax.legend(framealpha=0.5, loc=1)
-
-        if self._plot_polys is not None:
-            for poly in self._plot_polys:
-                ax.add_patch(PolygonPatch(poly, alpha=1, fc='None', ec='k'))
-
-        ax.set_xlabel('Easting')
-        ax.set_ylabel('Northing')
-
-        title = (
-            f'Time: {time_str}\n(VG: {model})\n'
-            f'Mean: {grd_mean:0.4f}, '
-            f'Var.: {grd_var:0.4f}\n'
-            f'Min.: {grd_min:0.4f}, '
-            f'Max.: {grd_max:0.4f}\n')
-
-        ax.set_title(title)
-
-        plt.setp(ax.get_xmajorticklabels(), rotation=70)
-        ax.set_aspect('equal', 'datalim')
-
-        plt.savefig(str(out_figs_dir / out_fig_name), bbox_inches='tight')
-        plt.close()
-        return
-
-    def _mod_min_max(self, interp_fld):
-
-        with np.errstate(invalid='ignore'):
-            if self._min_var_cut is not None:
-                interp_fld[interp_fld < self._min_var_cut] = self._min_var_cut
-
-            if self._max_var_cut is not None:
-                interp_fld[interp_fld > self._max_var_cut] = self._max_var_cut
+                print(
+                    f'Took {interp_end_time - interp_beg_time:0.3f} '
+                    f'seconds to interpolate for this thread.')
         return
