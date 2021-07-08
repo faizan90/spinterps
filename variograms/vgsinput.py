@@ -17,6 +17,8 @@ class VariogramsData:
 
         self._vb = verbose
 
+        self._data_df = None
+        self._crds_df = None
         self._index_type = None
         self._stns_min_dist_thrsh = 0.0
 

@@ -23,4 +23,6 @@ from .extract import (
     ReOrderIdxs,
     Extract)
 
+from .vgclus import ClusteredVariograms
+
 from .misc import get_theo_vg_vals

@@ -5,8 +5,9 @@ Created on Nov 25, 2018
 '''
 import os
 import sys
-from functools import wraps
+from math import pi
 import traceback as tb
+from functools import wraps
 
 import numpy as np
 import psutil as ps
@@ -29,6 +30,22 @@ def print_el():
 
     print(print_line_str)
     return
+
+
+def get_n_cpus():
+
+    phy_cores = ps.cpu_count(logical=False)
+    log_cores = ps.cpu_count()
+
+    if phy_cores < log_cores:
+        n_cpus = phy_cores
+
+    else:
+        n_cpus = log_cores - 1
+
+    n_cpus = max(n_cpus, 1)
+
+    return n_cpus
 
 
 def traceback_wrapper(func):
@@ -492,3 +509,72 @@ def get_dist_mat(x_arr, y_arr):
 
     assert np.all(np.isfinite(dists_arr)), 'Invalid values of distances!'
     return dists_arr
+
+
+def nug_vg(h_arr, arg):
+
+    # arg = (range, sill)
+    nug_vg = np.full(h_arr.shape, arg[1])
+    return nug_vg
+
+
+def sph_vg(h_arr, arg):
+
+    # arg = (range, sill)
+    a = (1.5 * h_arr) / arg[0]
+    b = h_arr ** 3 / (2 * arg[0] ** 3)
+    sph_vg = (arg[1] * (a - b))
+    sph_vg[h_arr > arg[0]] = arg[1]
+    return sph_vg
+
+
+def exp_vg(h_arr, arg):
+
+    # arg = (range, sill)
+    a = -3 * (h_arr / arg[0])
+    exp_vg = (arg[1] * (1 - np.exp(a)))
+    return exp_vg
+
+
+def lin_vg(h_arr, arg):
+
+    # arg = (range, sill)
+    lin_vg = arg[1] * (h_arr / arg[0])
+    lin_vg[h_arr > arg[0]] = arg[1]
+    return lin_vg
+
+
+def gau_vg(h_arr, arg):
+
+    # arg = (range, sill)
+    a = -3 * ((h_arr ** 2 / arg[0] ** 2))
+    gau_vg = (arg[1] * (1 - np.exp(a)))
+    return gau_vg
+
+
+def pow_vg(h_arr, arg):
+
+    # arg = (range, sill)
+    pow_vg = (arg[1] * (h_arr ** arg[0]))
+    return pow_vg
+
+
+def hol_vg(h_arr, arg):
+
+    # arg = (range, sill)
+    hol_vg = np.zeros(h_arr.shape[0])  # do somethig about the zero
+    idxs = np.where(h_arr > 0)
+    a = (pi * h_arr[idxs]) / arg[0]
+    hol_vg[idxs] = (arg[1] * (1 - (np.sin(a) / a)))
+    return hol_vg
+
+
+all_mix_vg_ftns = {
+   'Nug': nug_vg,
+   'Sph': sph_vg,
+   'Exp': exp_vg,
+   'Lin': lin_vg,
+   'Gau': gau_vg,
+   'Pow': pow_vg,
+   'Hol': hol_vg
+   }
