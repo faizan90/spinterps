@@ -187,7 +187,7 @@ def get_aligned_shp_bds_and_cell_size(
     ras_cell_size, _1 = np.round(ras_props[6:8], n_round)
 
     assert np.isclose(ras_cell_size, _1), (
-        f'align_ras ({align_ras_file}) not square!')
+        f'align_ras ({align_ras_file}) not square ({ras_cell_size}, {_1})!')
 
     ras_min_x, ras_max_x = np.round(ras_props[:2], n_round)
     ras_min_y, ras_max_y = np.round(ras_props[2:4], n_round)

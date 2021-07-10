@@ -46,6 +46,8 @@ def main():
     # Minimum values to form a mean value per pair.
     n_min_valid_values = 10
 
+    stns_min_dist_thresh = 100
+
     # Number of value to compute the smoothed empirical variogram.
     # Works as a running statistic.
     smoothing = 100
@@ -74,7 +76,7 @@ def main():
     min_abs_kriging_weight = 1e-2
     max_nrst_nebs = 50
 
-    if in_data_file.suffix == 'csv':
+    if in_data_file.suffix == '.csv':
         data_df = pd.read_csv(in_data_file, sep=sep, index_col=0)
         data_df.index = pd.to_datetime(data_df.index, format=time_fmt)
 
@@ -87,7 +89,7 @@ def main():
 
     data_df = data_df.loc[beg_time:end_time]
 
-    data_df = data_df.iloc[:,:100]
+#     data_df = data_df.iloc[:,:100]
 
     crds_df = pd.read_csv(in_crds_file, sep=sep, index_col=0)
 
@@ -109,12 +111,14 @@ def main():
     else:
         manual_ser = None
         manual_nan_val = None
-
     #==========================================================================
 
     cvgs_cls = ClusteredVariograms(True)
 
-    cvgs_cls.set_data(data_df, crds_df)
+    cvgs_cls.set_data(
+        data_df,
+        crds_df,
+        stns_min_dist_thresh=stns_min_dist_thresh)
 
     cvgs_cls.set_empirical_variogram_clustering_parameters(
             clus_type,

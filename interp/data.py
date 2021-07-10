@@ -536,7 +536,7 @@ class SpInterpData(VD):
             min_cutoff_value=None,
             max_cutoff_value=None,
             max_steps_per_chunk=None,
-            min_vg_val=0):
+            min_vg_val=0.0):
 
         '''
         Set some more parameters

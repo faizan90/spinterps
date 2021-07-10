@@ -196,10 +196,10 @@ class SpInterpPrepare(SIBD, KDT):
             (self._max_row - self._min_row) * self._cell_size)
 
         interp_x_coords = np.linspace(
-            strt_x_coord, end_x_coord, (self._max_col - self._min_col))
+            strt_x_coord, end_x_coord, (self._max_col - self._min_col + 1))
 
         interp_y_coords = np.linspace(
-            strt_y_coord, end_y_coord, (self._max_row - self._min_row))
+            strt_y_coord, end_y_coord, (self._max_row - self._min_row + 1))
 
         interp_x_coords_mesh, interp_y_coords_mesh = np.meshgrid(
             interp_x_coords, interp_y_coords)

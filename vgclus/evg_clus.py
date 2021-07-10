@@ -609,6 +609,8 @@ class CEVG(CS):
 
         CS._VGCSettings__verify(self)
 
+        assert self._data_df.shape[1] >= 3
+
         assert self._sett_clus_verify_flag
 
         self._cevg_verify_flag = True

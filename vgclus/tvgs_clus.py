@@ -96,7 +96,7 @@ class TVGSClus(TVGFit):
             wts[zero_idxs] = 0.0
             wts[~zero_idxs] *= sclr
 
-        assert (wts[1:] - wts[:-1]).min() >= 0.0
+        assert (wts[1:] - wts[:-1]).min() >= 0.0, (wts[1:] - wts[:-1]).min()
 
         assert np.isclose(wts.sum(), 1.0)
 
@@ -113,14 +113,14 @@ class TVGSClus(TVGFit):
 
         leg_flag = True
         plotted_new_tvgs = []
-        n_old_tvgs = len(self._tvgs_fit_dict)
-        n_new_tvgs = len(self._tvgs_clus_dict)
+        n_unq_old_tvgs = len(set(self._tvgs_fit_dict.values()))
+        n_unq_new_tvgs = len(set(self._tvgs_clus_dict.values()))
 
         for label, old_tvg_str in self._tvgs_fit_dict.items():
 
             if leg_flag:
-                label_a = f'old (n={n_old_tvgs})'
-                label_b = f'old (n={n_new_tvgs})'
+                label_a = f'old (n={n_unq_old_tvgs})'
+                label_b = f'new (n={n_unq_new_tvgs})'
                 leg_flag = False
 
             else:
@@ -210,6 +210,9 @@ class TVGSClus(TVGFit):
         for i in range(data_df.shape[0]):
             step_stns = data_df.iloc[i,:].dropna().index.values
 
+            if step_stns.size < 3:
+                continue
+
             rand_stn = np.random.choice(step_stns)
 
             rand_stn_idx = self._crds_df.index.get_loc(rand_stn)
@@ -235,8 +238,6 @@ class TVGSClus(TVGFit):
 
             if stns_hash in stn_hashes:
                 continue
-
-            print(i, np.round(stn_dists[srted_stn_dist_idxs] / 1e3))
 
             stn_hashes.append(stns_hash)
             stn_cfgs.append(step_stns_rand)
@@ -265,7 +266,7 @@ class TVGSClus(TVGFit):
         if self._vb:
             print('Total scenarios to test per attempt:', n_sims)
 
-        sim_print_idx = max(1, int(0.05 * n_sims))
+        sim_print_idx = max(1, int(0.1 * n_sims))
 
         vg_clusters = {}
 
