@@ -390,15 +390,15 @@ class SpInterpSteps:
 
         cb.set_label(self._nc_vlab + ' (' + self._nc_vunits + ')')
 
-        ax.scatter(
-            curr_x_coords,
-            curr_y_coords,
-            label='obs. pts.',
-            marker='+',
-            c='r',
-            alpha=0.7)
-
-        ax.legend(framealpha=0.5, loc=1)
+#         ax.scatter(
+#             curr_x_coords,
+#             curr_y_coords,
+#             label='obs. pts.',
+#             marker='+',
+#             c='r',
+#             alpha=0.7)
+#
+#         ax.legend(framealpha=0.5, loc=1)
 
         if self._plot_polys is not None:
             for poly in self._plot_polys:

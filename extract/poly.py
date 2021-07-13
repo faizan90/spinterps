@@ -120,7 +120,7 @@ class ExtractPolygons:
             f'label_field: {self._poly_label_field} not in input shapefile!')
 
         while polygon:
-            geom = polygon.GetGeometryRef().Clone()
+            geom = polygon.GetGeometryRef().Buffer(0)
 
             assert geom is not None, 'Could not read/clone a geometry!'
 

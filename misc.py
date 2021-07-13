@@ -245,11 +245,17 @@ def get_aligned_shp_bds_and_cell_size(
     x_max_adj = rem_max_col_width * ras_cell_size
     y_min_adj = rem_max_row_width * ras_cell_size
 
-#     adj_shp_x_max = raw_shp_x_max + (ras_cell_size - x_max_adj)
-#     adj_shp_y_min = raw_shp_y_min - (ras_cell_size - y_min_adj)
+    adj_shp_x_max = raw_shp_x_max + (ras_cell_size - x_max_adj)
+    adj_shp_y_min = raw_shp_y_min - (ras_cell_size - y_min_adj)
 
-    adj_shp_x_max = raw_shp_x_max + x_max_adj
-    adj_shp_y_min = raw_shp_y_min - y_min_adj
+#     adj_shp_x_max = raw_shp_x_max + x_max_adj
+#     adj_shp_y_min = raw_shp_y_min - y_min_adj
+
+    assert np.isclose(adj_shp_x_min % ras_cell_size, 0.0)
+    assert np.isclose(adj_shp_x_max % ras_cell_size, 0.0)
+
+    assert np.isclose(adj_shp_y_min % ras_cell_size, 0.0)
+    assert np.isclose(adj_shp_y_max % ras_cell_size, 0.0)
 
     return (
         (adj_shp_x_min, adj_shp_x_max, adj_shp_y_min, adj_shp_y_max),

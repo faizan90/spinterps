@@ -255,6 +255,8 @@ class TVGSClus(TVGFit):
             if rng >= max_range:
                 max_range = rng
 
+        max_range = min(self._sett_clus_cevg_max_dist_thresh, max_range)
+
         return max_range
 
     def _get_clustered_tvgs(self):

@@ -160,13 +160,13 @@ class SpInterpPrepare(SIBD, KDT):
                 max(0, (self._x_min - self._drft_x_min) / self._cell_size))
 
             self._max_col = int(
-                (self._x_max - self._drft_x_min) / self._cell_size)
+                (self._x_max - self._drft_x_min) / self._cell_size) - 1
 
             self._min_row = int(
                 max(0, (self._drft_y_max - self._y_max) / self._cell_size))
 
             self._max_row = int(
-                (self._drft_y_max - self._y_min) / self._cell_size)
+                (self._drft_y_max - self._y_min) / self._cell_size) - 1
 
         else:
             self._min_col = 0

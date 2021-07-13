@@ -272,7 +272,7 @@ class VGCSettings(VD):
                 f'{self._sett_clus_ctvg_n_distances}')
 
             print(
-                f'Kolmogorv-Smirnov\'s Alpha: '
+                f'Kolmogorov-Smirnov\'s Alpha: '
                 f'{self._sett_clus_ctvg_ks_alpha}')
 
             print(

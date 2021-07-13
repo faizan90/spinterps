@@ -434,8 +434,8 @@ class SpInterpMain(SID, SIP):
                 mult_arrs_ct = 0
 
                 unq_vgs_cts = [
-                    np.unique(self._vgs_unq_ids.iloc[
-                        step_idxs[i]:step_idxs[i + 1]].values).size
+                    len(set(self._vgs_unq_ids.iloc[
+                        step_idxs[i]:step_idxs[i + 1]].values))
                     for i in range(step_idxs.size - 1)]
 
                 max_vgs_per_thread = sum(unq_vgs_cts) / len(unq_vgs_cts)
@@ -451,7 +451,7 @@ class SpInterpMain(SID, SIP):
             else:
                 max_vgs_per_thread = 0
 
-            misc_size = 0
+            misc_size = interpreter_size
 
             misc_size += dst_ref_2d_dists_size * max_cpus_ctr
 
@@ -463,7 +463,12 @@ class SpInterpMain(SID, SIP):
             misc_size += (
                 dst_ref_2d_vars_size * max_vgs_per_thread * max_cpus_ctr)
 
-            has_size = ((tot_interp_arr_size / max_chunks_ctr) + misc_size)
+            # The extra percents are for other variables that are
+            # created while interpolating.
+            has_size = 1.1 * (
+                (tot_interp_arr_size *
+                 min(1, np.ceil(max_cpus_ctr / max_chunks_ctr))
+                ) + misc_size)
 
             if has_size < tot_avail_mem:
                 self._n_cpus = max_cpus_ctr
@@ -487,7 +492,7 @@ class SpInterpMain(SID, SIP):
 
             step_idxs = ret_mp_idxs(self._data_df.shape[0], max_chunks_ctr)
 
-            steps_per_thread = (step_idxs[+1:] - step_idxs[:-1]).max()
+        steps_per_thread = (step_idxs[+1:] - step_idxs[:-1]).max()
 
         if self._vb:
             print_sl()

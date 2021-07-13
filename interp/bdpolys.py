@@ -12,6 +12,9 @@ from ..misc import cnvt_to_pt, chk_cntmt, print_sl, print_el
 
 def fill_sub_geoms(geom, geoms):
 
+    if geom is None:
+        return
+
     gct = geom.GetGeometryCount()
 
     if gct == 1:
@@ -19,7 +22,7 @@ def fill_sub_geoms(geom, geoms):
 
     elif gct > 1:
         for i in range(gct):
-            fill_sub_geoms(geom.GetGeometryRef(i).Clone(), geoms)
+            fill_sub_geoms(geom.GetGeometryRef(i).Buffer(0), geoms)
 
     elif gct == 0:
         pass
@@ -108,11 +111,11 @@ class SpInterpBoundaryPolygons:
             if self._ipoly_flag:
                 feat_buff_cells.append(geom.Buffer(self._cell_bdist))
 
-                gct = feat_buff_cells[-1].GetGeometryCount()
+                last_gct = feat_buff_cells[-1].GetGeometryCount()
 
-                assert (gct == 1), (
-                    f'Geometry count ({gct}) changed after buffering! '
-                    f'Changing polygon_cell_buffer_distance might help.')
+                assert last_gct == 1, (
+                    f'INFO: Geometry count ({last_gct}) changed after '
+                    f'buffering! Consider using another polygons shapefile.')
 
         bds_vec.Destroy()
 
@@ -131,12 +134,21 @@ class SpInterpBoundaryPolygons:
         for poly in feat_buff_stns:
             assert poly is not None, 'Corrupted polygon after buffering!'
 
+            poly_xmin, poly_xmax, poly_ymin, poly_ymax = poly.GetEnvelope()
+
             for stn in all_stns:
                 if stn in fin_stns:
                     continue
 
-                curr_pt = cnvt_to_pt(
-                        *self._crds_df.loc[stn, ['X', 'Y']].values)
+                x, y = self._crds_df.loc[stn, ['X', 'Y']].values
+
+                if not (poly_xmin <= x <= poly_xmax):
+                    continue
+
+                if not (poly_ymin <= y <= poly_ymax):
+                    continue
+
+                curr_pt = cnvt_to_pt(x, y)
 
                 if chk_cntmt(curr_pt, poly):
                     fin_stns.append(stn)
@@ -150,6 +162,7 @@ class SpInterpBoundaryPolygons:
             print(
                 f'{len(fin_stns)} stations out of {self._crds_df.shape[0]} '
                 f'within buffer zone of polygons_shapefile.')
+
             print_el()
 
         self._data_df = self._data_df.loc[:, fin_stns]
