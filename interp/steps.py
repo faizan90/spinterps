@@ -366,17 +366,15 @@ class SpInterpSteps:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
 
-            if not np.any(np.isfinite(interp_fld)):
-                grd_min = np.nanmin(data_vals)
-                grd_max = np.nanmax(data_vals)
-                grd_mean = np.nanmean(data_vals)
-                grd_var = np.nanvar(data_vals)
+            data_min = np.nanmin(data_vals)
+            data_max = np.nanmax(data_vals)
+            data_mean = np.nanmean(data_vals)
+            data_var = np.nanvar(data_vals)
 
-            else:
-                grd_min = np.nanmin(interp_fld)
-                grd_max = np.nanmax(interp_fld)
-                grd_mean = np.nanmean(interp_fld)
-                grd_var = np.nanvar(interp_fld)
+            grd_min = np.nanmin(interp_fld)
+            grd_max = np.nanmax(interp_fld)
+            grd_mean = np.nanmean(interp_fld)
+            grd_var = np.nanvar(interp_fld)
 
         pclr = ax.pcolormesh(
             self._interp_x_crds_plt_msh,
@@ -384,21 +382,22 @@ class SpInterpSteps:
             interp_fld,
             vmin=grd_min,
             vmax=grd_max,
-            shading='nearest')
+            shading='flat')
 
         cb = fig.colorbar(pclr)
 
         cb.set_label(self._nc_vlab + ' (' + self._nc_vunits + ')')
 
-#         ax.scatter(
-#             curr_x_coords,
-#             curr_y_coords,
-#             label='obs. pts.',
-#             marker='+',
-#             c='r',
-#             alpha=0.7)
-#
-#         ax.legend(framealpha=0.5, loc=1)
+        if False:
+            ax.scatter(
+                curr_x_coords,
+                curr_y_coords,
+                label='obs. pts.',
+                marker='+',
+                c='r',
+                alpha=0.7)
+
+            ax.legend(framealpha=0.5, loc=1)
 
         if self._plot_polys is not None:
             for poly in self._plot_polys:
@@ -407,14 +406,24 @@ class SpInterpSteps:
         ax.set_xlabel('Easting')
         ax.set_ylabel('Northing')
 
-        title = (
-            f'Time: {time_str}\n(VG: {model})\n'
-            f'Mean: {grd_mean:0.4f}, '
-            f'Var.: {grd_var:0.4f}\n'
+        title_str = f'Step: {time_str}\n'
+
+        if model is not None:
+            title_str += f'(VG: {model})\n'
+
+        title_str += (
+            f'Data stats:: Mean: {data_mean:0.4f}, '
+            f'Var.: {data_var:0.4f}, '
+            f'Min.: {data_min:0.4f}, '
+            f'Max.: {data_max:0.4f}\n')
+
+        title_str += (
+            f'Grid stats:: Mean: {grd_mean:0.4f}, '
+            f'Var.: {grd_var:0.4f}, '
             f'Min.: {grd_min:0.4f}, '
             f'Max.: {grd_max:0.4f}\n')
 
-        ax.set_title(title)
+        ax.set_title(title_str)
 
         plt.setp(ax.get_xmajorticklabels(), rotation=70)
         ax.set_aspect('equal', 'datalim')
@@ -660,7 +669,7 @@ class SpInterpSteps:
                         idw_exp = interp_args[i][3]
 
                     else:
-                        idw_exp = 1  # In case inversion fails.
+                        idw_exp = 5  # In case inversion fails.
 
                     interp_vals = self._get_interp(
                         sub_ref_data,

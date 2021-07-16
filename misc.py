@@ -12,12 +12,32 @@ from functools import wraps
 import numpy as np
 import psutil as ps
 import netCDF4 as nc
+import shapefile as shp
 from osgeo import ogr, gdal
 from cftime import utime, datetime
 
 from .cyth import fill_dists_2d_mat, fill_theo_vg_vals
 
 print_line_str = 40 * '#'
+
+
+class GdalErrorHandler:
+
+    '''Because of some annoying geometry area operation warning.'''
+
+    def __init__(self):
+        self.err_level = gdal.CE_None
+        self.err_no = 0
+        self.err_msg = ''
+
+    def handler(self, err_level, err_no, err_msg):
+        self.err_level = err_level
+        self.err_no = err_no
+        self.err_msg = err_msg
+
+
+gdal_err_hdl = GdalErrorHandler()
+gdal_err_hdlr = gdal_err_hdl.handler
 
 
 def print_sl():
@@ -178,19 +198,74 @@ def get_ras_props(in_ras, in_band_no=1):
     return
 
 
+def get_polygons_shp_extents(shp_path):
+
+    '''
+    Returns the maximum xy extents by going through all the polygons in a
+    shapefile. This may yield different results than using the extents
+    method in ogr.
+
+    Output is tuple of (x_min, x_max, y_min, y_max)
+    '''
+
+    shp_hdl = shp.Reader(str(shp_path))
+
+    assert any([
+        shp_hdl.shapeTypeName == 'POLYGON',
+        shp_hdl.shapeTypeName == 'POLYGONZ',
+        shp_hdl.shapeTypeName == 'POLYGONM']), shp_hdl.shapeTypeName
+
+    x_min_fin = +np.inf
+    x_max_fin = -np.inf
+    y_min_fin = +np.inf
+    y_max_fin = -np.inf
+    for shape in shp_hdl.shapes():
+        pts = np.array(shape.points)
+
+        x_crds = pts[:, 0]
+        y_crds = pts[:, 1]
+
+        x_min = x_crds.min()
+        x_max = x_crds.max()
+
+        if x_min < x_min_fin:
+            x_min_fin = x_min
+
+        if x_max > x_max_fin:
+            x_max_fin = x_max
+
+        y_min = y_crds.min()
+        y_max = y_crds.max()
+
+        if y_min < y_min_fin:
+            y_min_fin = y_min
+
+        if y_max > y_max_fin:
+            y_max_fin = y_max
+
+    return (x_min_fin, x_max_fin, y_min_fin, y_max_fin)
+
+
 def get_aligned_shp_bds_and_cell_size(
         bounds_shp_file, align_ras_file, cell_bdist):
 
-    n_round = 6
+    # Error allowed in mismatch between extents of the shape file and raster
+    # relative to the cell size of the raster. Keep this low, a high tolerance
+    # here might translate to problems later. This is just to allow for
+    # very small mismatchs in coordinates and cell sizes.
+    rel_cell_err = 1e-5
 
     ras_props = get_ras_props(str(align_ras_file))
-    ras_cell_size, _1 = np.round(ras_props[6:8], n_round)
+    ras_cell_size, _1 = ras_props[6:8]
 
-    assert np.isclose(ras_cell_size, _1), (
+    abs_cell_err = abs(ras_cell_size * rel_cell_err)
+
+    cell_size_diff = abs(ras_cell_size - _1)
+    assert (cell_size_diff <= abs_cell_err), (
         f'align_ras ({align_ras_file}) not square ({ras_cell_size}, {_1})!')
 
-    ras_min_x, ras_max_x = np.round(ras_props[:2], n_round)
-    ras_min_y, ras_max_y = np.round(ras_props[2:4], n_round)
+    ras_min_x, ras_max_x = ras_props[:2]
+    ras_min_y, ras_max_y = ras_props[2:4]
 
     if bounds_shp_file != 'None':
         in_ds = ogr.Open(str(bounds_shp_file))
@@ -207,8 +282,7 @@ def get_aligned_shp_bds_and_cell_size(
         assert envelope, f'No envelope for {bounds_shp_file}!'
         in_ds.Destroy()
 
-        raw_shp_x_min, raw_shp_x_max, raw_shp_y_min, raw_shp_y_max = np.round(
-            envelope, n_round)
+        raw_shp_x_min, raw_shp_x_max, raw_shp_y_min, raw_shp_y_max = envelope
 
         if cell_bdist:
             raw_shp_x_min -= cell_bdist
@@ -222,63 +296,97 @@ def get_aligned_shp_bds_and_cell_size(
         raw_shp_y_min = ras_min_y
         raw_shp_y_max = ras_max_y
 
-    assert all(
-        ((raw_shp_x_min >= ras_min_x),
-         (raw_shp_x_max <= ras_max_x),
-         (raw_shp_y_min >= ras_min_y),
-         (raw_shp_y_max <= ras_max_y))), (
-             f'bounds_shp ({bounds_shp_file}) outside of '
-             f'align_ras ({align_ras_file})!')
+    if raw_shp_x_min < ras_min_x:
+        raw_shp_x_min_diff = abs(raw_shp_x_min - ras_min_x)
+        assert (raw_shp_x_min_diff <= abs_cell_err), (
+            f'bounds_shp x_min ({raw_shp_x_min}) < '
+            f'align_raster x_min ({ras_min_x})!')
 
-    rem_min_col_width = ((raw_shp_x_min - ras_min_x) / ras_cell_size) % 1
-    rem_min_row_width = ((ras_max_y - raw_shp_y_max) / ras_cell_size) % 1
+    if raw_shp_x_max > ras_max_x:
+        raw_shp_x_max_diff = abs(raw_shp_x_max - ras_max_x)
+        assert (raw_shp_x_max_diff <= abs_cell_err), (
+            f'bounds_shp x_max ({raw_shp_x_max}) < '
+            f'align_raster x_max ({ras_max_x})!')
 
-    x_min_adj = rem_min_col_width * ras_cell_size
-    y_max_adj = rem_min_row_width * ras_cell_size
+    if raw_shp_y_min < ras_min_y:
+        raw_shp_y_min_diff = abs(raw_shp_y_min - ras_min_y)
+        assert (raw_shp_y_min_diff <= abs_cell_err), (
+            f'bounds_shp y_min ({raw_shp_y_min}) < '
+            f'align_raster y_min ({ras_min_y})!')
 
-    adj_shp_x_min = raw_shp_x_min - x_min_adj
-    adj_shp_y_max = raw_shp_y_max + y_max_adj
+    if raw_shp_y_max > ras_max_y:
+        raw_shp_y_max_diff = abs(raw_shp_y_max - ras_max_y)
+        assert (raw_shp_y_max_diff <= abs_cell_err), (
+            f'bounds_shp y_max ({raw_shp_y_max}) < '
+            f'align_raster y_max ({ras_max_y})!')
 
-    rem_max_col_width = ((raw_shp_x_max - ras_min_x) / ras_cell_size) % 1
-    rem_max_row_width = ((ras_max_y - raw_shp_y_min) / ras_cell_size) % 1
+    if not np.isclose(raw_shp_x_min, ras_min_x):
+        rem_min_col_width = ((raw_shp_x_min - ras_min_x) / ras_cell_size) % 1
+        x_min_adj = rem_min_col_width * ras_cell_size
+        adj_shp_x_min = raw_shp_x_min - x_min_adj
 
-    x_max_adj = rem_max_col_width * ras_cell_size
-    y_min_adj = rem_max_row_width * ras_cell_size
+    else:
+        adj_shp_x_min = ras_min_x
 
-    adj_shp_x_max = raw_shp_x_max + (ras_cell_size - x_max_adj)
-    adj_shp_y_min = raw_shp_y_min - (ras_cell_size - y_min_adj)
+    if not np.isclose(raw_shp_y_max, ras_max_y):
+        rem_min_row_width = ((ras_max_y - raw_shp_y_max) / ras_cell_size) % 1
+        y_max_adj = rem_min_row_width * ras_cell_size
+        adj_shp_y_max = raw_shp_y_max + y_max_adj
 
-#     adj_shp_x_max = raw_shp_x_max + x_max_adj
-#     adj_shp_y_min = raw_shp_y_min - y_min_adj
+    else:
+        adj_shp_y_max = ras_max_y
 
-    assert np.isclose(adj_shp_x_min % ras_cell_size, 0.0)
-    assert np.isclose(adj_shp_x_max % ras_cell_size, 0.0)
+    if not np.isclose(raw_shp_x_max, ras_max_x):
+        rem_max_col_width = ((raw_shp_x_max - ras_min_x) / ras_cell_size) % 1
+        x_max_adj = rem_max_col_width * ras_cell_size
+        adj_shp_x_max = raw_shp_x_max + (ras_cell_size - x_max_adj)
 
-    assert np.isclose(adj_shp_y_min % ras_cell_size, 0.0)
-    assert np.isclose(adj_shp_y_max % ras_cell_size, 0.0)
+    else:
+        adj_shp_x_max = ras_max_x
+
+    if not np.isclose(raw_shp_y_min, ras_min_y):
+        rem_max_row_width = ((ras_max_y - raw_shp_y_min) / ras_cell_size) % 1
+        y_min_adj = rem_max_row_width * ras_cell_size
+        adj_shp_y_min = raw_shp_y_min - (ras_cell_size - y_min_adj)
+
+    else:
+        adj_shp_y_min = ras_min_y
+
+    # Check remaining error after adjusting the rows and columns.
+    allowed_err_rems = np.array([0.0, ras_cell_size])
+
+    err_rem_cols = np.array(
+        [(adj_shp_x_max - adj_shp_x_min) % ras_cell_size] *
+        allowed_err_rems.size)
+
+    assert np.isclose(err_rem_cols, allowed_err_rems).any()
+
+    err_rem_rows = np.array(
+        [(adj_shp_y_max - adj_shp_y_min) % ras_cell_size] *
+        allowed_err_rems.size)
+
+    assert np.isclose(err_rem_rows, allowed_err_rems).any()
+
+    # Check adjusted bounds to be in within the alignment raster.
+    assert (adj_shp_x_min >= ras_min_x), (
+        f'Adjusted bounds_shp x_min ({adj_shp_x_min}) < '
+        f'align_raster x_min ({ras_min_x})!')
+
+    assert (adj_shp_x_max <= ras_max_x), (
+        f'Adjusted bounds_shp x_max ({adj_shp_x_max}) < '
+        f'align_raster x_max ({ras_max_x})!')
+
+    assert (adj_shp_y_min >= ras_min_y), (
+        f'Adjusted bounds_shp y_min ({adj_shp_y_min}) < '
+        f'align_raster y_min ({ras_min_y})!')
+
+    assert (adj_shp_y_max <= ras_max_y), (
+        f'Adjusted bounds_shp y_max ({adj_shp_y_max}) < '
+        f'align_raster y_max ({ras_max_y})!')
 
     return (
         (adj_shp_x_min, adj_shp_x_max, adj_shp_y_min, adj_shp_y_max),
         ras_cell_size)
-
-
-class GdalErrorHandler:
-
-    '''Because of some annoying geometry area operation warning.'''
-
-    def __init__(self):
-        self.err_level = gdal.CE_None
-        self.err_no = 0
-        self.err_msg = ''
-
-    def handler(self, err_level, err_no, err_msg):
-        self.err_level = err_level
-        self.err_no = err_no
-        self.err_msg = err_msg
-
-
-gdal_err_hdl = GdalErrorHandler()
-gdal_err_hdlr = gdal_err_hdl.handler
 
 
 def add_month(date, months_to_add):

@@ -45,8 +45,10 @@ class VariogramsData:
             should be station labels and two columns 'X' and 'Y'
             representing the x- and y-coordinates.
         index_type : str
-            The datatype of stns_time_ser_df.index. Currently, allowed
-            ones are obj and date.
+            The type of stns_time_ser_df.index. Currently, allowed
+            ones are obj and date. When index_type is obj, then the entries
+            in indicies of stns_time_ser_df and vgs_ser (set later) must be
+            the same.
         stns_min_dist_thresh : int or float
             The minimum distance that each station must have with its
             neighbors. Distances that are zero or too small may result

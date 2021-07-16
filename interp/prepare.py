@@ -4,7 +4,7 @@ Created on Nov 25, 2018
 @author: Faizan
 '''
 
-from math import ceil
+from math import ceil, floor
 from multiprocessing import Pool
 
 import numpy as np
@@ -157,27 +157,27 @@ class SpInterpPrepare(SIBD, KDT):
                 'Grid y_max outside of drift rasters!')
 
             self._min_col = int(
-                max(0, (self._x_min - self._drft_x_min) / self._cell_size))
+                floor((self._x_min - self._drft_x_min) / self._cell_size))
 
             self._max_col = int(
-                (self._x_max - self._drft_x_min) / self._cell_size) - 1
+                ceil((self._x_max - self._drft_x_min) / self._cell_size)) - 1
 
             self._min_row = int(
-                max(0, (self._drft_y_max - self._y_max) / self._cell_size))
+                floor((self._drft_y_max - self._y_max) / self._cell_size))
 
             self._max_row = int(
-                (self._drft_y_max - self._y_min) / self._cell_size) - 1
+                ceil((self._drft_y_max - self._y_min) / self._cell_size)) - 1
 
         else:
             self._min_col = 0
 
             self._max_col = int(
-                ceil((self._x_max - self._x_min) / self._cell_size))
+                ceil((self._x_max - self._x_min) / self._cell_size)) - 1
 
             self._min_row = 0
 
             self._max_row = int(
-                ceil((self._y_max - self._y_min) / self._cell_size))
+                ceil((self._y_max - self._y_min) / self._cell_size)) - 1
 
         assert 0 <= self._min_col <= self._max_col, (
             self._min_col, self._max_col)
@@ -210,8 +210,16 @@ class SpInterpPrepare(SIBD, KDT):
         self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = None, None
 
         if self._plot_figs_flag:
+            interp_x_coords_plt = np.linspace(
+                self._x_min, end_x_coord + (0.5 * self._cell_size),
+                (self._max_col - self._min_col + 2))
+
+            interp_y_coords_plt = np.linspace(
+                self._y_max, end_y_coord - (0.5 * self._cell_size),
+                (self._max_row - self._min_row + 2))
+
             self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = (
-                interp_x_coords_mesh.copy(), interp_y_coords_mesh.copy())
+                np.meshgrid(interp_x_coords_plt, interp_y_coords_plt))
 
         self._nc_x_crds = interp_x_coords
         self._nc_y_crds = interp_y_coords

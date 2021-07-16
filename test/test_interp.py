@@ -33,11 +33,11 @@ def main():
         r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_clim_data_2\precipitation_coords.csv')
 
     in_vgs_file = Path(
-        r'P:\hydmod_de\ppt_daily_1961_2020__no_0s\vgs_M\vgs_ts.csv')
+        r'P:\hydmod_de\daily\ppt_daily_1961_2020__no_0s\tvgs_clus_txts\M_final_tvgs_clus_ts.csv')
 
     index_type = 'date'
 
-    out_dir = Path(r'ppt_daily_test_03')
+    out_dir = Path(r'test_spinterps_edk_2')
     var_units = 'mm'  # 'C'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'  # 'temperature'  #
 
@@ -45,7 +45,7 @@ def main():
 
     freq = 'D'
     strt_date = r'1961-01-01'
-    end_date = r'1961-12-31'
+    end_date = r'1961-01-01'
 
     drop_stns = []
 
@@ -56,22 +56,26 @@ def main():
 
     in_bounds_shp_file = (
         Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds_all.shp'))
-
 #     in_bounds_shp_file = None
 
     align_ras_file = in_drift_rasters_list[0]
+#     align_ras_file = None
 
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_var_val_thresh = -float('inf')  # 1
+    min_var_val_thresh = 0.1  # -float('inf')  #
 
-    min_var_val = None
+    min_var_val = 0  # None #
     max_var_val = None
 
     min_vg_val = 1e-4
 
     max_steps_per_chunk = None
+
+    # Used only when no drift or align raster given.
+#     cell_size = 1000
+    cell_size = None
 
     # Can be None or a string vg.
     # Replace all nan vgs with this.
@@ -79,7 +83,7 @@ def main():
 
     min_nebor_dist_thresh = 1
 
-    idw_exps = [1]
+    idw_exps = [5]
     n_cpus = 1
     buffer_dist = 22e3
     sec_buffer_dist = 5e3
@@ -102,8 +106,8 @@ def main():
     ord_krige_flag = False
     sim_krige_flag = False
 #     edk_krige_flag = False
-#     idw_flag = False
-    plot_figs_flag = False
+    idw_flag = False
+#     plot_figs_flag = False
 #     verbose = False
 #     interp_around_polys_flag = False
 
@@ -192,7 +196,8 @@ def main():
             interp_around_polys_flag,
             sec_buffer_dist)
 
-    spinterp_cls.set_alignment_raster(align_ras_file)
+    if align_ras_file is not None:
+        spinterp_cls.set_alignment_raster(align_ras_file)
 
     spinterp_cls.set_neighbor_selection_method(
         neighbor_selection_method, n_neighbors, n_pies)
@@ -200,7 +205,7 @@ def main():
     spinterp_cls.set_misc_settings(
         n_cpus,
         plot_figs_flag,
-        None,
+        cell_size,
         min_var_val_thresh,
         min_var_val,
         max_var_val,

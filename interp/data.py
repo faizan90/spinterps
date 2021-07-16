@@ -80,7 +80,12 @@ class SpInterpData(VD):
         vg_ser : object pd.Series
             A series object having one variogram for each time step
             for kriging. If this function is not called then only IDW
-            is possible. Its datatype should be object.
+            is possible. Its values datatype should be object.
+        index_type : str
+            The type of vg_ser.index. Currently, allowed
+            ones are obj and date. When index_type is obj, then the entries
+            in indicies of stns_time_ser_df and vgs_ser must be
+            the same.
         '''
 
         assert isinstance(vgs_ser, pd.Series), (
@@ -699,7 +704,7 @@ class SpInterpData(VD):
 
             assert not idx_union.size, (
                 'For object type index, data and variograms must have the '
-                'index!')
+                'same index entries!')
 
         if self._vb:
             if not self._vg_ser_set_flag:
