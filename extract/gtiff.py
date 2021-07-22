@@ -85,7 +85,7 @@ class ExtractGTiffCoords:
 
         in_drv_shrt_name = in_hdl.GetDriver().ShortName
 
-        assert in_drv_shrt_name == 'GTiff', (
+        assert in_drv_shrt_name in ('GTiff', 'SRTMHGT'), (
             f'Input not a GDAL GeoTiff raster but a {in_drv_shrt_name}!')
 
         n_rows = in_hdl.RasterYSize
@@ -403,7 +403,7 @@ class ExtractGTiffValues:
 
         in_drv_shrt_name = in_hdl.GetDriver().ShortName
 
-        assert in_drv_shrt_name == 'GTiff', (
+        assert in_drv_shrt_name in  ('GTiff', 'SRTMHGT'), (
             f'Input not a GDAL GeoTiff raster but a {in_drv_shrt_name}!')
 
         n_bnds = in_hdl.RasterCount
@@ -411,21 +411,24 @@ class ExtractGTiffValues:
         assert n_bnds > 0, 'Input raster must have at least one band!'
 
         gtiff_bnds = {}
+        bnd_ndvs = {}
         for i in range(1, n_bnds + 1):
             bnd = in_hdl.GetRasterBand(i)
 
             ndv = bnd.GetNoDataValue()
+
+            bnd_ndvs[f'B{i:02d}'] = ndv
 
             data = bnd.ReadAsArray().astype(float)
 
             assert data.ndim == 2, 'Raster bands allowed to be 2D only!'
             assert data.size > 0, 'Raster band has zero values!'
 
-            if not np.isnan(ndv):
-                data[np.isclose(data, ndv)] = np.nan
-
-            assert np.any(np.isfinite(data)), (
-                f'All values in band {i} are invalid!')
+#             if not np.isnan(ndv):
+#                 data[np.isclose(data, ndv)] = np.nan
+#
+#             assert np.any(np.isfinite(data)), (
+#                 f'All values in band {i} are invalid!')
 
             gtiff_bnds[f'B{i:02d}'] = data
 
@@ -495,12 +498,17 @@ class ExtractGTiffValues:
             bnds_data = {}
             for bnd, data in gtiff_bnds.items():
                 assert rows_idxs_max < data.shape[0], (
-                    'Row index is out of bounds!')
+                    'Row index is out of bounds '
+                    f'({rows_idxs_max}, {data.shape[0]})!')
 
                 assert cols_idxs_max < data.shape[1], (
-                    'Column index is out of bounds!')
+                    f'Column index is out of bounds '
+                    f'({cols_idxs_max}, {data.shape[1]})!')
 
                 bnd_data = data[rows_idxs, cols_idxs]
+
+                if bnd_ndvs[bnd] is not None:
+                    bnd_data[np.isclose(bnd_data, bnd_ndvs[bnd])] = np.nan
 
                 bnds_data[bnd] = bnd_data
 

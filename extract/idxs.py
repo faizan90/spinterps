@@ -339,6 +339,8 @@ class GeomAndCrdsItsctIdxs:
         assert self._set_itsct_idxs_crds_flag, (
             'Call the set_coordinates method first!')
 
+        x_min = x_max = y_min = y_max = None
+
         if ((self._ras_type_lab == 'nc') and
             (self._crds_ndims == 1) and
             (self._geom_type == 1)):
@@ -352,6 +354,14 @@ class GeomAndCrdsItsctIdxs:
 
             x_crds = self._get_rect_crds_1d(self._x_crds_orig)
             y_crds = self._get_rect_crds_1d(self._y_crds_orig)
+
+            # Here, limits have to be set separately. because actual limits
+            # are lost.
+            x_min = self._x_crds_orig.min()
+            x_max = self._x_crds_orig.max()
+
+            y_min = self._y_crds_orig.min()
+            y_max = self._y_crds_orig.max()
 
         elif ((self._ras_type_lab == 'nc') and
               (self._crds_ndims == 2) and
@@ -390,7 +400,8 @@ class GeomAndCrdsItsctIdxs:
         if self._crds_tfmr is not None:
             if self._crds_ndims == 1:
                 print(
-                    'INFO: Converting coordinates to 2D due to transformation!')
+                    'INFO: Converting coordinates to 2D due to '
+                    'transformation!')
 
                 x_crds, y_crds = np.meshgrid(x_crds, y_crds)
 
@@ -404,11 +415,12 @@ class GeomAndCrdsItsctIdxs:
         self._x_crds.flags.writeable = False
         self._y_crds.flags.writeable = False
 
-        x_min = self._x_crds.min()
-        x_max = self._x_crds.max()
+        if x_min is None:
+            x_min = self._x_crds.min()
+            x_max = self._x_crds.max()
 
-        y_min = self._y_crds.min()
-        y_max = self._y_crds.max()
+            y_min = self._y_crds.min()
+            y_max = self._y_crds.max()
 
         if self._geom_type == 1:
             for label in self._labels:
@@ -425,11 +437,13 @@ class GeomAndCrdsItsctIdxs:
 
                 assert x_min <= pt_x <= x_max, (
                     f'X coordinate of the point: {label} is not '
-                    f'within the bounds of the X coordinates!')
+                    f'within the bounds of the X coordinates '
+                    f'({x_min}, {pt_x}, {x_max})!')
 
                 assert y_min <= pt_y <= y_max, (
                     f'Y coordinate of the point: {label} is not '
-                    f'within the bounds of the Y coordinates!')
+                    f'within the bounds of the Y coordinates '
+                    f'({y_min}, {pt_y}, {y_max})!')
 
         elif self._geom_type == 3:
             for label in self._labels:
@@ -439,19 +453,19 @@ class GeomAndCrdsItsctIdxs:
 
                 assert gx_min >= x_min, (
                     f'Minimum X coordinate of the polygon: {label} is less '
-                    f'than the minimum X coordinate!')
+                    f'than the minimum X coordinate ({gx_min}, {x_min})!')
 
                 assert gx_max <= x_max, (
                     f'Maximum X coordinate of the polygon: {label} is greater '
-                    f'than the maximum X coordinate!')
+                    f'than the maximum X coordinate ({gx_max}, {x_max})!')
 
                 assert gy_min >= y_min, (
                     f'Minimum Y coordinate of the polygon: {label} is less '
-                    f'than the minimum Y coordinate!')
+                    f'than the minimum Y coordinate ({gy_min}, {y_min})!')
 
                 assert gy_max <= y_max, (
                     f'Maximum Y coordinate of the polygon: {label} is greater '
-                    f'than the maximum Y coordinate!')
+                    f'than the maximum Y coordinate ({gy_max}, {y_max})!')
 
         else:
             raise NotImplementedError
@@ -776,22 +790,30 @@ class GeomAndCrdsItsctIdxs:
 
         assert n_y_idxs, (
             f'No Y coordinate selected for the point: {label}!')
+        #======================================================================
 
-        x_crds = np.tile(self._x_crds[x_idxs], n_y_idxs)
-        y_crds = np.repeat(self._y_crds[y_idxs], n_x_idxs)
+        # The 2D distance version.
+        # This requires too much memory and operations.
+#         x_crds = np.tile(self._x_crds[x_idxs], n_y_idxs)
+#         y_crds = np.repeat(self._y_crds[y_idxs], n_x_idxs)
+#
+#         assert x_crds.size == y_crds.size, (
+#             'x_crds and y_crds not having same length!')
+        #======================================================================
 
-        assert x_crds.size == y_crds.size, (
-            'x_crds and y_crds not having same length!')
-
-        idxs = np.full((n_pts, 2), np.nan)
+        # The 1D distance verions. Way more efficient than the 2D version.
+        # Hope that this is correct.
+        x_crds = self._x_crds[x_idxs]
+        y_crds = self._y_crds[y_idxs]
+        #======================================================================
 
         show_crds_flag = False
 
         if show_crds_flag:
             print(
-                f'   i, Label    |      RX      |      RY      |'
-                f'      DX      |'
-                f'      DY      |   Distance')
+                '   i, Label    |      RX      |      RY      |'
+                '      DX      |'
+                '      DY      |   Distance')
 
         itsct_idxs_dict = {}
         for i, label in enumerate(self._labels):
@@ -799,19 +821,39 @@ class GeomAndCrdsItsctIdxs:
 
             x_sq_diff = (pt_x - x_crds) ** 2
             y_sq_diff = (pt_y - y_crds) ** 2
+            #==================================================================
 
-            dists = (x_sq_diff + y_sq_diff) ** 0.5
+            # The 2D distance version.
+#             dists = (x_sq_diff + y_sq_diff) ** 0.5
+#
+#             min_dist_idx = np.argmin(dists)
+#
+#             min_x_crd_idx = x_idxs[(min_dist_idx % n_x_idxs)]
+#             min_y_crd_idx = y_idxs[(min_dist_idx // n_x_idxs)]
+#
+#             min_dist = (
+#                 ((pt_x - self._x_crds[min_x_crd_idx]) ** 2) +
+#                 ((pt_y - self._y_crds[min_y_crd_idx]) ** 2)) ** 0.5
+            #==================================================================
 
-            min_dist_idx = np.argmin(dists)
+            # The 1D distance version.
+            x_idx_new = np.argmin(x_sq_diff)
+            y_idx_new = np.argmin(y_sq_diff)
 
-            min_x_crd_idx = x_idxs[(min_dist_idx % n_x_idxs)]
-            min_y_crd_idx = y_idxs[(min_dist_idx // n_x_idxs)]
-
-            idxs[i] = min_x_crd_idx, min_y_crd_idx
+            min_x_crd_idx = x_idxs[x_idx_new]
+            min_y_crd_idx = y_idxs[y_idx_new]
 
             min_dist = (
                 ((pt_x - self._x_crds[min_x_crd_idx]) ** 2) +
                 ((pt_y - self._y_crds[min_y_crd_idx]) ** 2)) ** 0.5
+
+            dist_new = (
+                ((pt_x - x_crds[x_idx_new]) ** 2) +
+                ((pt_y - y_crds[y_idx_new]) ** 2)) ** 0.5
+
+            assert np.isclose(dist_new, min_dist), (
+                f'{i}, {label}: {dist_new}, {min_dist}!')
+            #==================================================================
 
             if show_crds_flag:
                 print(
@@ -920,14 +962,12 @@ class GeomAndCrdsItsctIdxs:
         assert x_crds.size == y_crds.size, (
             'x_crds and y_crds not having same length!')
 
-        idxs = np.full((n_pts, 2), np.nan)
-
-        show_crds_flag = True
+        show_crds_flag = False
 
         if show_crds_flag:
             print(
-                f'   i, Label   |      RX      |      RY      |      DX      |'
-                f'      DY      |   Distance')
+                '   i, Label   |      RX      |      RY      |      DX      |'
+                '      DY      |   Distance')
 
         itsct_idxs_dict = {}
         for i, label in enumerate(self._labels):
@@ -942,19 +982,22 @@ class GeomAndCrdsItsctIdxs:
 
             min_row_crd_idx, min_col_crd_idx = tot_idxs[min_dist_idx]
 
-            idxs[i] = min_row_crd_idx, min_col_crd_idx
+            min_dist = 0.0
 
-            min_dist = (
-                ((pt_x - self._x_crds[min_row_crd_idx, min_col_crd_idx]) ** 2) +
-                ((pt_y - self._y_crds[min_row_crd_idx, min_col_crd_idx]) ** 2)) ** 0.5
+            min_dist += (
+                pt_x - self._x_crds[min_row_crd_idx, min_col_crd_idx]) ** 2
+
+            min_dist += (
+                pt_y - self._y_crds[min_row_crd_idx, min_col_crd_idx]) ** 2
+
+            min_dist **= 0.5
 
             if show_crds_flag:
-
                 print(
                     f'{i:4d}, {label:<9s}|{pt_x:^14.5f}|{pt_y:^14.5f}|'
                     f'{self._x_crds[min_row_crd_idx, min_col_crd_idx]:^14.5f}|'
-                    f'{self._y_crds[min_row_crd_idx, min_col_crd_idx]:^14.5f}|   '
-                    f'{min_dist}')
+                    f'{self._y_crds[min_row_crd_idx, min_col_crd_idx]:^14.5f}|'
+                    f'   {min_dist}')
 
             assert min_dist <= max_cell_dist, (
                 f'Label: {label} have a distance greater than the limit'
@@ -966,9 +1009,11 @@ class GeomAndCrdsItsctIdxs:
                 'itsctd_area': np.array([0.0], dtype=float),
                 'rel_itsctd_area': np.array([0.0], dtype=float),
                 'x_cen_crds': np.array(
-                    [self._x_crds[min_row_crd_idx, min_col_crd_idx]], dtype=float),
+                    [self._x_crds[min_row_crd_idx, min_col_crd_idx]],
+                    dtype=float),
                 'y_cen_crds': np.array(
-                    [self._y_crds[min_row_crd_idx, min_col_crd_idx]], dtype=float),
+                    [self._y_crds[min_row_crd_idx, min_col_crd_idx]],
+                    dtype=float),
                 'x_crds': np.array([pt_x], dtype=float),
                 'y_crds': np.array([pt_y], dtype=float), }
 

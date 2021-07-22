@@ -320,7 +320,7 @@ def get_aligned_shp_bds_and_cell_size(
             f'bounds_shp y_max ({raw_shp_y_max}) < '
             f'align_raster y_max ({ras_max_y})!')
 
-    if not np.isclose(raw_shp_x_min, ras_min_x):
+    if not np.isclose(raw_shp_x_min, ras_min_x, rtol=0, atol=rel_cell_err):
         rem_min_col_width = ((raw_shp_x_min - ras_min_x) / ras_cell_size) % 1
         x_min_adj = rem_min_col_width * ras_cell_size
         adj_shp_x_min = raw_shp_x_min - x_min_adj
@@ -328,7 +328,7 @@ def get_aligned_shp_bds_and_cell_size(
     else:
         adj_shp_x_min = ras_min_x
 
-    if not np.isclose(raw_shp_y_max, ras_max_y):
+    if not np.isclose(raw_shp_y_max, ras_max_y, rtol=0, atol=rel_cell_err):
         rem_min_row_width = ((ras_max_y - raw_shp_y_max) / ras_cell_size) % 1
         y_max_adj = rem_min_row_width * ras_cell_size
         adj_shp_y_max = raw_shp_y_max + y_max_adj
@@ -336,7 +336,7 @@ def get_aligned_shp_bds_and_cell_size(
     else:
         adj_shp_y_max = ras_max_y
 
-    if not np.isclose(raw_shp_x_max, ras_max_x):
+    if not np.isclose(raw_shp_x_max, ras_max_x, rtol=0, atol=rel_cell_err):
         rem_max_col_width = ((raw_shp_x_max - ras_min_x) / ras_cell_size) % 1
         x_max_adj = rem_max_col_width * ras_cell_size
         adj_shp_x_max = raw_shp_x_max + (ras_cell_size - x_max_adj)
@@ -344,7 +344,7 @@ def get_aligned_shp_bds_and_cell_size(
     else:
         adj_shp_x_max = ras_max_x
 
-    if not np.isclose(raw_shp_y_min, ras_min_y):
+    if not np.isclose(raw_shp_y_min, ras_min_y, rtol=0, atol=rel_cell_err):
         rem_max_row_width = ((ras_max_y - raw_shp_y_min) / ras_cell_size) % 1
         y_min_adj = rem_max_row_width * ras_cell_size
         adj_shp_y_min = raw_shp_y_min - (ras_cell_size - y_min_adj)
@@ -359,13 +359,13 @@ def get_aligned_shp_bds_and_cell_size(
         [(adj_shp_x_max - adj_shp_x_min) % ras_cell_size] *
         allowed_err_rems.size)
 
-    assert np.isclose(err_rem_cols, allowed_err_rems).any()
+    assert np.isclose(err_rem_cols, allowed_err_rems, rtol=0, atol=rel_cell_err).any()
 
     err_rem_rows = np.array(
         [(adj_shp_y_max - adj_shp_y_min) % ras_cell_size] *
         allowed_err_rems.size)
 
-    assert np.isclose(err_rem_rows, allowed_err_rems).any()
+    assert np.isclose(err_rem_rows, allowed_err_rems, rtol=0, atol=rel_cell_err).any()
 
     # Check adjusted bounds to be in within the alignment raster.
     assert (adj_shp_x_min >= ras_min_x), (

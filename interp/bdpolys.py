@@ -102,20 +102,28 @@ class SpInterpBoundaryPolygons:
 
             assert geom.Area() > 0, 'Geometry has no area!'
 
-            feat_buff_stns.append(geom.Buffer(self._stn_bdist))
+            if self._stn_bdist:
+                feat_buff_stns.append(geom.Buffer(self._stn_bdist))
 
-            assert (feat_buff_stns[-1].GetGeometryCount() == 1), (
-                'Geometry count changed after buffering! '
-                'Changing station_select_buffer_distance might help.')
+                assert (feat_buff_stns[-1].GetGeometryCount() == 1), (
+                    'Geometry count changed after buffering! '
+                    'Changing station_select_buffer_distance might help.')
+
+            else:
+                feat_buff_stns.append(geom.Clone())
 
             if self._ipoly_flag:
-                feat_buff_cells.append(geom.Buffer(self._cell_bdist))
+                if self._cell_bdist:
+                    feat_buff_cells.append(geom.Buffer(self._cell_bdist))
 
-                last_gct = feat_buff_cells[-1].GetGeometryCount()
+                    last_gct = feat_buff_cells[-1].GetGeometryCount()
 
-                assert last_gct == 1, (
-                    f'INFO: Geometry count ({last_gct}) changed after '
-                    f'buffering! Consider using another polygons shapefile.')
+                    assert last_gct == 1, (
+                        f'INFO: Geometry count ({last_gct}) changed after '
+                        f'buffering! Consider using another polygons shapefile.')
+
+                else:
+                    feat_buff_cells.append(geom.Clone())
 
         bds_vec.Destroy()
 
