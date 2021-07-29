@@ -1,3 +1,8 @@
+
+# Due to shitty tkinter errors.
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
+
 from .cyth import (
     fill_dists_one_pt,
     fill_wts_and_sum,

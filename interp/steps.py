@@ -430,7 +430,6 @@ class SpInterpSteps:
 
         plt.savefig(str(out_figs_dir / out_fig_name), bbox_inches='tight')
         plt.close()
-
         return
 
     def _mod_min_max(self, interp_fld):

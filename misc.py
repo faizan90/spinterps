@@ -5,9 +5,11 @@ Created on Nov 25, 2018
 '''
 import os
 import sys
-from math import pi
 import traceback as tb
+from queue import Queue
+from math import pi, ceil
 from functools import wraps
+from pathos.multiprocessing import ProcessPool
 
 import numpy as np
 import psutil as ps
@@ -19,6 +21,215 @@ from cftime import utime, datetime
 from .cyth import fill_dists_2d_mat, fill_theo_vg_vals
 
 print_line_str = 40 * '#'
+
+
+def traceback_wrapper(func):
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+
+        func_res = None
+
+        try:
+            func_res = func(*args, **kwargs)
+
+        except:
+            pre_stack = tb.format_stack()[:-1]
+
+            err_tb = list(tb.TracebackException(*sys.exc_info()).format())
+
+            lines = [err_tb[0]] + pre_stack + err_tb[2:]
+
+            for line in lines:
+                print(line, file=sys.stderr, end='')
+
+        return func_res
+
+    return wrapper
+
+
+def linearize_sub_geoms(geom, geoms, simplify_tol):
+
+    assert isinstance(geoms, Queue), 'geoms not a queue.Queue object!'
+
+    assert simplify_tol >= 0
+
+    if geom is None:
+        print('Geometry is None!')
+        return
+
+    gct = geom.GetGeometryCount()
+
+    if gct == 1:
+        if simplify_tol:
+            geoms.put_nowait(geom.SimplifyPreserveTopology(simplify_tol))
+
+        else:
+            geoms.put_nowait(geom.Buffer(0))
+
+    elif gct > 1:
+        for i in range(gct):
+            linearize_sub_geoms(geom.GetGeometryRef(i), geoms, simplify_tol)
+
+    elif gct == 0:
+        print('Encountered a geometry count of 0!')
+
+    return geoms
+
+
+def get_all_polys_in_shp(path_to_shp, simplify_tol):
+
+    assert isinstance(simplify_tol, (int, float))
+    assert simplify_tol >= 0
+
+    bds_vec = ogr.Open(str(path_to_shp))
+
+    assert bds_vec is not None, (
+        'Could not open the polygons_shapefile!')
+
+    assert bds_vec.GetLayerCount() == 1, (
+        'Only one layer allowed in the bounds shapefile!')
+
+    bds_lyr = bds_vec.GetLayer(0)
+
+    all_geoms = Queue()
+    for feat in bds_lyr:
+        geom = feat.GetGeometryRef().Clone()
+
+        assert geom is not None, (
+            'Something wrong with the geometries in the '
+            'polygons_shapefile!')
+
+        geom_type = geom.GetGeometryType()
+
+        if geom_type in (3, 6):
+            linearize_sub_geoms(geom, all_geoms, simplify_tol)
+
+        else:
+            ValueError(f'Invalid geometry type: {geom_type}!')
+
+    bds_vec.Destroy()
+    return all_geoms
+
+
+def chk_pt_cntmnt_in_poly(args):
+
+    poly_or_pts, crds_df = args
+
+    if not isinstance(poly_or_pts, ogr.Geometry):
+        # Expecting that these are then x and y crds that we get
+        # from GetPoints.
+        pts = poly_or_pts
+
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        for pt in pts:
+            ring.AddPoint(*pt)
+
+        poly = ogr.Geometry(ogr.wkbPolygon)
+        poly.AddGeometry(ring)
+
+    else:
+        poly = poly_or_pts
+
+    fin_stns = []
+    assert poly is not None, 'Corrupted polygon after buffering!'
+
+    for stn in crds_df.index:
+
+        x, y = crds_df.loc[stn, ['X', 'Y']]
+
+        if chk_cntmt(cnvt_to_pt(x, y), poly):
+            fin_stns.append(stn)
+
+    return fin_stns
+
+
+def chk_pt_cntmnt_in_polys_mp(polys, crds_df, n_cpus):
+
+    def get_sub_crds_dfs_for_polys(polys, crds_df, max_pts):
+
+        stns = crds_df.index.values
+        x = crds_df['X'].values
+        y = crds_df['Y'].values
+
+        sub_polys = []
+        sub_crds_dfs = []
+        for poly in polys:
+            poly_xmin, poly_xmax, poly_ymin, poly_ymax = poly.GetEnvelope()
+
+            cntmnt_idxs = (
+                (x >= poly_xmin) &
+                (x <= poly_xmax) &
+                (y >= poly_ymin) &
+                (y <= poly_ymax))
+
+            if not cntmnt_idxs.sum():
+                continue
+
+            poly_stns = stns[cntmnt_idxs]
+
+            n_poly_stns = len(poly_stns)
+
+            # Break the number of coordinates into chunks so that later,
+            # fewer coordinates have to be processed per thread. This allows
+            # for distributing load more uniformly over the available threads.
+            break_idxs = np.arange(
+                0, (max_pts * ceil(n_poly_stns / max_pts)) + 1, max_pts)
+
+            assert break_idxs[-1] >= max_pts
+
+            for i in range(0, break_idxs.size - 1):
+
+                break_poly_stns = poly_stns[break_idxs[i]:break_idxs[i + 1]]
+
+                sub_polys.append(poly)
+                sub_crds_dfs.append(crds_df.loc[break_poly_stns,:].copy())
+
+        return sub_polys, sub_crds_dfs
+
+    crds_df = crds_df.copy()
+
+    max_pts_per_thread = int(max(1, crds_df.shape[0] // n_cpus))
+
+    # Get sub crds_dfs for each poly such that the point are within the
+    # extents of the respective polygon.
+    sub_polys, sub_crds_dfs = get_sub_crds_dfs_for_polys(
+        polys, crds_df, max_pts_per_thread)
+
+    crds_df = None
+
+    assert all([poly.GetGeometryCount() == 1 for poly in sub_polys])
+
+    # Only do this if multiprocessing is used.
+    # Because ogr.Geometry objects can't be pickled, apparently.
+    if n_cpus > 1:
+        sub_polys = [poly.GetGeometryRef(0).GetPoints() for poly in sub_polys]
+
+    # This subsetting can be made on the relative number of points per poly.
+    cntmnt_gen = (
+        (sub_polys[i], sub_crds_dfs[i]) for i in range(len(sub_polys)))
+
+    if n_cpus > 1:
+        mp_pool = ProcessPool(n_cpus)
+        mp_pool.restart(True)
+
+        ress = list(mp_pool.uimap(chk_pt_cntmnt_in_poly, cntmnt_gen))
+
+        mp_pool.clear()
+        mp_pool.close()
+        mp_pool.join()
+        mp_pool = None
+
+    else:
+        ress = []
+        for args in cntmnt_gen:
+            ress.append(chk_pt_cntmnt_in_poly(args))
+
+    fin_stns = set()
+    for res in ress:
+        fin_stns |= set(res)
+
+    return fin_stns
 
 
 class GdalErrorHandler:
@@ -66,31 +277,6 @@ def get_n_cpus():
     n_cpus = max(n_cpus, 1)
 
     return n_cpus
-
-
-def traceback_wrapper(func):
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-
-        func_res = None
-
-        try:
-            func_res = func(*args, **kwargs)
-
-        except:
-            pre_stack = tb.format_stack()[:-1]
-
-            err_tb = list(tb.TracebackException(*sys.exc_info()).format())
-
-            lines = [err_tb[0]] + pre_stack + err_tb[2:]
-
-            for line in lines:
-                print(line, file=sys.stderr, end='')
-
-        return func_res
-
-    return wrapper
 
 
 def get_current_proc_size(mb=False):

@@ -87,6 +87,7 @@ def main():
     n_cpus = 1
     buffer_dist = 22e3
     sec_buffer_dist = 5e3
+    simplify_tolerance_ratio = 0.25
 
     neighbor_selection_method = 'nrst'
     n_neighbors = 50
@@ -194,7 +195,8 @@ def main():
             in_bounds_shp_file,
             buffer_dist,
             interp_around_polys_flag,
-            sec_buffer_dist)
+            sec_buffer_dist,
+            simplify_tolerance_ratio)
 
     if align_ras_file is not None:
         spinterp_cls.set_alignment_raster(align_ras_file)

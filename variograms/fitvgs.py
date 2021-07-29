@@ -243,7 +243,7 @@ class FitVariogramsSteps:
 
                 plt.figure(figsize=fig_size)
 
-                plt.plot(h_arr, evg, 'bo', alpha=0.3)
+                plt.plot(h_arr, evg, 'bo', alpha=0.3, zorder=0)
 
                 for m in range(len(vg_names)):
                     plt.plot(
@@ -251,7 +251,7 @@ class FitVariogramsSteps:
                         vg_fit[m][:, 1],
                         c=np.random.rand(3,),
                         linewidth=4,
-                        zorder=m,
+                        zorder=m + 1,
                         label=fit_vg_list[m],
                         alpha=0.6)
 

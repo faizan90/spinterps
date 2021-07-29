@@ -90,7 +90,8 @@ class VGCSettings(VD):
         assert isinstance(max_dist_thresh, (int, float))
         assert isinstance(clus_ts, (pd.Series, type(None)))
         if clus_ts is not None:
-            assert clus_ts.values.dtype == type(clus_ts_nan)
+            assert clus_ts.values.dtype == type(clus_ts_nan), (
+                clus_ts.values.dtype, type(clus_ts_nan))
 
         assert clus_type in self._sett_clus_cevg_types
         assert n_min_valid_values > 0

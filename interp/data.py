@@ -45,7 +45,9 @@ class SpInterpData(VD):
 
         self._poly_shp = None
         self._ipoly_flag = False
+        self._stn_bdist = 0
         self._cell_bdist = 0
+        self._poly_simplify_tol_ratio = 0.0
 
         self._min_var_thr = None
         self._min_var_cut = None
@@ -319,7 +321,8 @@ class SpInterpData(VD):
             polygons_shapefile,
             station_select_buffer_distance,
             interp_around_polys_flag=True,
-            polygon_cell_buffer_distance=None):
+            polygon_cell_buffer_distance=None,
+            simplify_tolerance_ratio=0.0):
 
         '''
         Set some interpolation parameters.
@@ -353,6 +356,12 @@ class SpInterpData(VD):
             interp_around_polys_flag is True then it should be a float or
             an int.  It is up to the user to use consistent units for
             every parameter.
+        simplify_tolerance_ratio : float
+            Tolerance, used to simplify the polygons so they have fewer
+            points, with respect to the cell size. Should be greater
+            than or equal to 0. Simplifying geometries results in fewer
+            points in a geometry which in turn increases the speed of
+            testing points for containment.
         '''
 
         assert isinstance(polygons_shapefile, (str, Path)), (
@@ -366,8 +375,6 @@ class SpInterpData(VD):
         assert polygons_shapefile.is_file(), (
             'polygons_shapefile is not a file!')
 
-        self._poly_shp = polygons_shapefile
-
         assert isinstance(station_select_buffer_distance, (float, int)), (
             'station_select_buffer_distance has to be a float or an int!')
 
@@ -375,10 +382,15 @@ class SpInterpData(VD):
             'station_select_buffer_distance has to be between zero '
             'and infinity!')
 
-        self._stn_bdist = float(station_select_buffer_distance)
-
         assert isinstance(interp_around_polys_flag, bool), (
             'interp_around_polys_flag not a boolean!')
+
+        assert isinstance(simplify_tolerance_ratio, float), (
+            'simplify_tolerance_ratio not a float!')
+
+        self._poly_shp = polygons_shapefile
+
+        self._stn_bdist = float(station_select_buffer_distance)
 
         self._ipoly_flag = interp_around_polys_flag
 
@@ -393,13 +405,22 @@ class SpInterpData(VD):
 
             self._cell_bdist = float(polygon_cell_buffer_distance)
 
+        if simplify_tolerance_ratio:
+            self._poly_simplify_tol_ratio = simplify_tolerance_ratio
+
         if self._vb:
             print_sl()
+
             print('Set the following cell selection parameters:')
             print('Polygons shapefile:', str(self._poly_shp))
             print('interp_around_polys_flag:', self._ipoly_flag)
             print('Buffer distance to select a station:', self._stn_bdist)
             print('Buffer distance to select a cell:', self._cell_bdist)
+
+            print(
+                'Polygon simplify geometry ratio:',
+                self._poly_simplify_tol_ratio)
+
             print_el()
 
         self._cell_sel_prms_set = True

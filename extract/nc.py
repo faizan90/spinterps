@@ -651,6 +651,8 @@ class ExtractNetCDFValues:
 
                 extrtd_data[label] = steps_data
 
+                steps_data = None
+
             elif self._out_fmt == 'h5':
                 label_str = str(label)
 
@@ -720,6 +722,8 @@ class ExtractNetCDFValues:
 
             else:
                 raise NotImplementedError
+
+        in_var_data = None
 
         in_hdl.close()
         in_hdl = None

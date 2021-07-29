@@ -3,31 +3,10 @@ Created on Nov 25, 2018
 
 @author: Faizan
 '''
+from timeit import default_timer
 
-import numpy as np
-from osgeo import ogr
-
-from ..misc import cnvt_to_pt, chk_cntmt, print_sl, print_el
-
-
-def fill_sub_geoms(geom, geoms):
-
-    if geom is None:
-        return
-
-    gct = geom.GetGeometryCount()
-
-    if gct == 1:
-        geoms.append(geom)
-
-    elif gct > 1:
-        for i in range(gct):
-            fill_sub_geoms(geom.GetGeometryRef(i).Buffer(0), geoms)
-
-    elif gct == 0:
-        pass
-
-    return geoms
+from ..misc import (
+    print_sl, print_el, chk_pt_cntmnt_in_polys_mp, get_all_polys_in_shp)
 
 
 class SpInterpBoundaryPolygons:
@@ -41,58 +20,40 @@ class SpInterpBoundaryPolygons:
 
     def _select_nearest_stations(self):
 
-        '''Given the polygons_shapefile, select stations that have
+        '''
+        Given the polygons_shapefile, select stations that have
         distances less than the station_select_buffer_distance to the
         nearest polygon.
         '''
 
+        beg_time = default_timer()
+
         if self._vb:
             print_sl()
             print(
-                'Selecting stations within and around the shapefile '
-                'polygons...')
+                'Selecting stations and cells within and around the '
+                'shapefile polygons...')
 
         assert self._cell_sel_prms_set, (
             'Call set_cell_selection_parameters first!')
+        #======================================================================
 
-        bds_vec = ogr.Open(str(self._poly_shp))
+        geom_simplify_tol = self._poly_simplify_tol_ratio * self._cell_size
 
-        assert bds_vec is not None, (
-            'Could not open the polygons_shapefile!')
+        assert geom_simplify_tol >= 0, geom_simplify_tol
 
-        bds_lyr = bds_vec.GetLayer(0)
+        all_geoms = get_all_polys_in_shp(self._poly_shp, geom_simplify_tol)
 
-        all_stns = self._data_df.columns
+        assert all_geoms.qsize(), 'Zero usable polygons in the shapefile!'
+        #======================================================================
 
-        feat_buff_stns = []
-
-        if self._ipoly_flag:
-            feat_buff_cells = []
-
-        temp_geoms = []
-        for feat in bds_lyr:
-            geom = feat.GetGeometryRef().Clone()
-
+        stn_slct_polys = []
+        for geom in all_geoms.queue:
             assert geom is not None, (
-                'Something wrong with the geometries in the '
-                'polygons_shapefile!')
+                'Something wrong with the geometries in the polygons in the '
+                'bounds shapefile!')
 
-            geom_type = geom.GetGeometryType()
-
-            if geom_type in (3, 6):
-                fill_sub_geoms(geom, temp_geoms)
-
-        assert temp_geoms, 'Zero usable polygons in the shapefile!'
-
-        g_cts = np.array([geom.GetGeometryCount() for geom in temp_geoms])
-
-        assert np.all(g_cts == 1), (
-            'Some geometries have a count not equal to one!')
-
-        for geom in temp_geoms:
-            assert geom is not None, (
-                'Something wrong with the geometries in the '
-                'polygons_shapefile!')
+            assert geom.GetGeometryCount() == 1, 'Geometry count not one!'
 
             geom_type = geom.GetGeometryType()
             geom_name = geom.GetGeometryName()
@@ -102,82 +63,80 @@ class SpInterpBoundaryPolygons:
 
             assert geom.Area() > 0, 'Geometry has no area!'
 
-            if self._stn_bdist:
-                feat_buff_stns.append(geom.Buffer(self._stn_bdist))
+            stn_slct_polys.append(geom.Clone())
 
-                assert (feat_buff_stns[-1].GetGeometryCount() == 1), (
-                    'Geometry count changed after buffering! '
-                    'Changing station_select_buffer_distance might help.')
+        # Do before modifying original polygons.
+        if self._ipoly_flag:
+            cell_slct_polys = [geom.Clone() for geom in stn_slct_polys]
+        #======================================================================
 
-            else:
-                feat_buff_stns.append(geom.Clone())
-
-            if self._ipoly_flag:
-                if self._cell_bdist:
-                    feat_buff_cells.append(geom.Buffer(self._cell_bdist))
-
-                    last_gct = feat_buff_cells[-1].GetGeometryCount()
-
-                    assert last_gct == 1, (
-                        f'INFO: Geometry count ({last_gct}) changed after '
-                        f'buffering! Consider using another polygons shapefile.')
-
-                else:
-                    feat_buff_cells.append(geom.Clone())
-
-        bds_vec.Destroy()
-
-        assert feat_buff_stns, (
+        assert stn_slct_polys, (
             'Zero polygons selected in the polygons_shapefile!')
 
+        if self._stn_bdist:
+            stn_slct_polys = [
+                geom.Buffer(self._stn_bdist) for geom in stn_slct_polys]
+
+            if geom_simplify_tol:
+                stn_slct_polys = [
+                    geom.SimplifyPreserveTopology(geom_simplify_tol)
+                    for geom in stn_slct_polys]
+
+            assert all(
+                [geom.GetGeometryCount() == 1 for geom in stn_slct_polys]), (
+                'Geometry count changed after buffering!')
+        #======================================================================
+
         if self._ipoly_flag:
-            assert feat_buff_cells, (
-                'Zero polygons in the polygons_shapefile!')
+            assert cell_slct_polys, 'Zero polygons in the polygons_shapefile!'
+
+        if self._ipoly_flag and self._cell_bdist:
+            cell_slct_polys = [
+                geom.Buffer(self._cell_bdist) for geom in cell_slct_polys]
+
+            if geom_simplify_tol:
+                cell_slct_polys = [
+                    geom.SimplifyPreserveTopology(geom_simplify_tol)
+                    for geom in cell_slct_polys]
+
+            assert all(
+                [geom.GetGeometryCount() == 1 for geom in cell_slct_polys]), (
+                'Geometry count changed after buffering!')
+        #======================================================================
 
         if self._vb:
-            print(len(feat_buff_stns), 'polygons in the polygons_shapefile.')
-            print(len(all_stns), 'stations in the coordinates dataframe.')
+            print(len(stn_slct_polys), 'polygons in the polygons_shapefile.')
 
-        fin_stns = []
-        for poly in feat_buff_stns:
-            assert poly is not None, 'Corrupted polygon after buffering!'
+            print(
+                self._data_df.shape[1],
+                'stations in the coordinates dataframe.')
 
-            poly_xmin, poly_xmax, poly_ymin, poly_ymax = poly.GetEnvelope()
-
-            for stn in all_stns:
-                if stn in fin_stns:
-                    continue
-
-                x, y = self._crds_df.loc[stn, ['X', 'Y']].values
-
-                if not (poly_xmin <= x <= poly_xmax):
-                    continue
-
-                if not (poly_ymin <= y <= poly_ymax):
-                    continue
-
-                curr_pt = cnvt_to_pt(x, y)
-
-                if chk_cntmt(curr_pt, poly):
-                    fin_stns.append(stn)
+        fin_stns = chk_pt_cntmnt_in_polys_mp(
+            stn_slct_polys, self._crds_df, self._n_cpus)
 
         assert fin_stns, (
             'Found zero stations that are close enough to the polygons!')
-
-        fin_stns = np.unique(fin_stns)
+        #======================================================================
 
         if self._vb:
             print(
                 f'{len(fin_stns)} stations out of {self._crds_df.shape[0]} '
                 f'within buffer zone of polygons_shapefile.')
 
+            end_time = default_timer()
+            print(f'Took {end_time - beg_time:0.2f} seconds.')
+
             print_el()
+        #======================================================================
+
+        assert len(fin_stns) <= self._data_df.shape[1]
+        assert len(fin_stns) <= self._crds_df.shape[0]
 
         self._data_df = self._data_df.loc[:, fin_stns]
         self._crds_df = self._crds_df.loc[fin_stns,:]
 
         if self._ipoly_flag:
-            self._geom_buff_cells = feat_buff_cells
+            self._geom_buff_cells = cell_slct_polys
 
         self._nrst_stns_slctd_flag = True
         return

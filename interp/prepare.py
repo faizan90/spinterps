@@ -3,9 +3,8 @@ Created on Nov 25, 2018
 
 @author: Faizan
 '''
-
 from math import ceil, floor
-from multiprocessing import Pool
+from timeit import default_timer
 
 import numpy as np
 import pandas as pd
@@ -18,31 +17,10 @@ from .vgclus import VariogramCluster as VC
 from .bdpolys import SpInterpBoundaryPolygons as SIBD
 from ..misc import (
     get_aligned_shp_bds_and_cell_size,
-    cnvt_to_pt,
-    chk_cntmt,
     get_ras_props,
     print_sl,
     print_el,
-    ret_mp_idxs)
-
-
-def get_containment_idxs(args):
-
-    beg_idx, end_idx, x_crds, y_crds, pts = args
-
-    ring = ogr.Geometry(ogr.wkbLinearRing)
-
-    for pt in pts:
-        ring.AddPoint(*pt)
-
-    poly = ogr.Geometry(ogr.wkbPolygon)
-    poly.AddGeometry(ring)
-
-    ogr_pts = np.vectorize(cnvt_to_pt)(x_crds, y_crds)
-
-    curr_cntn_idxs = np.vectorize(chk_cntmt)(ogr_pts, poly)
-
-    return beg_idx, end_idx, curr_cntn_idxs
+    chk_pt_cntmnt_in_polys_mp)
 
 
 class SpInterpPrepare(SIBD, KDT):
@@ -55,9 +33,9 @@ class SpInterpPrepare(SIBD, KDT):
         self._plot_polys = None
         self._cntn_idxs = None
 
+        # In case poly_shp is not set but if drift raster is set, then the
+        # bounds should stay within that of the drift raster.
         self._bds_buff_ncells = 0
-
-        self._thresh_mp_poly_crds = 10000
 
         self._prpd_flag = False
         return
@@ -70,8 +48,9 @@ class SpInterpPrepare(SIBD, KDT):
         alignment raster.
         '''
 
-        assert self._algn_ras_set_flag, (
-            'Call set_alignment_raster first!')
+        assert self._algn_ras_set_flag, 'Call set_alignment_raster first!'
+
+        beg_time = default_timer()
 
         ((fin_x_min,
           fin_x_max,
@@ -93,12 +72,17 @@ class SpInterpPrepare(SIBD, KDT):
 
         if self._vb:
             print_sl()
+
             print('Computed the following aligned coordinates:')
             print('Minimum X:', self._x_min)
             print('Maximum X:', self._x_max)
             print('Minimum Y:', self._y_min)
             print('Maximum Y:', self._y_max)
             print('Cell size:', self._cell_size)
+
+            end_time = default_timer()
+            print(f'Took {end_time - beg_time:0.2f} seconds.')
+
             print_el()
 
         return
@@ -119,16 +103,35 @@ class SpInterpPrepare(SIBD, KDT):
         Error is raised if cell size is not set.
         '''
 
-        self._x_min = self._crds_df['X'].min()
-        self._x_max = self._crds_df['X'].max()
+        if self._cell_sel_prms_set and (not self._algn_ras_set_flag):
+            in_ds = ogr.Open(str(self._poly_shp))
+            assert in_ds, f'Could not open {self._poly_shp}!'
 
-        self._y_min = self._crds_df['Y'].min()
-        self._y_max = self._crds_df['Y'].max()
+            lyr_count = in_ds.GetLayerCount()
 
-        if self._edk_flag:
-            self._cell_size = get_ras_props(str(self._drft_rass[0]))[6]
+            assert lyr_count, f'No layers in {self._poly_shp}!'
+            assert lyr_count == 1, f'More than one layer in {self._poly_shp}!'
 
-        assert self._cell_size is not None, 'Cell size unspecified!'
+            in_lyr = in_ds.GetLayer(0)
+            envelope = in_lyr.GetExtent()
+
+            assert envelope, f'No envelope for {self._poly_shp}!'
+            in_ds.Destroy()
+
+            self._x_min, self._x_max, self._y_min, self._y_max = envelope
+
+        else:
+            self._x_min = self._crds_df['X'].min()
+            self._x_max = self._crds_df['X'].max()
+
+            self._y_min = self._crds_df['Y'].min()
+            self._y_max = self._crds_df['Y'].max()
+
+        self._x_min -= self._cell_bdist
+        self._x_max += self._cell_bdist
+
+        self._y_min -= self._cell_bdist
+        self._y_max += self._cell_bdist
 
         if self._vb:
             print_sl()
@@ -137,7 +140,6 @@ class SpInterpPrepare(SIBD, KDT):
             print('Maximum X:', self._x_max)
             print('Minimum Y:', self._y_min)
             print('Maximum X:', self._x_max)
-            print('Cell size:', self._cell_size)
             print_el()
         return
 
@@ -184,6 +186,7 @@ class SpInterpPrepare(SIBD, KDT):
 
         assert 0 <= self._min_row <= self._max_row, (
             self._min_row, self._max_row)
+        #======================================================================
 
         strt_x_coord = self._x_min + (0.5 * self._cell_size)
 
@@ -220,6 +223,7 @@ class SpInterpPrepare(SIBD, KDT):
 
             self._interp_x_crds_plt_msh, self._interp_y_crds_plt_msh = (
                 np.meshgrid(interp_x_coords_plt, interp_y_coords_plt))
+        #======================================================================
 
         self._nc_x_crds = interp_x_coords
         self._nc_y_crds = interp_y_coords
@@ -242,78 +246,42 @@ class SpInterpPrepare(SIBD, KDT):
         cells that are near or inside the polygons.
         '''
 
+        beg_time = default_timer()
+
         if self._vb:
             print_sl()
             print(self._interp_x_crds_msh.shape[0],
                   'cells to interpolate per step before intersection!')
 
+        crds_df = pd.DataFrame(
+            data={'X': self._interp_x_crds_msh, 'Y': self._interp_y_crds_msh},
+            dtype=float)
+
+        fin_cntn_idxs_set = chk_pt_cntmnt_in_polys_mp(
+            self._geom_buff_cells, crds_df, self._n_cpus)
+
         fin_cntn_idxs = np.zeros(self._interp_x_crds_msh.shape[0], dtype=bool)
+        for idx in fin_cntn_idxs_set:
+            fin_cntn_idxs[idx] = True
 
-        if self._interp_x_crds_msh.shape[0] > self._thresh_mp_poly_crds:
-            mp_pool = Pool(self._n_cpus)
-
-            step_idxs = ret_mp_idxs(
-                self._interp_x_crds_msh.shape[0], self._n_cpus)
-
-            # polygons or rings cannot be sent over to another process and
-            # unpickled as of now. So points are sent over and then
-            # used to contruct the polygon for further operations.
-            # It is quite inefficient but I don't what else to do now.
-
-            for poly in self._geom_buff_cells:
-                assert poly.GetGeometryCount() == 1, (
-                    'Expected geometry count to be 1!')
-
-                pts = poly.GetGeometryRef(0).GetPoints()
-
-                steps_gen = (
-                    (step_idxs[i],
-                     step_idxs[i + 1],
-                     self._interp_x_crds_msh[step_idxs[i]:step_idxs[i + 1]],
-                     self._interp_y_crds_msh[step_idxs[i]:step_idxs[i + 1]],
-                     pts)
-                    for i in range(self._n_cpus))
-
-                ress = list(mp_pool.map(get_containment_idxs, steps_gen))
-
-                curr_cntn_idxs = np.zeros(
-                    self._interp_x_crds_msh.shape[0], dtype=bool)
-
-                for res in ress:
-                    beg_idx, end_idx, res_cntn_idxs = res
-                    curr_cntn_idxs[beg_idx:end_idx] = res_cntn_idxs
-
-                fin_cntn_idxs = fin_cntn_idxs | curr_cntn_idxs
-
-            mp_pool.close()
-            mp_pool.join()
-
-            mp_pool = None
-
-        else:
-            ogr_pts = np.vectorize(cnvt_to_pt)(
-                self._interp_x_crds_msh, self._interp_y_crds_msh)
-
-            for poly in self._geom_buff_cells:
-                curr_cntn_idxs = np.vectorize(chk_cntmt)(ogr_pts, poly)
-
-                assert curr_cntn_idxs.sum(), 'Polygon intersects zero cells!'
-
-                fin_cntn_idxs = fin_cntn_idxs | curr_cntn_idxs
-
-        fin_idxs_sum = fin_cntn_idxs.sum()
+        n_fin_cntn_idxs = fin_cntn_idxs.size
 
         if self._vb:
             print(
-                fin_idxs_sum,
+                n_fin_cntn_idxs,
                 'cells to interpolate per step after intersection!')
+
+            end_time = default_timer()
+            print(f'Took {end_time - beg_time:0.2f} seconds.')
+
             print_el()
 
-        assert fin_idxs_sum, 'No cells selected for interpolation!'
+        assert n_fin_cntn_idxs, 'No cells selected for interpolation!'
 
         self._interp_x_crds_msh = self._interp_x_crds_msh[fin_cntn_idxs]
         self._interp_y_crds_msh = self._interp_y_crds_msh[fin_cntn_idxs]
 
+        assert fin_cntn_idxs.dtype == np.bool, 'Expected a boolean array!'
         self._cntn_idxs = fin_cntn_idxs
         return
 
@@ -489,34 +457,54 @@ class SpInterpPrepare(SIBD, KDT):
         else:
             raise NotImplementedError(
                 f'Unknown index_type: {self._index_type}!')
+        #======================================================================
+
+        if self._edk_flag and (not self._algn_ras_set_flag):
+            self._cell_size = get_ras_props(str(self._drft_rass[0]))[6]
+
+        if self._algn_ras_set_flag:
+            # This updates the cell size to that of the align raster.
+            self._cmpt_aligned_coordinates()
+
+        else:
+            self._cmpt_corner_coordinates()
+
+        print_sl()
+        print('Final grid cell size:', self._cell_size)
+        print_el()
+
+        assert self._cell_size is not None, 'Cell size unspecified!'
+        #======================================================================
 
         if self._cell_sel_prms_set:
+            # cell_size should be set by now.
             self._select_nearest_stations()
+        #======================================================================
 
         if self._cell_sel_prms_set and self._plot_figs_flag:
             sf = shp.Reader(str(self._poly_shp))
 
             self._plot_polys = [
                 i.__geo_interface__ for i in sf.iterShapes()]
-
-        if self._algn_ras_set_flag:
-            self._cmpt_aligned_coordinates()
-
-        else:
-            self._cmpt_corner_coordinates()
+        #======================================================================
 
         if self._edk_flag:
             self._assemble_drift_data()
+        #======================================================================
 
         self._prepare_crds()
+        #======================================================================
 
         if self._cell_sel_prms_set and self._ipoly_flag:
             self._select_nearby_cells()
+        #======================================================================
 
         self._vrf_nebs()
+        #======================================================================
 
         if self._edk_flag:
             self._prepare_stns_drift()
+        #======================================================================
 
         self._out_dir.mkdir(exist_ok=True)
 
@@ -548,9 +536,9 @@ class SpInterpPrepare(SIBD, KDT):
                 fig_dir.mkdir(exist_ok=True)
 
                 interp_plot_dirs[fig_dir_lab] = fig_dir
+        #======================================================================
 
         self._interp_args = []
-
         if self._ork_flag:
             if self._plot_figs_flag:
                 fig_dir = interp_plot_dirs['OK']
@@ -589,8 +577,10 @@ class SpInterpPrepare(SIBD, KDT):
                     fig_dir = None
 
                 self._interp_args.append(('IDW', fig_dir, idw_lab, idw_exp))
+        #======================================================================
 
         self._initiate_nc()
+        #======================================================================
 
         all_stns = self._data_df.columns.intersection(self._crds_df.index)
 
@@ -606,6 +596,7 @@ class SpInterpPrepare(SIBD, KDT):
                 'and station drifts\' dataframes!')
 
             self._stns_drft_df = self._stns_drft_df.loc[all_stns]
+        #======================================================================
 
         self._data_df = self._data_df.loc[:, all_stns]
         self._crds_df = self._crds_df.loc[all_stns]

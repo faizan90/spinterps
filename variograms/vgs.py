@@ -2,6 +2,7 @@ import warnings
 from math import pi, sqrt
 from copy import deepcopy
 from itertools import permutations
+# from itertools import combinations
 
 import numpy as np
 from pandas import DataFrame
@@ -714,9 +715,10 @@ class Variogram:
         min_obj = np.inf  # using AIC
         self.best_vg_names = []
         self.best_vg_params = []
-        lb_thresh = 0.000000000001  # lower bound (used instead of zero)
+        lb_thresh = 1e-5  # lower bound (used instead of zero)
         for n in self.perm_r_list:
             perm = permutations(self.mix_vg_list, int(n))
+#             perm = combinations(self.mix_vg_list, int(n))
 
             skip_perm_list = []
 

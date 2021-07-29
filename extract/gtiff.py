@@ -419,7 +419,7 @@ class ExtractGTiffValues:
 
             bnd_ndvs[f'B{i:02d}'] = ndv
 
-            data = bnd.ReadAsArray().astype(float)
+            data = bnd.ReadAsArray()
 
             assert data.ndim == 2, 'Raster bands allowed to be 2D only!'
             assert data.size > 0, 'Raster band has zero values!'
@@ -432,6 +432,7 @@ class ExtractGTiffValues:
 
             gtiff_bnds[f'B{i:02d}'] = data
 
+        data = None
         in_hdl = None
 
         assert gtiff_bnds, 'This should not have happend!'
@@ -505,12 +506,16 @@ class ExtractGTiffValues:
                     f'Column index is out of bounds '
                     f'({cols_idxs_max}, {data.shape[1]})!')
 
-                bnd_data = data[rows_idxs, cols_idxs]
+                bnd_data = data[rows_idxs, cols_idxs].astype(float)
 
-                if bnd_ndvs[bnd] is not None:
+                if ((bnd_ndvs[bnd] is not None) and
+                    (not np.isnan(bnd_ndvs[bnd]))):
+
                     bnd_data[np.isclose(bnd_data, bnd_ndvs[bnd])] = np.nan
 
                 bnds_data[bnd] = bnd_data
+
+            data = bnd_data = None
 
             assert bnds_data, 'This should not have happend!'
 
