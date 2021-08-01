@@ -48,33 +48,82 @@ def traceback_wrapper(func):
     return wrapper
 
 
-def linearize_sub_geoms(geom, geoms, simplify_tol):
+def linearize_sub_polys(poly, polys, simplify_tol):
 
-    assert isinstance(geoms, Queue), 'geoms not a queue.Queue object!'
+    if poly is None:
+        print('WARNING: Geometry is None!')
 
-    assert simplify_tol >= 0
+    else:
+        assert isinstance(polys, Queue), 'polys not a queue.Queue object!'
 
-    if geom is None:
-        print('Geometry is None!')
-        return
+        assert simplify_tol >= 0
 
-    gct = geom.GetGeometryCount()
+        gct = poly.GetGeometryCount()
 
-    if gct == 1:
-        if simplify_tol:
-            geoms.put_nowait(geom.SimplifyPreserveTopology(simplify_tol))
+        assert poly.GetGeometryType() in (3, 6), 'Meant for polygons only!'
 
-        else:
-            geoms.put_nowait(geom.Buffer(0))
+        if gct == 1:
+            if simplify_tol:
+                poly = poly.SimplifyPreserveTopology(simplify_tol)
 
-    elif gct > 1:
-        for i in range(gct):
-            linearize_sub_geoms(geom.GetGeometryRef(i), geoms, simplify_tol)
+            poly = poly.Buffer(0)
 
-    elif gct == 0:
-        print('Encountered a geometry count of 0!')
+            n_pts = poly.GetGeometryRef(0).GetPointCount()
 
-    return geoms
+            if n_pts >= 3:
+                polys.put_nowait(poly)
+
+            else:
+                print('WARNING: A polygon has less than 3 points!')
+
+        elif gct > 1:
+            for i in range(gct):
+                linearize_sub_polys(
+                    poly.GetGeometryRef(i), polys, simplify_tol)
+
+        elif gct == 0:
+            print('WARNING: Encountered a geometry with a count of 0!')
+
+    return
+
+
+def linearize_sub_polys_with_labels(label, poly, labels_polys, simplify_tol):
+
+    if poly is None:
+        print('WARNING: Geometry is None!')
+
+    else:
+        assert isinstance(labels_polys, Queue), (
+            'labels_polys not a queue.Queue object!')
+
+        assert simplify_tol >= 0
+
+        gct = poly.GetGeometryCount()
+
+        assert poly.GetGeometryType() in (3, 6), 'Meant for polygons only!'
+
+        if gct == 1:
+            if simplify_tol:
+                poly = poly.SimplifyPreserveTopology(simplify_tol)
+
+            poly = poly.Buffer(0)
+
+            n_pts = poly.GetGeometryRef(0).GetPointCount()
+            if n_pts >= 3:
+                labels_polys.put_nowait((label, poly))
+
+            else:
+                print('WARNING: A polygon has less than 3 points!')
+
+        elif gct > 1:
+            for i in range(gct):
+                linearize_sub_polys_with_labels(
+                    label, poly.GetGeometryRef(i), labels_polys, simplify_tol)
+
+        elif gct == 0:
+            print('WARNING: Encountered a geometry with a count of 0!')
+
+    return
 
 
 def get_all_polys_in_shp(path_to_shp, simplify_tol):
@@ -103,7 +152,7 @@ def get_all_polys_in_shp(path_to_shp, simplify_tol):
         geom_type = geom.GetGeometryType()
 
         if geom_type in (3, 6):
-            linearize_sub_geoms(geom, all_geoms, simplify_tol)
+            linearize_sub_polys(geom, all_geoms, simplify_tol)
 
         else:
             ValueError(f'Invalid geometry type: {geom_type}!')
@@ -121,6 +170,10 @@ def chk_pt_cntmnt_in_poly(args):
         # from GetPoints.
         pts = poly_or_pts
 
+        n_poly_pts = len(pts)
+        assert n_poly_pts >= 3, (
+            f'Polygon not having enough points ({n_poly_pts})!')
+
         ring = ogr.Geometry(ogr.wkbLinearRing)
         for pt in pts:
             ring.AddPoint(*pt)
@@ -131,11 +184,15 @@ def chk_pt_cntmnt_in_poly(args):
     else:
         poly = poly_or_pts
 
-    fin_stns = []
+    poly_or_pts = None
+
     assert poly is not None, 'Corrupted polygon after buffering!'
 
-    for stn in crds_df.index:
+    poly_area = poly.Area()
+    assert poly_area > 0, f'Polygon has no area!'
 
+    fin_stns = []
+    for stn in crds_df.index:
         x, y = crds_df.loc[stn, ['X', 'Y']]
 
         if chk_cntmt(cnvt_to_pt(x, y), poly):
@@ -156,6 +213,13 @@ def chk_pt_cntmnt_in_polys_mp(polys, crds_df, n_cpus):
         sub_crds_dfs = []
         for poly in polys:
             poly_xmin, poly_xmax, poly_ymin, poly_ymax = poly.GetEnvelope()
+
+            assert poly.GetGeometryCount() == 1
+
+            n_poly_pts = poly.GetGeometryRef(0).GetPointCount()
+
+            assert n_poly_pts >= 3, (
+                f'Polygon not having enough points ({n_poly_pts})!')
 
             cntmnt_idxs = (
                 (x >= poly_xmin) &

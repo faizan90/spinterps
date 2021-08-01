@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from ..variograms.vgsinput import VariogramsData as VD
-from ..misc import print_sl, print_el
+from ..misc import print_sl, print_el, get_n_cpus
 
 
 class SpInterpData(VD):
@@ -388,6 +388,9 @@ class SpInterpData(VD):
         assert isinstance(simplify_tolerance_ratio, float), (
             'simplify_tolerance_ratio not a float!')
 
+        assert simplify_tolerance_ratio >= 0, (
+            'Invalid simplify_tolerance_ratio!')
+
         self._poly_shp = polygons_shapefile
 
         self._stn_bdist = float(station_select_buffer_distance)
@@ -571,8 +574,9 @@ class SpInterpData(VD):
 
         Parameters
         ----------
-        n_cpus : int
-            Number of threads to use for interpolation
+        n_cpus : int or str
+            Number of threads to use for interpolation. If 'auto' then the
+            number physical cores is used.
         plot_figs_flag : bool
             Plot the interpolated grid as a pcolormesh if True.
         cell_size : int or float
@@ -602,8 +606,15 @@ class SpInterpData(VD):
             Should be >= 0 and < infinity.
         '''
 
-        assert isinstance(n_cpus, int), 'n_cpus not an integer!'
-        assert 0 < n_cpus, 'n_cpus less than one!'
+        if isinstance(n_cpus, str):
+            assert n_cpus == 'auto', 'Invalid n_cpus!'
+
+            n_cpus = get_n_cpus()
+
+        else:
+            assert isinstance(n_cpus, int), 'n_cpus is not an integer!'
+
+            assert n_cpus > 0, 'Invalid n_cpus!'
 
         self._n_cpus = n_cpus
 

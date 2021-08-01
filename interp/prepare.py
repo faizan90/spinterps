@@ -264,7 +264,7 @@ class SpInterpPrepare(SIBD, KDT):
         for idx in fin_cntn_idxs_set:
             fin_cntn_idxs[idx] = True
 
-        n_fin_cntn_idxs = fin_cntn_idxs.size
+        n_fin_cntn_idxs = fin_cntn_idxs.sum()
 
         if self._vb:
             print(

@@ -45,8 +45,11 @@ class Extract:
             label_field,
             path_to_gtiff,
             path_to_output,
-            src_epsg,
-            dst_epsg):
+            minimum_cell_area_intersection_percentage,
+            n_cpus,
+            src_epsg=None,
+            dst_epsg=None,
+            simplify_tol_ratio=0.0):
 
         poly_cls = self._get_poly_cls(path_to_shp, label_field)
 
@@ -58,7 +61,8 @@ class Extract:
 
         itsct_cls = GeomAndCrdsItsctIdxs()
 
-        itsct_cls.set_geometries(poly_cls.get_polygons(), poly_cls._geom_type)
+        itsct_cls.set_geometries(
+            poly_cls.get_polygons(), poly_cls._geom_type, simplify_tol_ratio)
 
         itsct_cls.set_coordinates(
             gtiff_crds_cls.get_x_coordinates(),
@@ -66,6 +70,10 @@ class Extract:
             gtiff_crds_cls._raster_type_lab)
 
         itsct_cls.set_coordinate_system_transforms(src_epsg, dst_epsg)
+
+        itsct_cls.set_intersect_misc_settings(
+            minimum_cell_area_intersection_percentage,
+            n_cpus)
 
         itsct_cls.verify()
 
@@ -96,8 +104,11 @@ class Extract:
             y_crds_label,
             variable_labels,
             time_label,
+            minimum_cell_area_intersection_percentage,
+            n_cpus,
             src_epsg=None,
-            dst_epsg=None):
+            dst_epsg=None,
+            simplify_tol_ratio=0.0):
 
         assert isinstance(variable_labels, (list, tuple)), (
             'variable_labels can only be a list or tuple having strings!')
@@ -115,7 +126,8 @@ class Extract:
 
         itsct_cls = GeomAndCrdsItsctIdxs(verbose=self._vb)
 
-        itsct_cls.set_geometries(poly_cls.get_polygons(), poly_cls._geom_type)
+        itsct_cls.set_geometries(
+            poly_cls.get_polygons(), poly_cls._geom_type, simplify_tol_ratio)
 
         itsct_cls.set_coordinates(
             nc_crds_cls.get_x_coordinates(),
@@ -123,6 +135,10 @@ class Extract:
             nc_crds_cls._raster_type_lab)
 
         itsct_cls.set_coordinate_system_transforms(src_epsg, dst_epsg)
+
+        itsct_cls.set_intersect_misc_settings(
+            minimum_cell_area_intersection_percentage,
+            n_cpus)
 
         itsct_cls.verify()
 

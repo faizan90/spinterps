@@ -3,15 +3,444 @@ Created on May 27, 2019
 
 @author: Faizan-Uni
 '''
+from math import ceil
+from queue import Queue
 
 import pyproj
 import numpy as np
+import pandas as pd
 from osgeo import ogr, gdal
+from pathos.multiprocessing import ProcessPool
 
-from ..misc import print_sl, print_el, gdal_err_hdlr
+from ..misc import (
+    print_sl,
+    print_el,
+    gdal_err_hdlr,
+    linearize_sub_polys_with_labels,
+    get_n_cpus)
 
 gdal.PushErrorHandler(gdal_err_hdlr)
 ogr.UseExceptions()
+
+# def cmpt_poly_itsct_idxs(args):
+#
+#     (poly_or_pts,
+#      label,
+#      sub_idxs,  # Has the indices of the x_crds and y_crds in the main array.
+#      x_crds,  # Corner crds.
+#      y_crds,  # Corner crds.
+#      vb,
+#      min_itsct_area_pct_thresh) = args
+#
+#     if not isinstance(poly_or_pts, ogr.Geometry):
+#         n_pts = len(poly_or_pts)
+#
+#         assert n_pts >= 3, (
+#             f'Polygon not having enough points ({n_pts})!')
+#
+#         ring = ogr.Geometry(ogr.wkbLinearRing)
+#         for pt in poly_or_pts:
+#             ring.AddPoint(*pt)
+#
+#         poly = ogr.Geometry(ogr.wkbPolygon)
+#         poly.AddGeometry(ring)
+#
+#     else:
+#         poly = poly_or_pts
+#
+#     poly_or_pts = None
+#
+#     assert poly is not None, 'Corrupted polygon after buffering!'
+#
+#     poly_area = poly.Area()
+#     assert poly_area > 0, f'Polygon has no area!'
+#     #==========================================================================
+#
+#     n_cells_acptd = 0
+#     x_crds_acptd_idxs = []
+#     y_crds_acptd_idxs = []
+#     itsct_areas = []
+#     x_crds_acptd = []
+#     y_crds_acptd = []
+#
+#     min_row_idx, min_col_idx = sub_idxs.min(axis=0)
+#
+#     for row_idx, col_idx in sub_idxs:
+#         cell_ring = ogr.Geometry(ogr.wkbLinearRing)
+#
+#         try:
+#             cell_ring.AddPoint(
+#                 x_crds[row_idx - min_row_idx, col_idx - min_col_idx],
+#                 y_crds[row_idx - min_row_idx, col_idx - min_col_idx])
+#
+#             cell_ring.AddPoint(
+#                 x_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx],
+#                 y_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx])
+#
+#             cell_ring.AddPoint(
+#                 x_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx + 1],
+#                 y_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx + 1])
+#
+#             cell_ring.AddPoint(
+#                 x_crds[row_idx - min_row_idx, col_idx - min_col_idx + 1],
+#                 y_crds[row_idx - min_row_idx, col_idx - min_col_idx + 1])
+#
+#             cell_ring.AddPoint(
+#                 x_crds[row_idx - min_row_idx, col_idx - min_col_idx],
+#                 y_crds[row_idx - min_row_idx, col_idx - min_col_idx])
+#
+#         except IndexError:
+#             continue
+#
+#         cell_poly = ogr.Geometry(ogr.wkbPolygon)
+#         cell_poly.AddGeometry(cell_ring)
+#
+#         cell_area = cell_poly.Area()
+#
+#         assert cell_area > 0, 'Area of a cell is zero!'
+#
+#         itsct_poly = cell_poly.Intersection(poly)
+#         itsct_cell_area = itsct_poly.Area()
+#
+#         assert 0.0 <= itsct_cell_area < np.inf, (
+#             f'Intersection area between a cell and polygon: '
+#             f'{label} not between zero and infinity!')
+#
+#         if itsct_cell_area == 0:
+#             continue
+#
+#         min_area_thresh = (
+#             (min_itsct_area_pct_thresh / 100.0) * cell_area)
+#
+#         if itsct_cell_area < min_area_thresh:
+#             continue
+#
+#         n_cells_acptd += 1
+#
+#         x_crds_acptd_idxs.append(col_idx)
+#         y_crds_acptd_idxs.append(row_idx)
+#
+#         itsct_areas.append(itsct_cell_area)
+#
+#         centroid = cell_poly.Centroid()
+#         x_crds_acptd.append(centroid.GetX())
+#         y_crds_acptd.append(centroid.GetY())
+#     #==========================================================================
+#
+#     assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
+#     assert n_cells_acptd == len(x_crds_acptd_idxs)
+#     assert n_cells_acptd == len(y_crds_acptd_idxs)
+#     assert n_cells_acptd == len(itsct_areas)
+#     assert n_cells_acptd == len(x_crds_acptd)
+#     assert n_cells_acptd == len(y_crds_acptd)
+#
+#     if vb:
+#         print(
+#             f'{n_cells_acptd} cells contained or within proximity out of '
+#             f'{sub_idxs.shape[0]}.')
+#
+#     return (label, {
+#         'cols': x_crds_acptd_idxs,
+#         'rows': y_crds_acptd_idxs,
+#         'itsctd_area': itsct_areas,
+#         'x_cen_crds': x_crds_acptd,
+#         'y_cen_crds': y_crds_acptd, })
+
+# def get_sub_crds_for_polys(polys, labels, x_crds, y_crds, max_pts):
+#
+#     buff_dist = max(
+#         abs(x_crds[+1, +0] - x_crds[+0, +0]),
+#         abs(x_crds[-1, -1] - x_crds[-2, -1]),
+#         abs(y_crds[+1, +0] - y_crds[+0, 0]),
+#         abs(y_crds[-1, -1] - y_crds[-2, -1]),
+#         )
+#
+#     assert buff_dist > 0, 'Buffer distance cannot be negative!'
+#
+#     sub_polys = []
+#     sub_labels = []
+#     sub_idxs = []
+#     sub_x_crds = []
+#     sub_y_crds = []
+#     for poly, label in zip(polys, labels):
+#         extents = poly.GetEnvelope()
+#         poly_xmin, poly_xmax, poly_ymin, poly_ymax = extents
+#
+#         # NOTE: After buffering, the extents can go out of that of the raster.
+#         poly_xmin -= buff_dist
+#         poly_xmax += buff_dist
+#         poly_ymin -= buff_dist
+#         poly_ymax += buff_dist
+#
+#         assert poly.GetGeometryCount() == 1
+#
+#         n_poly_pts = poly.GetGeometryRef(0).GetPointCount()
+#
+#         assert n_poly_pts >= 3, (
+#             f'Polygon not having enough points ({n_poly_pts})!',
+#             label, poly.GetGeometryRef(0).GetPoints())
+#
+#         poly_idxs = np.vstack(np.where(
+#             (x_crds >= poly_xmin) &
+#             (x_crds <= poly_xmax) &
+#             (y_crds >= poly_ymin) &
+#             (y_crds <= poly_ymax))).T
+#
+#         assert poly_idxs.size, (
+#             f'Polygon {label} with extents :{extents} out of the '
+#             f'coordinates\' bounds!')
+#
+#         n_poly_idxs = poly_idxs.shape[0]
+#
+#         # Break the number of coordinates into chunks so that later,
+#         # fewer coordinates have to be processed per thread. This allows
+#         # for distributing load more uniformly over the available threads.
+#         break_idxs = np.arange(
+#             0, (max_pts * ceil(n_poly_idxs / max_pts)) + 1, max_pts)
+#
+#         break_idxs[-1] = n_poly_idxs
+#
+#         assert break_idxs[-2] < break_idxs[-1]
+#         assert break_idxs[-1] >= n_poly_idxs
+#
+#         for i in range(0, break_idxs.size - 1):
+#             break_poly_idxs = poly_idxs[break_idxs[i]:break_idxs[i + 1],:]
+#
+#             sub_polys.append(poly)
+#             sub_labels.append(label)
+#             sub_idxs.append(break_poly_idxs)
+#
+#             r_mn, c_mn = break_poly_idxs.min(axis=0)
+#             r_mx, c_mx = break_poly_idxs.max(axis=0) + 2
+#
+#             sub_x_crds.append(x_crds[r_mn:r_mx, c_mn:c_mx])
+#             sub_y_crds.append(y_crds[r_mn:r_mx, c_mn:c_mx])
+#
+#     return sub_polys, sub_labels, sub_idxs, sub_x_crds, sub_y_crds
+
+# def drop_repeated_idxs(rows_cols, dupd_idxs, label_dict):
+#
+#     fin_idxs = list(range(rows_cols.size))
+#
+#     done_idxs = set()
+#     for row, col in rows_cols[dupd_idxs]:
+#         if (row, col) in done_idxs:
+#             continue
+#
+#         idxs = rows_cols.get_loc((row, col))
+#
+#         if isinstance(idxs, slice):
+#             cdupd_idxs = list(range(idxs.start, idxs.stop, idxs.step))
+#
+#         elif isinstance(idxs, np.ndarray):
+#             cdupd_idxs = np.where(idxs)[0].tolist()
+#
+#         elif isinstance(idxs, int):
+#             raise ValueError('Expected more than one index!')
+#
+#         else:
+#             raise ValueError(
+#                 f'Don\'t know what to do with: {idxs}!')
+#
+#         # All except the first are taken.
+#         itsctd_area = sum(
+#             [label_dict['itsctd_area'][idx] for idx in cdupd_idxs])
+#
+#         label_dict['itsctd_area'][cdupd_idxs[0]] = itsctd_area
+#
+#         for cdupd_idx in cdupd_idxs[1:]:
+#             del fin_idxs[fin_idxs.index(cdupd_idx)]
+#
+#             label_dict['itsctd_area'][cdupd_idx] = np.nan
+#
+#             assert np.isclose(
+#                 label_dict['x_cen_crds'][cdupd_idx],
+#                 label_dict['x_cen_crds'][cdupd_idxs[0]])
+#
+#             assert np.isclose(
+#                 label_dict['y_cen_crds'][cdupd_idx],
+#                 label_dict['y_cen_crds'][cdupd_idxs[0]])
+#
+#             label_dict['x_cen_crds'][cdupd_idx] = np.nan
+#             label_dict['y_cen_crds'][cdupd_idx] = np.nan
+#
+#         done_idxs.add((row, col))
+#
+#     assert len(fin_idxs)
+#
+#     fin_idxs = np.array(fin_idxs, dtype=np.uint64)
+#
+#     return fin_idxs
+
+# def assemble_itsct_idxs_dict(labels, n_x_crds, ress, vb):
+#
+#     label_data_keys = [
+#         'cols',
+#         'rows',
+#         'itsctd_area',
+#         'x_cen_crds',
+#         'y_cen_crds']
+#
+#     label_dtypes = [
+#         int, int, float, float, float]
+#
+#     assert len(label_data_keys) == len(label_dtypes)
+#
+#     itsct_idxs_dict = {}
+#     cells_area_sum = 0.0
+#
+#     for label in labels:
+#         label_data = []
+#
+#         for res in ress:
+#             if res[0] != label:
+#                 continue
+#
+#             assert len(label_data_keys) == len(res[1]), (
+#                 'Mismatch in expected and present number of outputs!')
+#
+#             label_data.append(res[1])
+#
+#         label_dict = {}
+#         for key in label_data_keys:
+#             label_dict[key] = []
+#
+#             [label_dict[key].extend(data[key]) for data in label_data]
+#
+#         rows_cols = pd.Index([
+#             (row, col)
+#             for row, col in zip(label_dict['rows'], label_dict['cols'])],
+#             dtype=object)
+#
+#         dupd_idxs = np.where(rows_cols.duplicated(False))[0]
+#
+#         fin_idxs = None
+#         if dupd_idxs.size:  # Work out the repeated cells.
+#             fin_idxs = drop_repeated_idxs(rows_cols, dupd_idxs, label_dict)
+#
+#         for key, dtype in zip(label_data_keys, label_dtypes):
+#             label_dict[key] = np.array(label_dict[key], dtype=dtype)
+#
+#             if fin_idxs is not None:
+#                 label_dict[key] = label_dict[key][fin_idxs]
+#
+#         n_itsctd_cells = label_dict['itsctd_area'].size
+#         cells_area = label_dict['itsctd_area'].sum()
+#
+#         cells_area_sum += cells_area
+#
+#         label_dict['rel_itsctd_area'] = label_dict['itsctd_area'] / cells_area
+#
+#         itsct_idxs_dict[label] = label_dict
+#
+#         if vb:
+#             print(
+#                 f'INFO: Area of {label}: {cells_area} units having a '
+#                 f'total of {n_itsctd_cells} cells contained or within '
+#                 f'proximity out of '
+#                 f'{n_x_crds} ({100 * n_itsctd_cells / n_x_crds:0.1f}%).')
+#
+#     return itsct_idxs_dict, cells_area_sum
+
+# def cmpt_polys_itsct_idxs_mp(
+#         polys, labels, x_crds, y_crds, n_cpus, vb, min_itsct_area_pct_thresh):
+#
+#     org_polys_area = sum([polys[label].GetArea() for label in labels])
+#
+#     org_poly_types = [polys[label].GetGeometryType() for label in labels]
+#
+#     if all([gt == 3 for gt in org_poly_types]):
+#         lin_labels = labels
+#         lin_polys = [polys[label] for label in label]
+#         lin_polys_area = org_polys_area
+#
+#     else:
+#         labels_polys = Queue()
+#
+#         for label in labels:
+#             linearize_sub_polys_with_labels(
+#                 label, polys[label], labels_polys, 0)
+#
+#         lin_labels = []
+#         lin_polys = []
+#
+#         [(lin_labels.append(label), lin_polys.append(poly))
+#          for label, poly in labels_polys.queue]
+#
+#         lin_polys_area = sum([poly.GetArea() for poly in lin_polys])
+#     #==========================================================================
+#
+#     max_pts_per_thread = int(max(1, x_crds.size // n_cpus))
+#
+#     (sub_polys,
+#      sub_labels,
+#      sub_idxs,
+#      sub_x_crds,
+#      sub_y_crds) = get_sub_crds_for_polys(
+#          lin_polys, lin_labels, x_crds, y_crds, max_pts_per_thread)
+#
+#     assert all([poly.GetGeometryCount() == 1 for poly in sub_polys])
+#     #==========================================================================
+#
+#     n_cpus = min(n_cpus, len(sub_polys))
+#
+#     assert n_cpus > 0, n_cpus
+#
+#     # Only do this if multiprocessing is used.
+#     # Because ogr.Geometry objects can't be pickled, apparently.
+#     if n_cpus > 1:
+#         sub_polys = [poly.GetGeometryRef(0).GetPoints() for poly in sub_polys]
+#
+#     idxs_gen = ((
+#         sub_polys[i],
+#         sub_labels[i],
+#         sub_idxs[i],
+#         sub_x_crds[i],
+#         sub_y_crds[i],
+#         False,
+#         min_itsct_area_pct_thresh)
+#         for i in range(len(sub_polys)))
+#
+#     if n_cpus > 1:
+#         mp_pool = ProcessPool(n_cpus)
+#         mp_pool.restart(True)
+#
+#         ress = list(mp_pool.uimap(cmpt_poly_itsct_idxs, idxs_gen))
+#
+#         mp_pool.clear()
+#         mp_pool.close()
+#         mp_pool.join()
+#         mp_pool = None
+#
+#     else:
+#         ress = []
+#         for args in idxs_gen:
+#             ress.append(cmpt_poly_itsct_idxs(args))
+#     #==========================================================================
+#
+#     itsct_idxs_dict, cells_area_sum = assemble_itsct_idxs_dict(
+#         labels, x_crds.size, ress, vb)
+#
+#     if vb:
+#         print(
+#             f'INFO: Total area of original polygons: '
+#             f'{org_polys_area} units.')
+#
+#         print(
+#             f'INFO: Total area of linearized polygons: '
+#             f'{lin_polys_area} units.')
+#
+#         print(
+#             f'INFO: Total area of cells intersecting with the polygons: '
+#             f'{cells_area_sum} units.')
+#
+#         pdiff = 100 * (cells_area_sum - lin_polys_area) / lin_polys_area
+#
+#         print(
+#             f'INFO: Mismatch in total area: '
+#             f'{cells_area_sum - lin_polys_area} units ({pdiff:0.3f}%).')
+#
+#     return itsct_idxs_dict
 
 
 class GeomAndCrdsItsctIdxs:
@@ -27,9 +456,11 @@ class GeomAndCrdsItsctIdxs:
         self._geoms = None
         self._labels = None
         self._geom_type = None
+        self._geom_sim_tol_ratio = None
 
         self._ras_type_labs = ('nc', 'gtiff')
 
+        self._geom_sim_tol = 0.0
         self._x_crds_orig = None
         self._y_crds_orig = None
         self._x_crds = None
@@ -41,18 +472,22 @@ class GeomAndCrdsItsctIdxs:
         self._crds_dst_epsg = None
         self._crds_tfmr = None
 
-        self._min_itsct_area_pct_thresh = 1
-        self._max_itct_cells_thresh = 5000
+        self._cell_size = None
+
+        self._min_itsct_area_pct_thresh = None
+        self._n_cpus = None
 
         self._itsct_idxs_dict = None
 
         self._set_itsct_idxs_geoms_flag = False
         self._set_itsct_idxs_crds_flag = False
+        self._set_itsct_misc_flag = False
         self._set_itsct_idxs_vrfd_flag = False
+        self._set_itsct_misc_flag = False
         self._itsct_idxs_cmptd_flag = False
         return
 
-    def set_geometries(self, geometries, geometry_type):
+    def set_geometries(self, geometries, geometry_type, simplify_tol_ratio):
 
         '''Set the geometries for intersection.
 
@@ -64,6 +499,10 @@ class GeomAndCrdsItsctIdxs:
             An integer corresponding to the geometry types of ogr.
             Currently supported are points (geometry_type=1), polygons
             (geometry_type=3) and multipolygons (geometry_type=6).
+        simplify_tol_ratio : float
+            How much to simplify the geometries with respect to the mean
+            cell_size. Should be greater than or equal to 0. If zero than
+            no simplification is performed.
         '''
 
         if self._vb:
@@ -80,7 +519,12 @@ class GeomAndCrdsItsctIdxs:
             'geometry_type can only be an integer!')
 
         assert geometry_type in self._geom_types, (
-            f'geometry_type can be one of {self._geom_types} only!')
+            f'geometry_type can be one of {self._geom_types} only!')  #
+
+        assert isinstance(simplify_tol_ratio, float), (
+            'simplify_tol_ratio not a float!')
+
+        assert simplify_tol_ratio >= 0, ('Invalid simplify_tol_ratio!')
 
         n_geoms = len(geometries)
 
@@ -138,9 +582,9 @@ class GeomAndCrdsItsctIdxs:
         self._geoms = geometries
         self._labels = labels
         self._geom_type = geometry_type
+        self._geom_sim_tol_ratio = simplify_tol_ratio
 
         if self._vb:
-
             print(
                 f'INFO: Set {n_geoms} geometries for '
                 f'intersection with coordinates')
@@ -153,6 +597,10 @@ class GeomAndCrdsItsctIdxs:
 
             else:
                 raise NotImplementedError
+
+            print(
+                'Geometry simplification tolerance ratio is:',
+                self._geom_sim_tol_ratio)
 
             print_el()
 
@@ -285,7 +733,7 @@ class GeomAndCrdsItsctIdxs:
     def set_intersect_misc_settings(
             self,
             minimum_cell_area_intersection_percentage,
-            maximum_cells_threshold_per_polygon):
+            n_cpus):
 
         assert isinstance(
             minimum_cell_area_intersection_percentage, (int, float)), (
@@ -296,17 +744,20 @@ class GeomAndCrdsItsctIdxs:
             'minimum_cell_area_intersection_percentage can only be between '
             '0 and 100!')
 
-        assert isinstance(maximum_cells_threshold_per_polygon, int), (
-            'maximum_cells_threshold_per_polygon not an integer!')
+        if isinstance(n_cpus, str):
+            assert n_cpus == 'auto', 'Invalid n_cpus!'
 
-        assert 0 <= maximum_cells_threshold_per_polygon < np.inf, (
-            'maximum_cells_threshold_per_polygon can be between 0 '
-            'and infinity only!')
+            n_cpus = get_n_cpus()
+
+        else:
+            assert isinstance(n_cpus, int), 'n_cpus is not an integer!'
+
+            assert n_cpus > 0, 'Invalid n_cpus!'
 
         self._min_itsct_area_pct_thresh = (
             minimum_cell_area_intersection_percentage)
 
-        self._max_itct_cells_thresh = maximum_cells_threshold_per_polygon
+        self._n_cpus = n_cpus
 
         if self._vb:
             print_sl()
@@ -315,13 +766,15 @@ class GeomAndCrdsItsctIdxs:
 
             print(
                 f'Minimum cell area intersection percentage: '
-                f'{minimum_cell_area_intersection_percentage}')
+                f'{self._min_itsct_area_pct_thresh}')
 
             print(
-                f'Maximum cells threshold per polygon: '
-                f'{maximum_cells_threshold_per_polygon}')
+                f'Number of maximum process(es) to use: '
+                f'{self._n_cpus}')
 
             print_el()
+
+        self._set_itsct_misc_flag = True
         return
 
     def verify(self):
@@ -339,6 +792,9 @@ class GeomAndCrdsItsctIdxs:
         assert self._set_itsct_idxs_crds_flag, (
             'Call the set_coordinates method first!')
 
+        assert self._set_itsct_misc_flag, (
+            'Call set_intersect_misc_settings first!')
+
         x_min = x_max = y_min = y_max = None
 
         if ((self._ras_type_lab == 'nc') and
@@ -355,8 +811,8 @@ class GeomAndCrdsItsctIdxs:
             x_crds = self._get_rect_crds_1d(self._x_crds_orig)
             y_crds = self._get_rect_crds_1d(self._y_crds_orig)
 
-            # Here, limits have to be set separately. because actual limits
-            # are lost.
+            # Here, limits have to be set separately because actual limits
+            # are lost otherwise.
             x_min = self._x_crds_orig.min()
             x_max = self._x_crds_orig.max()
 
@@ -422,6 +878,19 @@ class GeomAndCrdsItsctIdxs:
             y_min = self._y_crds.min()
             y_max = self._y_crds.max()
 
+        self._cell_size = self._get_mean_cell_size()
+
+        if self._geom_sim_tol_ratio:
+            self._geom_sim_tol = (
+                self._cell_size * self._geom_sim_tol_ratio)
+
+            self._geoms = self._get_simplified_geoms()
+
+            if self._vb:
+                print(
+                    f'INFO: Simplified geometries with a tolerance of '
+                    f'{self._geom_sim_tol} units.')
+
         if self._geom_type == 1:
             for label in self._labels:
                 geom = self._geoms[label]
@@ -467,13 +936,23 @@ class GeomAndCrdsItsctIdxs:
                     f'Maximum Y coordinate of the polygon: {label} is greater '
                     f'than the maximum Y coordinate ({gy_max}, {y_max})!')
 
+            if not (self._crds_ndims == 2):
+                self._x_crds, self._y_crds = np.meshgrid(
+                    self._x_crds, self._y_crds)
+
+                self._crds_ndims = 2
+
+                print(
+                    'INFO: Converting coordinates to 2D due to '
+                    'transformation!')
+
         else:
             raise NotImplementedError
 
         if self._vb:
             print(
                 f'INFO: All inputs for geometries\' and coordinates\' '
-                f'intersection verified to be correct')
+                f'intersection verified to be correct.')
 
             print_el()
 
@@ -497,33 +976,24 @@ class GeomAndCrdsItsctIdxs:
             'Intersection configured for 2 or less dimensions of '
             'coordinates!')
 
+        itsct_idxs_dict = None
+
         if self._geom_type == 1:
             if self._crds_ndims == 1:
                 itsct_idxs_dict = self._cmpt_1d_pt_idxs()
 
-            else:
+            elif self._crds_ndims == 2:
                 itsct_idxs_dict = self._cmpt_2d_pt_idxs()
 
+            else:
+                raise NotImplementedError(
+                    'Not implemented for more than two dimensions!')
+
         elif self._geom_type == 3:
-            itsct_idxs_dict = {}
+            assert self._crds_ndims == 2, (
+                'Coordinates should have been 2D by now!')
 
-            for label in self._labels:
-                geom = self._geoms[label]
-
-                if self._vb:
-                    print('\n')
-                    print(f'Going through polygon: {label}...')
-
-                if self._crds_ndims == 1:
-                    res = self._cmpt_1d_poly_idxs(geom, label)
-
-                elif self._crds_ndims == 2:
-                    res = self._cmpt_2d_poly_idxs(geom, label)
-
-                else:
-                    raise NotImplementedError
-
-                itsct_idxs_dict[label] = res
+            itsct_idxs_dict = self._cmpt_polys_itsct_idxs()
 
         else:
             raise NotImplementedError
@@ -548,6 +1018,36 @@ class GeomAndCrdsItsctIdxs:
             'Call the compute_intersect_idxs method first!')
 
         return self._itsct_idxs_dict
+
+    def _get_mean_cell_size(self):
+
+        if self._crds_ndims == 1:
+            mean_cell_size = np.concatenate((
+                np.abs(self._x_crds[1:] - self._x_crds[:-1]),
+                np.abs(self._y_crds[1:] - self._y_crds[:-1]))).mean()
+
+        elif self._crds_ndims == 2:
+            mean_cell_size = np.concatenate((
+                np.abs(self._x_crds[1:,:] - self._x_crds[:-1,:]),
+                np.abs(self._y_crds[:, 1:] - self._y_crds[:,:-1]))).mean()
+
+        else:
+            raise NotImplementedError(
+                f'Mean cell size nor implmented for given number of '
+                f'dimensions ({self._crds_ndims})!')
+
+        if self._vb:
+            print('INFO: Mean cell size is:', mean_cell_size)
+
+        return mean_cell_size
+
+    def _get_simplified_geoms(self):
+
+        sim_geoms = {
+            label: geom.SimplifyPreserveTopology(self._geom_sim_tol).Buffer(0)
+            for label, geom in self._geoms.items()}
+
+        return sim_geoms
 
     def _reproject(self, x_crds, y_crds):
 
@@ -1019,245 +1519,722 @@ class GeomAndCrdsItsctIdxs:
 
         return itsct_idxs_dict
 
-    def _cmpt_1d_poly_idxs(self, geom, label):
-
-        assert self._crds_ndims == 1, 'Configured for 1D coordinates only!'
-        assert self._geom_type == 3, 'Configured for polygon geometries only!'
-
-        x_crds = self._x_crds
-        y_crds = self._y_crds
-
-        geom_area = geom.Area()
-        assert geom_area > 0, f'Polygon: {label} has no area!'
-
-        buff_dist = max(
-            abs(x_crds[+1] - x_crds[+0]),
-            abs(x_crds[-1] - x_crds[-2]),
-            abs(y_crds[+1] - y_crds[+0]),
-            abs(y_crds[-1] - y_crds[-2]),
-            )
-
-        assert buff_dist > 0, 'Buffer distance cannot be negative!'
-
-#         geom_buff = geom.Buffer(buff_dist)
+#     def _cmpt_1d_poly_idxs(self, geom, label):
 #
-#         assert geom_buff is not None, (
-#             f'Buffer operation failed on polygon: {label}!')
+#         assert self._crds_ndims == 1, 'Configured for 1D coordinates only!'
+#         assert self._geom_type == 3, 'Configured for polygon geometries only!'
 #
-#         geom_buff_area = geom_buff.Area()
-#         assert geom_buff_area > 0, f'Buffered polygon: {label} has no area!'
+#         x_crds = self._x_crds
+#         y_crds = self._y_crds
 #
-#         assert geom_buff_area >= geom_area, (
-#             f'Buffered polygon: {label} area less than the original one!')
+#         geom_area = geom.Area()
+#         assert geom_area > 0, f'Polygon: {label} has no area!'
 #
-#         extents = geom_buff.GetEnvelope()
+#         buff_dist = max(
+#             abs(x_crds[+1] - x_crds[+0]),
+#             abs(x_crds[-1] - x_crds[-2]),
+#             abs(y_crds[+1] - y_crds[+0]),
+#             abs(y_crds[-1] - y_crds[-2]),
+#             )
+#
+#         assert buff_dist > 0, 'Buffer distance cannot be negative!'
+#
+# #         geom_buff = geom.Buffer(buff_dist)
+# #
+# #         assert geom_buff is not None, (
+# #             f'Buffer operation failed on polygon: {label}!')
+# #
+# #         geom_buff_area = geom_buff.Area()
+# #         assert geom_buff_area > 0, f'Buffered polygon: {label} has no area!'
+# #
+# #         assert geom_buff_area >= geom_area, (
+# #             f'Buffered polygon: {label} area less than the original one!')
+# #
+# #         extents = geom_buff.GetEnvelope()
+#
+#         extents = list(geom.GetEnvelope())
+#         extents[0] -= buff_dist
+#         extents[1] += buff_dist
+#         extents[2] -= buff_dist
+#         extents[3] += buff_dist
+#
+#         assert len(extents) == 4, 'Configured for 2D extents only!'
+#
+#         gx_min, gx_max, gy_min, gy_max = extents
+#
+#         tot_x_idxs = np.where((x_crds >= gx_min) & (x_crds <= gx_max))[0]
+#         tot_y_idxs = np.where((y_crds >= gy_min) & (y_crds <= gy_max))[0]
+#
+#         assert tot_x_idxs.size, (
+#             f'No X coordinate selected for the polygon: {label}!')
+#
+#         assert tot_y_idxs.size, (
+#             f'No Y coordinate selected for the polygon: {label}!')
+#
+#         n_cells_acptd = 0
+#         x_crds_acptd_idxs = []
+#         y_crds_acptd_idxs = []
+#         itsct_areas = []
+#         itsct_rel_areas = []
+#         x_crds_acptd = []
+#         y_crds_acptd = []
+#
+#         if self._vb:
+#             print(
+#                 f'Testing {tot_x_idxs.size * tot_y_idxs.size} cells '
+#                 f'for containment/proximity...')
+#
+# #         for x_idx in tot_x_idxs:
+# #             for y_idx in tot_y_idxs:
+# #                 ring = ogr.Geometry(ogr.wkbLinearRing)
+# #                 ring.AddPoint(x_crds[x_idx], y_crds[y_idx])
+# #                 ring.AddPoint(x_crds[x_idx + 1], y_crds[y_idx])
+# #                 ring.AddPoint(x_crds[x_idx + 1], y_crds[y_idx + 1])
+# #                 ring.AddPoint(x_crds[x_idx], y_crds[y_idx + 1])
+# #                 ring.AddPoint(x_crds[x_idx], y_crds[y_idx])
+# #
+# #                 poly = ogr.Geometry(ogr.wkbPolygon)
+# #                 poly.AddGeometry(ring)
+# #
+# #                 poly_area = poly.Area()
+# #
+# #                 assert poly_area > 0, 'Area of a cell is zero!'
+# #
+# #                 itsct_poly = poly.Intersection(geom)
+# #                 itsct_cell_area = itsct_poly.Area()
+# #
+# #                 assert 0.0 <= itsct_cell_area < np.inf, (
+# #                     f'Intersection area between a cell and polygon: '
+# #                     f'{label} not between zero and infinity!')
+# #
+# #                 min_area_thresh = (
+# #                     (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
+# #
+# #                 if itsct_cell_area < min_area_thresh:
+# #                     continue
+#
+#         for x_idx in tot_x_idxs:
+#             x1 = x_crds[x_idx]
+#             x2 = x_crds[x_idx + 1]
+#             for y_idx in tot_y_idxs:
+#
+#                 y1 = y_crds[y_idx]
+#                 y2 = y_crds[y_idx + 1]
+#
+#                 cell_ring = ogr.Geometry(ogr.wkbLinearRing)
+#                 cell_ring.AddPoint(x1, y1)
+#                 cell_ring.AddPoint(x2, y1)
+#                 cell_ring.AddPoint(x2, y2)
+#                 cell_ring.AddPoint(x1, y2)
+#                 cell_ring.AddPoint(x1, y1)
+#
+#                 cell_poly = ogr.Geometry(ogr.wkbPolygon)
+#                 cell_poly.AddGeometry(cell_ring)
+#
+#                 cell_area = cell_poly.Area()
+#
+#                 assert cell_area > 0, 'Area of a cell is zero!'
+#
+#                 itsct_poly = cell_poly.Intersection(geom)
+#                 itsct_cell_area = itsct_poly.Area()
+#
+#                 assert 0.0 <= itsct_cell_area < np.inf, (
+#                     f'Intersection area between a cell and polygon: '
+#                     f'{label} not between zero and infinity!')
+#
+#                 min_area_thresh = (
+#                     (self._min_itsct_area_pct_thresh / 100.0) * cell_area)
+#
+#                 if itsct_cell_area < min_area_thresh:
+#                     continue
+#
+#                 n_cells_acptd += 1
+#
+#                 x_crds_acptd_idxs.append(x_idx)
+#                 y_crds_acptd_idxs.append(y_idx)
+#
+#                 itsct_areas.append(itsct_cell_area)
+#                 itsct_rel_areas.append(itsct_cell_area / geom_area)
+#
+#                 centroid = cell_poly.Centroid()
+#                 x_crds_acptd.append(centroid.GetX())
+#                 y_crds_acptd.append(centroid.GetY())
+#
+#         assert n_cells_acptd <= (tot_x_idxs.size * tot_y_idxs.size), (
+#             'This should not have happend!')
+#
+#         assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
+#         assert n_cells_acptd == len(x_crds_acptd_idxs)
+#         assert n_cells_acptd == len(y_crds_acptd_idxs)
+#         assert n_cells_acptd == len(itsct_areas)
+#         assert n_cells_acptd == len(itsct_rel_areas)
+#         assert n_cells_acptd == len(x_crds_acptd)
+#         assert n_cells_acptd == len(y_crds_acptd)
+#
+#         if self._vb:
+#             print(f'{n_cells_acptd} cells contained/in proximity')
+#
+#         print('area using orig alg:', sum(itsct_areas))
+#
+#         return {
+#             'cols':np.array(x_crds_acptd_idxs, dtype=int),
+#             'rows': np.array(y_crds_acptd_idxs, dtype=int),
+#             'itsctd_area': np.array(itsct_areas, dtype=float),
+#             'rel_itsctd_area': np.array(itsct_rel_areas, dtype=float),
+#             'x_cen_crds': np.array(x_crds_acptd, dtype=float),
+#             'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
 
-        extents = list(geom.GetEnvelope())
-        extents[0] -= buff_dist
-        extents[1] += buff_dist
-        extents[2] -= buff_dist
-        extents[3] += buff_dist
+#     def _cmpt_2d_poly_idxs(self, geom, label):
+#
+#         assert self._crds_ndims == 2, 'Configured for 2D coordinates only!'
+#
+#         geom_area = geom.Area()
+#         assert geom_area > 0, f'Polygon: {label} has no area!'
+#
+#         x_crds = self._x_crds
+#         y_crds = self._y_crds
+#
+#         buff_dist = max(
+#             abs(x_crds[+1, +0] - x_crds[+0, +0]),
+#             abs(x_crds[-1, -1] - x_crds[-2, -1]),
+#             abs(y_crds[+1, +0] - y_crds[+0, 0]),
+#             abs(y_crds[-1, -1] - y_crds[-2, -1]),
+#             )
+#
+#         assert buff_dist > 0, 'Buffer distance cannot be negative!'
+#
+# #         geom_buff = geom.Buffer(buff_dist)
+# #
+# #         assert geom_buff is not None, (
+# #             f'Buffer operation failed on polygon: {label}!')
+# #
+# #         geom_buff_area = geom_buff.Area()
+# #         assert geom_buff_area > 0, f'Buffered Polygon: {label} has no area!'
+# #
+# #         assert geom_buff_area >= geom_area, (
+# #             f'Buffered polygon: {label} area less than the original one!')
+# #
+# #         extents = geom_buff.GetEnvelope()
+#
+#         extents = list(geom.GetEnvelope())
+#         extents[0] -= buff_dist
+#         extents[1] += buff_dist
+#         extents[2] -= buff_dist
+#         extents[3] += buff_dist
+#
+#         assert len(extents) == 4, 'Configured for 2D extents only!'
+#
+#         gx_min, gx_max, gy_min, gy_max = extents
+#
+#         tot_idxs = np.vstack(np.where(
+#             (x_crds >= gx_min) &
+#             (x_crds <= gx_max) &
+#             (y_crds >= gy_min) &
+#             (y_crds <= gy_max))).T
+#
+#         keep_idxs = ~(
+#             (tot_idxs[:, 0] >= (x_crds.shape[0] - 1)) |
+#             (tot_idxs[:, 1] >= (x_crds.shape[1] - 1)))
+#
+#         tot_idxs = tot_idxs[keep_idxs].copy('c')
+#
+#         assert tot_idxs.size, (
+#             f'No cell selected for the polygon: {label}!')
+#
+#         assert np.all(x_crds.shape), (
+#             'Shape of X coordinates not allowed to have a zero!')
+#
+#         assert np.all(y_crds.shape), (
+#             'Shape of Y coordinates not allowed to have a zero!')
+#
+#         n_cells_acptd = 0
+#         x_crds_acptd_idxs = []
+#         y_crds_acptd_idxs = []
+#         itsct_areas = []
+#         itsct_rel_areas = []
+#         x_crds_acptd = []
+#         y_crds_acptd = []
+#
+#         for row_idx, col_idx in tot_idxs:
+#             ring = ogr.Geometry(ogr.wkbLinearRing)
+#
+#             ring.AddPoint(
+#                 x_crds[row_idx, col_idx],
+#                 y_crds[row_idx, col_idx])
+#
+#             ring.AddPoint(
+#                 x_crds[row_idx + 1, col_idx],
+#                 y_crds[row_idx + 1, col_idx])
+#
+#             ring.AddPoint(
+#                 x_crds[row_idx + 1, col_idx + 1],
+#                 y_crds[row_idx + 1, col_idx + 1])
+#
+#             ring.AddPoint(
+#                 x_crds[row_idx, col_idx + 1],
+#                 y_crds[row_idx, col_idx + 1])
+#
+#             ring.AddPoint(
+#                 x_crds[row_idx, col_idx],
+#                 y_crds[row_idx, col_idx])
+#
+#             poly = ogr.Geometry(ogr.wkbPolygon)
+#             poly.AddGeometry(ring)
+#
+#             poly_area = poly.Area()
+#
+#             assert poly_area > 0, 'Area of a cell is zero!'
+#
+#             itsct_poly = poly.Intersection(geom)
+#             itsct_cell_area = itsct_poly.Area()
+#
+#             assert 0.0 <= itsct_cell_area < np.inf, (
+#                 f'Intersection area between a cell and polygon: '
+#                 f'{label} not between zero and infinity!')
+#
+#             min_area_thresh = (
+#                 (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
+#
+#             if itsct_cell_area < min_area_thresh:
+#                 continue
+#
+#             n_cells_acptd += 1
+#
+#             x_crds_acptd_idxs.append(col_idx)
+#             y_crds_acptd_idxs.append(row_idx)
+#
+#             itsct_areas.append(itsct_cell_area)
+#             itsct_rel_areas.append(itsct_cell_area / geom_area)
+#
+#             centroid = poly.Centroid()
+#             x_crds_acptd.append(centroid.GetX())
+#             y_crds_acptd.append(centroid.GetY())
+#
+#         assert n_cells_acptd <= tot_idxs.size, 'This should not have happend!'
+#
+#         assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
+#         assert n_cells_acptd == len(x_crds_acptd_idxs)
+#         assert n_cells_acptd == len(y_crds_acptd_idxs)
+#         assert n_cells_acptd == len(itsct_areas)
+#         assert n_cells_acptd == len(itsct_rel_areas)
+#         assert n_cells_acptd == len(x_crds_acptd)
+#         assert n_cells_acptd == len(y_crds_acptd)
+#
+#         return {
+#             'cols':np.array(x_crds_acptd_idxs, dtype=int),
+#             'rows': np.array(y_crds_acptd_idxs, dtype=int),
+#             'itsctd_area': np.array(itsct_areas, dtype=float),
+#             'rel_itsctd_area': np.array(itsct_rel_areas, dtype=float),
+#             'x_cen_crds': np.array(x_crds_acptd, dtype=float),
+#             'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
 
-        assert len(extents) == 4, 'Configured for 2D extents only!'
+    def _cmpt_polys_itsct_idxs(self):
 
-        gx_min, gx_max, gy_min, gy_max = extents
+        '''
+        Summary:
+        1. Each multipolygon is split into polygons.
+        2. Incase of a multithreaded scenario, polygons that have too many
+           points for in them are broken into chunks to distributed the load
+           across threads uniformly.
+        3. X and Y corner coordinates of cells are tested for containment.
+        4. Each multipolygon that was split for a given label, their data
+           is combined to form only one set of indices per label. It may
+           happen that some indices are repeated in the case of a cell
+           intersecting with multiple polygons. This is also taken care of.
+        '''
 
-        tot_x_idxs = np.where((x_crds >= gx_min) & (x_crds <= gx_max))[0]
-        tot_y_idxs = np.where((y_crds >= gy_min) & (y_crds <= gy_max))[0]
+        org_polys_area = sum(
+            [self._geoms[label].GetArea() for label in self._labels])
 
-        assert tot_x_idxs.size, (
-            f'No X coordinate selected for the polygon: {label}!')
+        org_poly_types = [
+            self._geoms[label].GetGeometryType() for label in self._labels]
 
-        assert tot_y_idxs.size, (
-            f'No Y coordinate selected for the polygon: {label}!')
+        if all([gt == 3 for gt in org_poly_types]):
+            print('INFO: All geometries are POLYGONs!')
 
-        n_cells_acptd = 0
-        x_crds_acptd_idxs = []
-        y_crds_acptd_idxs = []
-        itsct_areas = []
-        itsct_rel_areas = []
-        x_crds_acptd = []
-        y_crds_acptd = []
+            lin_labels = self._labels
+            lin_polys = [self._geoms[label] for label in self._labels]
+            lin_polys_area = org_polys_area
 
-        if self._vb:
-            print(
-                f'Testing {tot_x_idxs.size * tot_y_idxs.size} cells '
-                f'for containment/proximity...')
+        else:
+            print('INFO: Some geometries are MULTIPOLYGONs!')
 
-        for x_idx in tot_x_idxs:
-            for y_idx in tot_y_idxs:
-                ring = ogr.Geometry(ogr.wkbLinearRing)
+            labels_polys = Queue()
 
-                ring.AddPoint(x_crds[x_idx], y_crds[y_idx])
-                ring.AddPoint(x_crds[x_idx + 1], y_crds[y_idx])
-                ring.AddPoint(x_crds[x_idx + 1], y_crds[y_idx + 1])
-                ring.AddPoint(x_crds[x_idx], y_crds[y_idx + 1])
-                ring.AddPoint(x_crds[x_idx], y_crds[y_idx])
+            for label in self._labels:
+                linearize_sub_polys_with_labels(
+                    label, self._geoms[label], labels_polys, 0)
 
-                poly = ogr.Geometry(ogr.wkbPolygon)
-                poly.AddGeometry(ring)
+            lin_labels = []
+            lin_polys = []
 
-                poly_area = poly.Area()
+            [(lin_labels.append(label), lin_polys.append(poly))
+             for label, poly in labels_polys.queue]
 
-                assert poly_area > 0, 'Area of a cell is zero!'
+            lin_polys_area = sum([poly.GetArea() for poly in lin_polys])
+        #======================================================================
 
-                itsct_poly = poly.Intersection(geom)
-                itsct_cell_area = itsct_poly.Area()
+        max_pts_per_thread = int(max(1, self._x_crds.size // self._n_cpus))
 
-                assert 0.0 <= itsct_cell_area < np.inf, (
-                    f'Intersection area between a cell and polygon: '
-                    f'{label} not between zero and infinity!')
+        (chnkd_polys,
+         chnkd_labels,
+         chnkd_idxs,
+         chnkd_x_crds,
+         chnkd_y_crds) = self._get_chnkd_crds_for_polys(
+             lin_polys,
+             lin_labels,
+             max_pts_per_thread)
 
-                min_area_thresh = (
-                    (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
+        assert all([poly.GetGeometryCount() == 1 for poly in chnkd_polys])
+        #======================================================================
 
-                if itsct_cell_area < min_area_thresh:
+        n_cpus = min(self._n_cpus, len(chnkd_polys))
+
+        assert n_cpus > 0, n_cpus
+
+        # Only do this if multiprocessing is used.
+        # Because ogr.Geometry objects can't be pickled, apparently.
+        if n_cpus > 1:
+            chnkd_polys = [
+                poly.GetGeometryRef(0).GetPoints() for poly in chnkd_polys]
+
+        idxs_gen = ((
+            chnkd_polys[i],
+            chnkd_labels[i],
+            chnkd_idxs[i],
+            chnkd_x_crds[i],
+            chnkd_y_crds[i],
+            False,
+            self._min_itsct_area_pct_thresh)
+            for i in range(len(chnkd_polys)))
+
+        if n_cpus > 1:
+            mp_pool = ProcessPool(n_cpus)
+            mp_pool.restart(True)
+
+            ress = list(mp_pool.uimap(
+                GeomAndCrdsItsctIdxs._cmpt_poly_itsct_idxs, idxs_gen))
+
+            mp_pool.clear()
+            mp_pool.close()
+            mp_pool.join()
+            mp_pool = None
+
+        else:
+            ress = []
+            for args in idxs_gen:
+                ress.append(GeomAndCrdsItsctIdxs._cmpt_poly_itsct_idxs(args))
+        #======================================================================
+
+        itsct_idxs_dict, cells_area_sum = self._assemble_itsct_idxs_dict(
+            ress)
+
+        print(
+            f'INFO: Total area of original polygons: '
+            f'{org_polys_area} units.')
+
+        print(
+            f'INFO: Total area of linearized polygons: '
+            f'{lin_polys_area} units.')
+
+        print(
+            f'INFO: Total area of cells intersecting with the polygons: '
+            f'{cells_area_sum} units.')
+
+        pdiff = 100 * (cells_area_sum - lin_polys_area) / lin_polys_area
+
+        print(
+            f'INFO: Mismatch in total area: '
+            f'{cells_area_sum - lin_polys_area} units ({pdiff:0.3f}%).')
+
+        return itsct_idxs_dict
+
+    def _get_chnkd_crds_for_polys(self, polys, labels, max_pts):
+
+        '''
+        Break the number of cells to test for containment in a polygon into
+        smaller chunks in order to balance the load per thread.
+        '''
+
+        sub_polys = []
+        sub_labels = []
+        sub_idxs = []
+        sub_x_crds = []
+        sub_y_crds = []
+        for poly, label in zip(polys, labels):
+            extents = poly.GetEnvelope()
+            poly_xmin, poly_xmax, poly_ymin, poly_ymax = extents
+
+            # NOTE: After buffering, the extents can go out of that of the raster.
+            poly_xmin -= self._cell_size
+            poly_xmax += self._cell_size
+            poly_ymin -= self._cell_size
+            poly_ymax += self._cell_size
+
+            assert poly.GetGeometryCount() == 1
+
+            n_poly_pts = poly.GetGeometryRef(0).GetPointCount()
+
+            assert n_poly_pts >= 3, (
+                f'Polygon not having enough points ({n_poly_pts})!',
+                label, poly.GetGeometryRef(0).GetPoints())
+
+            poly_idxs = np.vstack(np.where(
+                (self._x_crds >= poly_xmin) &
+                (self._x_crds <= poly_xmax) &
+                (self._y_crds >= poly_ymin) &
+                (self._y_crds <= poly_ymax))).T
+
+            assert poly_idxs.size, (
+                f'Polygon {label} with extents :{extents} out of the '
+                f'coordinates\' bounds!')
+
+            n_poly_idxs = poly_idxs.shape[0]
+
+            # Break the number of coordinates into chunks so that later,
+            # fewer coordinates have to be processed per thread. This allows
+            # for distributing load more uniformly over the available threads.
+            break_idxs = np.arange(
+                0, (max_pts * ceil(n_poly_idxs / max_pts)) + 1, max_pts)
+
+            break_idxs[-1] = n_poly_idxs
+
+            assert break_idxs[-2] < break_idxs[-1]
+            assert break_idxs[-1] >= n_poly_idxs
+
+            for i in range(0, break_idxs.size - 1):
+                break_poly_idxs = poly_idxs[break_idxs[i]:break_idxs[i + 1],:]
+
+                sub_polys.append(poly)
+                sub_labels.append(label)
+                sub_idxs.append(break_poly_idxs)
+
+                r_mn, c_mn = break_poly_idxs.min(axis=0)
+                r_mx, c_mx = break_poly_idxs.max(axis=0) + 2
+
+                sub_x_crds.append(self._x_crds[r_mn:r_mx, c_mn:c_mx])
+                sub_y_crds.append(self._y_crds[r_mn:r_mx, c_mn:c_mx])
+
+        return sub_polys, sub_labels, sub_idxs, sub_x_crds, sub_y_crds
+
+    def _assemble_itsct_idxs_dict(self, ress):
+
+        n_x_crds = self._x_crds.size
+
+        label_data_keys = [
+            'cols',
+            'rows',
+            'itsctd_area',
+            'x_cen_crds',
+            'y_cen_crds']
+
+        label_dtypes = [
+            int, int, float, float, float]
+
+        assert len(label_data_keys) == len(label_dtypes)
+
+        itsct_idxs_dict = {}
+        cells_area_sum = 0.0
+
+        for label in self._labels:
+            label_data = []
+
+            for res in ress:
+                if res[0] != label:
                     continue
 
-                n_cells_acptd += 1
+                assert len(label_data_keys) == len(res[1]), (
+                    'Mismatch in expected and present number of outputs!')
 
-                x_crds_acptd_idxs.append(x_idx)
-                y_crds_acptd_idxs.append(y_idx)
+                label_data.append(res[1])
 
-                itsct_areas.append(itsct_cell_area)
-                itsct_rel_areas.append(itsct_cell_area / geom_area)
+            label_dict = {}
+            for key in label_data_keys:
+                label_dict[key] = []
 
-                centroid = poly.Centroid()
-                x_crds_acptd.append(centroid.GetX())
-                y_crds_acptd.append(centroid.GetY())
+                [label_dict[key].extend(data[key]) for data in label_data]
 
-        assert n_cells_acptd <= (tot_x_idxs.size * tot_y_idxs.size), (
-            'This should not have happend!')
+            rows_cols = pd.Index([
+                (row, col)
+                for row, col in zip(label_dict['rows'], label_dict['cols'])],
+                dtype=object)
 
-        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
-        assert n_cells_acptd == len(x_crds_acptd_idxs)
-        assert n_cells_acptd == len(y_crds_acptd_idxs)
-        assert n_cells_acptd == len(itsct_areas)
-        assert n_cells_acptd == len(itsct_rel_areas)
-        assert n_cells_acptd == len(x_crds_acptd)
-        assert n_cells_acptd == len(y_crds_acptd)
+            dupd_idxs = np.where(rows_cols.duplicated(False))[0]
 
-        if self._vb:
-            print(f'{n_cells_acptd} cells contained/in proximity')
+            fin_idxs = None
+            if dupd_idxs.size:  # Work out the repeated cells.
+                fin_idxs = self._drop_repeated_idxs(
+                    rows_cols, dupd_idxs, label_dict)
 
-        return {
-            'cols':np.array(x_crds_acptd_idxs, dtype=int),
-            'rows': np.array(y_crds_acptd_idxs, dtype=int),
-            'itsctd_area': np.array(itsct_areas, dtype=float),
-            'rel_itsctd_area': np.array(itsct_rel_areas, dtype=float),
-            'x_cen_crds': np.array(x_crds_acptd, dtype=float),
-            'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
+            for key, dtype in zip(label_data_keys, label_dtypes):
+                label_dict[key] = np.array(label_dict[key], dtype=dtype)
 
-    def _cmpt_2d_poly_idxs(self, geom, label):
+                if fin_idxs is not None:
+                    label_dict[key] = label_dict[key][fin_idxs]
 
-        assert self._crds_ndims == 2, 'Configured for 2D coordinates only!'
+            n_itsctd_cells = label_dict['itsctd_area'].size
+            cells_area = label_dict['itsctd_area'].sum()
 
-        geom_area = geom.Area()
-        assert geom_area > 0, f'Polygon: {label} has no area!'
+            cells_area_sum += cells_area
 
-        x_crds = self._x_crds
-        y_crds = self._y_crds
+            label_dict['rel_itsctd_area'] = (
+                label_dict['itsctd_area'] / cells_area)
 
-        buff_dist = max(
-            abs(x_crds[+1, +0] - x_crds[+0, +0]),
-            abs(x_crds[-1, -1] - x_crds[-2, -1]),
-            abs(y_crds[+1, +0] - y_crds[+0, 0]),
-            abs(y_crds[-1, -1] - y_crds[-2, -1]),
-            )
+            itsct_idxs_dict[label] = label_dict
 
-        assert buff_dist > 0, 'Buffer distance cannot be negative!'
+            if self._vb:
+                print(
+                    f'INFO: Area of {label}: {cells_area} units having a '
+                    f'total of {n_itsctd_cells} cells contained or within '
+                    f'proximity out of '
+                    f'{n_x_crds} ({100 * n_itsctd_cells / n_x_crds:0.1f}%).')
 
-#         geom_buff = geom.Buffer(buff_dist)
-#
-#         assert geom_buff is not None, (
-#             f'Buffer operation failed on polygon: {label}!')
-#
-#         geom_buff_area = geom_buff.Area()
-#         assert geom_buff_area > 0, f'Buffered Polygon: {label} has no area!'
-#
-#         assert geom_buff_area >= geom_area, (
-#             f'Buffered polygon: {label} area less than the original one!')
-#
-#         extents = geom_buff.GetEnvelope()
+        return itsct_idxs_dict, cells_area_sum
 
-        extents = list(geom.GetEnvelope())
-        extents[0] -= buff_dist
-        extents[1] += buff_dist
-        extents[2] -= buff_dist
-        extents[3] += buff_dist
+    def _drop_repeated_idxs(self, rows_cols, dupd_idxs, label_dict):
 
-        assert len(extents) == 4, 'Configured for 2D extents only!'
+        fin_idxs = list(range(rows_cols.size))
 
-        gx_min, gx_max, gy_min, gy_max = extents
+        done_idxs = set()
+        for row, col in rows_cols[dupd_idxs]:
+            if (row, col) in done_idxs:
+                continue
 
-        tot_idxs = np.vstack(np.where(
-            (x_crds >= gx_min) &
-            (x_crds <= gx_max) &
-            (y_crds >= gy_min) &
-            (y_crds <= gy_max))).T
+            idxs = rows_cols.get_loc((row, col))
 
-        keep_idxs = ~(
-            (tot_idxs[:, 0] >= (x_crds.shape[0] - 1)) |
-            (tot_idxs[:, 1] >= (x_crds.shape[1] - 1)))
+            if isinstance(idxs, slice):
+                cdupd_idxs = list(range(idxs.start, idxs.stop, idxs.step))
 
-        tot_idxs = tot_idxs[keep_idxs].copy('c')
+            elif isinstance(idxs, np.ndarray):
+                cdupd_idxs = np.where(idxs)[0].tolist()
 
-        assert tot_idxs.size, (
-            f'No cell selected for the polygon: {label}!')
+            elif isinstance(idxs, int):
+                raise ValueError('Expected more than one index!')
 
-        assert np.all(x_crds.shape), (
-            'Shape of X coordinates not allowed to have a zero!')
+            else:
+                raise ValueError(
+                    f'Don\'t know what to do with: {idxs}!')
 
-        assert np.all(y_crds.shape), (
-            'Shape of Y coordinates not allowed to have a zero!')
+            # All except the first are taken.
+            itsctd_area = sum(
+                [label_dict['itsctd_area'][idx] for idx in cdupd_idxs])
 
-        n_cells_acptd = 0
-        x_crds_acptd_idxs = []
-        y_crds_acptd_idxs = []
-        itsct_areas = []
-        itsct_rel_areas = []
-        x_crds_acptd = []
-        y_crds_acptd = []
+            label_dict['itsctd_area'][cdupd_idxs[0]] = itsctd_area
 
-        for row_idx, col_idx in tot_idxs:
+            for cdupd_idx in cdupd_idxs[1:]:
+                del fin_idxs[fin_idxs.index(cdupd_idx)]
+
+                label_dict['itsctd_area'][cdupd_idx] = np.nan
+
+                assert np.isclose(
+                    label_dict['x_cen_crds'][cdupd_idx],
+                    label_dict['x_cen_crds'][cdupd_idxs[0]])
+
+                assert np.isclose(
+                    label_dict['y_cen_crds'][cdupd_idx],
+                    label_dict['y_cen_crds'][cdupd_idxs[0]])
+
+                label_dict['x_cen_crds'][cdupd_idx] = np.nan
+                label_dict['y_cen_crds'][cdupd_idx] = np.nan
+
+            done_idxs.add((row, col))
+
+        assert len(fin_idxs)
+
+        fin_idxs = np.array(fin_idxs, dtype=np.uint64)
+
+        return fin_idxs
+
+    @staticmethod
+    def _cmpt_poly_itsct_idxs(args):
+
+        (poly_or_pts,
+         label,
+         sub_idxs,  # Has the indices of the x_crds and y_crds in the main array.
+         x_crds,  # Corner crds.
+         y_crds,  # Corner crds.
+         vb,
+         min_itsct_area_pct_thresh) = args
+
+        if not isinstance(poly_or_pts, ogr.Geometry):
+            n_pts = len(poly_or_pts)
+
+            assert n_pts >= 3, (
+                f'Polygon not having enough points ({n_pts})!')
+
             ring = ogr.Geometry(ogr.wkbLinearRing)
-
-            ring.AddPoint(
-                x_crds[row_idx, col_idx],
-                y_crds[row_idx, col_idx])
-
-            ring.AddPoint(
-                x_crds[row_idx + 1, col_idx],
-                y_crds[row_idx + 1, col_idx])
-
-            ring.AddPoint(
-                x_crds[row_idx + 1, col_idx + 1],
-                y_crds[row_idx + 1, col_idx + 1])
-
-            ring.AddPoint(
-                x_crds[row_idx, col_idx + 1],
-                y_crds[row_idx, col_idx + 1])
-
-            ring.AddPoint(
-                x_crds[row_idx, col_idx],
-                y_crds[row_idx, col_idx])
+            for pt in poly_or_pts:
+                ring.AddPoint(*pt)
 
             poly = ogr.Geometry(ogr.wkbPolygon)
             poly.AddGeometry(ring)
 
-            poly_area = poly.Area()
+        else:
+            poly = poly_or_pts
 
-            assert poly_area > 0, 'Area of a cell is zero!'
+        poly_or_pts = None
 
-            itsct_poly = poly.Intersection(geom)
+        assert poly is not None, 'Corrupted polygon after buffering!'
+
+        poly_area = poly.Area()
+        assert poly_area > 0, f'Polygon has no area!'
+        #==========================================================================
+
+        n_cells_acptd = 0
+        x_crds_acptd_idxs = []
+        y_crds_acptd_idxs = []
+        itsct_areas = []
+        x_crds_acptd = []
+        y_crds_acptd = []
+
+        min_row_idx, min_col_idx = sub_idxs.min(axis=0)
+
+        for row_idx, col_idx in sub_idxs:
+            cell_ring = ogr.Geometry(ogr.wkbLinearRing)
+
+            try:
+                cell_ring.AddPoint(
+                    x_crds[row_idx - min_row_idx, col_idx - min_col_idx],
+                    y_crds[row_idx - min_row_idx, col_idx - min_col_idx])
+
+                cell_ring.AddPoint(
+                    x_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx],
+                    y_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx])
+
+                cell_ring.AddPoint(
+                    x_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx + 1],
+                    y_crds[row_idx - min_row_idx + 1, col_idx - min_col_idx + 1])
+
+                cell_ring.AddPoint(
+                    x_crds[row_idx - min_row_idx, col_idx - min_col_idx + 1],
+                    y_crds[row_idx - min_row_idx, col_idx - min_col_idx + 1])
+
+                cell_ring.AddPoint(
+                    x_crds[row_idx - min_row_idx, col_idx - min_col_idx],
+                    y_crds[row_idx - min_row_idx, col_idx - min_col_idx])
+
+            except IndexError:
+                continue
+
+            cell_poly = ogr.Geometry(ogr.wkbPolygon)
+            cell_poly.AddGeometry(cell_ring)
+
+            cell_area = cell_poly.Area()
+
+            assert cell_area > 0, 'Area of a cell is zero!'
+
+            itsct_poly = cell_poly.Intersection(poly)
             itsct_cell_area = itsct_poly.Area()
 
             assert 0.0 <= itsct_cell_area < np.inf, (
                 f'Intersection area between a cell and polygon: '
                 f'{label} not between zero and infinity!')
 
+            if itsct_cell_area == 0:
+                continue
+
             min_area_thresh = (
-                (self._min_itsct_area_pct_thresh / 100.0) * poly_area)
+                (min_itsct_area_pct_thresh / 100.0) * cell_area)
 
             if itsct_cell_area < min_area_thresh:
                 continue
@@ -1268,29 +2245,30 @@ class GeomAndCrdsItsctIdxs:
             y_crds_acptd_idxs.append(row_idx)
 
             itsct_areas.append(itsct_cell_area)
-            itsct_rel_areas.append(itsct_cell_area / geom_area)
 
-            centroid = poly.Centroid()
+            centroid = cell_poly.Centroid()
             x_crds_acptd.append(centroid.GetX())
             y_crds_acptd.append(centroid.GetY())
-
-        assert n_cells_acptd <= tot_idxs.size, 'This should not have happend!'
+        #==========================================================================
 
         assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
         assert n_cells_acptd == len(itsct_areas)
-        assert n_cells_acptd == len(itsct_rel_areas)
         assert n_cells_acptd == len(x_crds_acptd)
         assert n_cells_acptd == len(y_crds_acptd)
 
-        return {
-            'cols':np.array(x_crds_acptd_idxs, dtype=int),
-            'rows': np.array(y_crds_acptd_idxs, dtype=int),
-            'itsctd_area': np.array(itsct_areas, dtype=float),
-            'rel_itsctd_area': np.array(itsct_rel_areas, dtype=float),
-            'x_cen_crds': np.array(x_crds_acptd, dtype=float),
-            'y_cen_crds': np.array(y_crds_acptd, dtype=float), }
+        if vb:
+            print(
+                f'{n_cells_acptd} cells contained or within proximity out of '
+                f'{sub_idxs.shape[0]}.')
+
+        return (label, {
+            'cols': x_crds_acptd_idxs,
+            'rows': y_crds_acptd_idxs,
+            'itsctd_area': itsct_areas,
+            'x_cen_crds': x_crds_acptd,
+            'y_cen_crds': y_crds_acptd, })
 
     __verify = verify
 
@@ -1575,3 +2553,4 @@ class ReOrderIdxs:
         assert self._rord_dst_idxs is not None, 'This should not have happend!'
 
         return self._rord_dst_idxs
+

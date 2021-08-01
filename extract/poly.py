@@ -122,6 +122,8 @@ class ExtractPolygons:
         while polygon:
             geom = polygon.GetGeometryRef().Buffer(0)
 
+            geom = ogr.ForceToMultiPolygon(geom)
+
             assert geom is not None, 'Could not read/clone a geometry!'
 
             geom_type = geom.GetGeometryType()

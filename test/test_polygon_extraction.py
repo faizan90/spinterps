@@ -12,14 +12,16 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
+    main_dir = Path(r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\classi_ag_ncep_wett_nebs_longer_runs\ob00000010_c20030101_20101231_v20030101_20101231_cps06__rand_00_wb1-6-2\ppt_cps_kriging_test')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
+    path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_Iran_shp\IRN_adm0__utm39n.shp'
+    label_field = r'ID_0'
 
-    label_field = r'DN'
+#     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_6MainBasins_sh\MainBasins_Iran__utm39n3.shp'
+#     label_field = r'HOZEH6'
 
-    path_to_ras = r'P:\cluster_vg_tests\ppt\monthly_cluster_vg\precipitation_kriging_1971-01-01_to_2010-12-31_1km.nc'
+    path_to_ras = r'kriging.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
@@ -27,11 +29,15 @@ def main():
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
-    nc_variable_labels = ['OK', 'EDK']
+    nc_variable_labels = ['OK']
     nc_time_label = 'time'
 
     src_epsg = None
     dst_epsg = None
+
+    simplify_tol_ratio = 0.25
+    minimum_cell_area_intersection_percentage = 1e-3
+    n_cpus = 'auto'
 
 #     src_epsg = 4326
 #     dst_epsg = 31467
@@ -51,7 +57,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'ppt_edk_1971_to_2010_daily_1km_rockenau_six_cats__vgclus.h5')
+    path_to_output = Path(r'extract_mp22.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)
@@ -64,8 +70,11 @@ def main():
             label_field,
             path_to_ras,
             path_to_output,
+            minimum_cell_area_intersection_percentage,
+            n_cpus,
             src_epsg,
-            dst_epsg)
+            dst_epsg,
+            simplify_tol_ratio)
 
     elif input_ras_type == 'nc':
         res = Ext.extract_from_netCDF(
@@ -77,8 +86,11 @@ def main():
             nc_y_crds_label,
             nc_variable_labels,
             nc_time_label,
+            minimum_cell_area_intersection_percentage,
+            n_cpus,
             src_epsg,
-            dst_epsg)
+            dst_epsg,
+            simplify_tol_ratio)
 
     else:
         raise NotImplementedError
