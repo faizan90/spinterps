@@ -57,7 +57,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'extract_mp22.h5')
+    path_to_output = Path(r'extract_mp23.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)
