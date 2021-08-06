@@ -51,7 +51,7 @@ def traceback_wrapper(func):
 def linearize_sub_polys(poly, polys, simplify_tol):
 
     if poly is None:
-        print('WARNING: Geometry is None!')
+        print('WARNING: A geometry is None!')
 
     else:
         assert isinstance(polys, Queue), 'polys not a queue.Queue object!'
@@ -59,8 +59,14 @@ def linearize_sub_polys(poly, polys, simplify_tol):
         assert simplify_tol >= 0
 
         gct = poly.GetGeometryCount()
+        gt = poly.GetGeometryType()
 
-        assert poly.GetGeometryType() in (3, 6), 'Meant for polygons only!'
+        assert gt in (2, 3, 6), 'Meant for polygons only!'
+
+        if gt == 2:
+            lin_ring = poly
+            poly = ogr.Geometry(ogr.wkbPolygon)
+            poly.AddGeometry(lin_ring)
 
         if gct == 1:
             if simplify_tol:
@@ -82,7 +88,8 @@ def linearize_sub_polys(poly, polys, simplify_tol):
                     poly.GetGeometryRef(i), polys, simplify_tol)
 
         elif gct == 0:
-            print('WARNING: Encountered a geometry with a count of 0!')
+            raise ValueError(
+                'Encountered a geometry with a count of 0!')
 
     return
 
@@ -90,7 +97,7 @@ def linearize_sub_polys(poly, polys, simplify_tol):
 def linearize_sub_polys_with_labels(label, poly, labels_polys, simplify_tol):
 
     if poly is None:
-        print('WARNING: Geometry is None!')
+        print(f'WARNING: A geometry is None for label {label}!')
 
     else:
         assert isinstance(labels_polys, Queue), (
@@ -98,9 +105,22 @@ def linearize_sub_polys_with_labels(label, poly, labels_polys, simplify_tol):
 
         assert simplify_tol >= 0
 
-        gct = poly.GetGeometryCount()
+        gt = poly.GetGeometryType()
+        gn = poly.GetGeometryName()
 
-        assert poly.GetGeometryType() in (3, 6), 'Meant for polygons only!'
+        assert gt  in (2, 3, 6), (
+            f'Meant for polygons only and not {poly.GetGeometryName()} '
+            f'(Type: {gt}), label {label}!')
+
+        if gt == 2:
+            lin_ring = poly
+            poly = ogr.Geometry(ogr.wkbPolygon)
+            poly.AddGeometry(lin_ring)
+
+            gt = poly.GetGeometryType()
+            gn = poly.GetGeometryName()
+
+        gct = poly.GetGeometryCount()
 
         if gct == 1:
             if simplify_tol:
@@ -108,12 +128,19 @@ def linearize_sub_polys_with_labels(label, poly, labels_polys, simplify_tol):
 
             poly = poly.Buffer(0)
 
+            assert poly.GetGeometryType() in (3, 6), (
+                f'Geometry changed to {gn} '
+                f'(Type: {gt}), label {label}!')
+
             n_pts = poly.GetGeometryRef(0).GetPointCount()
+
             if n_pts >= 3:
                 labels_polys.put_nowait((label, poly))
 
             else:
-                print('WARNING: A polygon has less than 3 points!')
+                raise ValueError(
+                    f'A polygon has less than 3 points for label '
+                    f'{label}!')
 
         elif gct > 1:
             for i in range(gct):
@@ -121,7 +148,9 @@ def linearize_sub_polys_with_labels(label, poly, labels_polys, simplify_tol):
                     label, poly.GetGeometryRef(i), labels_polys, simplify_tol)
 
         elif gct == 0:
-            print('WARNING: Encountered a geometry with a count of 0!')
+            raise ValueError(
+                f'Encountered a geometry with a count of 0 '
+                f'for label {label} with geometry name {gn} and type {gt}!')
 
     return
 

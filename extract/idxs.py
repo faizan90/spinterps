@@ -67,7 +67,8 @@ class GeomAndCrdsItsctIdxs:
         self._itsct_idxs_cmptd_flag = False
         return
 
-    def set_geometries(self, geometries, geometry_type, simplify_tol_ratio):
+    def set_geometries(
+            self, geometries, geometry_type, simplify_tol_ratio=0.0):
 
         '''Set the geometries for intersection.
 
@@ -372,8 +373,15 @@ class GeomAndCrdsItsctIdxs:
         assert self._set_itsct_idxs_crds_flag, (
             'Call the set_coordinates method first!')
 
-        assert self._set_itsct_misc_flag, (
-            'Call set_intersect_misc_settings first!')
+        if self._geom_type == 1:
+            pass
+
+        elif self._geom_type in (3, 6):
+            assert self._set_itsct_misc_flag, (
+                'Call set_intersect_misc_settings first!')
+
+        else:
+            raise NotImplementedError
 
         x_min = x_max = y_min = y_max = None
 
@@ -1142,6 +1150,10 @@ class GeomAndCrdsItsctIdxs:
             [(lin_labels.append(label), lin_polys.append(poly))
              for label, poly in labels_polys.queue]
 
+            assert all([label in lin_labels
+                        for label in self._labels]), (
+                'Missing labels after linearizing polygons!')
+
             lin_polys_area = sum([poly.GetArea() for poly in lin_polys])
         #======================================================================
 
@@ -1157,6 +1169,10 @@ class GeomAndCrdsItsctIdxs:
              max_pts_per_thread)
 
         assert all([poly.GetGeometryCount() == 1 for poly in chnkd_polys])
+
+        assert all([label in chnkd_labels
+                    for label in self._labels]), (
+            'Missing labels after chunking polygons!')
         #======================================================================
 
         n_cpus = min(self._n_cpus, len(chnkd_polys))
@@ -1319,6 +1335,8 @@ class GeomAndCrdsItsctIdxs:
 
                 label_data.append(res[1])
 
+            assert label_data, f'No data for label: {label}!'
+
             label_dict = {}
             for key in label_data_keys:
                 label_dict[key] = []
@@ -1350,6 +1368,9 @@ class GeomAndCrdsItsctIdxs:
 
             label_dict['rel_itsctd_area'] = (
                 label_dict['itsctd_area'] / cells_area)
+
+            assert all([value.size for value in label_dict.values()]), (
+                f'Polygons {label} has invalid intersection data!')
 
             itsct_idxs_dict[label] = label_dict
 
@@ -1460,28 +1481,33 @@ class GeomAndCrdsItsctIdxs:
 
         min_row_idx, min_col_idx = sub_idxs.min(axis=0)
 
+        # In those rare cases, when the intersection area of all cells is
+        # below threshold that results in no acpted cells, even when there
+        # was intersection.
+        atleast_1cell_acpt_flag = False
+
         for row_idx, col_idx in sub_idxs:
             cell_ring = ogr.Geometry(ogr.wkbLinearRing)
 
             ridx = row_idx - min_row_idx
             cidx = col_idx - min_col_idx
 
-            try:
-                cell_ring.AddPoint(x_crds[ridx, cidx], y_crds[ridx, cidx])
+#             try:
+            cell_ring.AddPoint_2D(x_crds[ridx, cidx], y_crds[ridx, cidx])
 
-                cell_ring.AddPoint(
-                    x_crds[ridx + 1, cidx], y_crds[ridx + 1, cidx])
+            cell_ring.AddPoint_2D(
+                x_crds[ridx + 1, cidx], y_crds[ridx + 1, cidx])
 
-                cell_ring.AddPoint(
-                    x_crds[ridx + 1, cidx + 1], y_crds[ridx + 1, cidx + 1])
+            cell_ring.AddPoint_2D(
+                x_crds[ridx + 1, cidx + 1], y_crds[ridx + 1, cidx + 1])
 
-                cell_ring.AddPoint(
-                    x_crds[ridx, cidx + 1], y_crds[ridx, cidx + 1])
+            cell_ring.AddPoint_2D(
+                x_crds[ridx, cidx + 1], y_crds[ridx, cidx + 1])
 
-                cell_ring.AddPoint(x_crds[ridx, cidx], y_crds[ridx, cidx])
+            cell_ring.AddPoint_2D(x_crds[ridx, cidx], y_crds[ridx, cidx])
 
-            except IndexError:
-                continue
+#             except IndexError:
+#                 continue
 
             cell_poly = ogr.Geometry(ogr.wkbPolygon)
             cell_poly.AddGeometry(cell_ring)
@@ -1499,6 +1525,8 @@ class GeomAndCrdsItsctIdxs:
 
             if itsct_cell_area == 0:
                 continue
+
+            atleast_1cell_acpt_flag = True
 
             min_area_thresh = (
                 (min_itsct_area_pct_thresh / 100.0) * cell_area)
@@ -1518,7 +1546,9 @@ class GeomAndCrdsItsctIdxs:
             y_crds_acptd.append(centroid.GetY())
         #======================================================================
 
-        assert n_cells_acptd > 0, f'Zero cells accepted for polygon: {label}!'
+        assert atleast_1cell_acpt_flag or (n_cells_acptd > 0), (
+            f'Zero cells accepted for polygon: {label}!')
+
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)
         assert n_cells_acptd == len(itsct_areas)
@@ -1529,6 +1559,12 @@ class GeomAndCrdsItsctIdxs:
             print(
                 f'{n_cells_acptd} cells contained or within proximity out of '
                 f'{sub_idxs.shape[0]}.')
+
+        if n_cells_acptd == 0:
+            print(
+                f'WARNING: Polygon {label} with point a count of '
+                f'{poly.GetGeometryRef(0).GetPointCount()} has zero '
+                f'accepted cells!')
 
         return (label, {
             'cols': x_crds_acptd_idxs,

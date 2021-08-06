@@ -7,6 +7,8 @@ import timeit
 import time
 from pathlib import Path
 
+import pandas as pd
+
 from spinterps import (
     ExtractPoints,
     ExtractGTiffCoords,
@@ -18,13 +20,13 @@ from spinterps import (
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\fourtrans_practice\ft_spatio_temporal_interps')
+    main_dir = Path(r'P:\Synchronize\IWS\Colleagues_Students\Bianca\santa_ppt_interps')
     os.chdir(main_dir)
 
-    path_to_shp = 'temperature_validation_stns.shp'
+    path_to_shp = 'stns_within_santa.shp'
     label_field = 'field_1'
 
-    path_to_ras = r'temperature_interpolation_validation\obs\temperature_kriging_1989-01-01_to_1992-12-30_1km_obs.nc'
+    path_to_ras = r'reformated_monthly_infilling_ctvg\orig\orig.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = (
@@ -36,7 +38,18 @@ def main():
     nc_variable_labels = ['OK']
     nc_time_label = 'time'
 
-    path_to_output = r'temperature_interpolation_validation\obs\ts_valid.h5'
+    src_epsg = None
+    dst_epsg = None
+
+    # It can be None, or have and extension of h5 or if save_as_txt_flag is
+    # set then the directory. pref is used a along with the data
+    # label as the file name.
+    path_to_output = Path(r'reformated_monthly_infilling_ctvg\orig')
+
+    # For output as text.
+    save_as_txt_flag = True
+    pref = 'ts_interp'
+    sep = ';'
 
     verbose = True
 
@@ -66,15 +79,40 @@ def main():
             gtiff_crds_cls.get_y_coordinates(),
             gtiff_crds_cls._raster_type_lab)
 
+        GCII.set_coordinate_system_transforms(src_epsg, dst_epsg)
+
         GCII.verify()
         GCII.compute_intersect_indices()
 
         gtiff_vals_cls = ExtractGTiffValues(verbose=verbose)
 
         gtiff_vals_cls.set_input(path_to_ras)
-        gtiff_vals_cls.set_output(path_to_output)
+
+        if save_as_txt_flag:
+            gtiff_vals_cls.set_output(None)
+
+        else:
+            gtiff_vals_cls.set_output(path_to_output)
 
         gtiff_vals_cls.extract_values(GCII.get_intersect_indices())
+
+        if save_as_txt_flag:
+            extd_vals = gtiff_vals_cls.get_values()
+
+            pt_sers = []
+            for key, value in extd_vals.items():
+                pt_ser = pd.Series(
+                    index=value.keys(), data=value.values(), name=key)
+
+                pt_sers.append(pt_ser)
+
+            pt_df = pd.concat(pt_sers, axis=1)
+            pt_ser = None
+
+            out_df_path = (
+                path_to_output / f'{pref}.csv')
+
+            pt_df.to_csv(out_df_path, sep=sep)
 
     elif input_ras_type == 'nc':
         nc_crds_cls = ExtractNetCDFCoords(verbose=verbose)
@@ -89,6 +127,8 @@ def main():
             nc_crds_cls.get_y_coordinates(),
             nc_crds_cls._raster_type_lab)
 
+        GCII.set_coordinate_system_transforms(src_epsg, dst_epsg)
+
         GCII.verify()
         GCII.compute_intersect_indices()
 
@@ -97,9 +137,31 @@ def main():
 
             nc_vals_cls.set_input(
                 path_to_ras, nc_variable_label, nc_time_label)
-            nc_vals_cls.set_output(path_to_output)
+
+            if save_as_txt_flag:
+                nc_vals_cls.set_output(None)
+
+            else:
+                nc_vals_cls.set_output(path_to_output)
 
             nc_vals_cls.extract_values(GCII.get_intersect_indices())
+
+            if save_as_txt_flag:
+                extd_vals = nc_vals_cls.get_values()
+
+                pt_sers = []
+                for key, value in extd_vals.items():
+                    pt_ser = pd.Series(
+                        index=value.keys(), data=value.values(), name=key)
+
+                    pt_sers.append(pt_ser)
+
+                pt_df = pd.concat(pt_sers, axis=1)
+
+                out_df_path = (
+                    path_to_output / f'{pref}_{nc_variable_label}.csv')
+
+                pt_df.to_csv(out_df_path, sep=sep)
 
     else:
         raise NotImplementedError
