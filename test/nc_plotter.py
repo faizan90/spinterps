@@ -24,21 +24,31 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Colleagues_Students\Bianca\santa_ppt_interps\tp_ctvg\TM_00')
+        r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\classi_ag_ncep_wett_nebs_longer_runs\ob00000010_c20030101_20101231_v20030101_20101231_cps06__rand_00_wb1-6-2\ppt_cps_kriging')
 
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'TM_00_itfm.nc')
+    in_nc_path = Path(r'kriging.nc')
 
     var_label = 'OK'
     x_label = 'X'
     y_label = 'Y'
+    time_label = 'time'
 
-    var_type = 'Probability (-)'
+    cbar_label = 'Precipitation (mm)'
 
     cmap = 'jet'
 
-    out_figs_dir = Path(r'interp_plots_itfm')
+    var_min_val = None
+    var_max_val = None
+
+    var_min_val = 0
+    var_max_val = 5
+
+    show_title_flag = True
+    show_title_flag = False
+
+    out_figs_dir = Path(r'interp_plots_paper')
     #==========================================================================
 
     with nc.Dataset(in_nc_path, 'r') as nc_hdl:
@@ -46,6 +56,7 @@ def main():
         y_crds = nc_hdl[y_label][...].data
 
         data = nc_hdl[var_label][...].data
+        times = nc_hdl[time_label][...].data
 
     x_crds_plt_msh, y_crds_plt_msh = np.meshgrid(x_crds, y_crds)
     #==========================================================================
@@ -57,7 +68,7 @@ def main():
     #==========================================================================
 
     for i in range(data.shape[0]):
-        time_str = f'{i}'
+        time_str = f'{times[i]}'
 
         print(f'Plotting {time_str}')
 
@@ -76,23 +87,24 @@ def main():
             x_crds_plt_msh,
             y_crds_plt_msh,
             interp_fld,
-            vmin=grd_min,
-            vmax=grd_max,
+            vmin=var_min_val,
+            vmax=var_max_val,
             shading='auto',
             cmap=cmap)
 
         cb = fig.colorbar(pclr)
 
-        cb.set_label(var_type)
+        cb.set_label(cbar_label)
 
         ax.set_xlabel('Easting')
         ax.set_ylabel('Northing')
 
-        title = (
-            f'Time: {time_str}\n'
-            f'Min.: {grd_min:0.4f}, Max.: {grd_max:0.4f}')
+        if show_title_flag:
+            title = (
+                f'Time: {time_str}\n'
+                f'Min.: {grd_min:0.4f}, Max.: {grd_max:0.4f}')
 
-        ax.set_title(title)
+            ax.set_title(title)
 
         plt.setp(ax.get_xmajorticklabels(), rotation=70)
         ax.set_aspect('equal', 'datalim')

@@ -466,18 +466,19 @@ class GeomAndCrdsItsctIdxs:
             y_min = self._y_crds.min()
             y_max = self._y_crds.max()
 
-        self._cell_size = self._get_mean_cell_size()
+        if self._crds_ndims == 2 and self._geom_type == 3:
+            self._cell_size = self._get_cell_size()
 
-        if self._geom_sim_tol_ratio:
-            self._geom_sim_tol = (
-                self._cell_size * self._geom_sim_tol_ratio)
+            if self._geom_sim_tol_ratio:
+                self._geom_sim_tol = (
+                    self._cell_size * self._geom_sim_tol_ratio)
 
-            self._geoms = self._get_simplified_geoms()
+                self._geoms = self._get_simplified_geoms()
 
-            if self._vb:
-                print(
-                    f'INFO: Simplified geometries with a tolerance of '
-                    f'{self._geom_sim_tol} units.')
+                if self._vb:
+                    print(
+                        f'INFO: Simplified geometries with a tolerance of '
+                        f'{self._geom_sim_tol} units.')
 
         if self._geom_type == 1:
             for label in self._labels:
@@ -607,17 +608,19 @@ class GeomAndCrdsItsctIdxs:
 
         return self._itsct_idxs_dict
 
-    def _get_mean_cell_size(self):
+    def _get_cell_size(self):
 
         if self._crds_ndims == 1:
-            mean_cell_size = np.concatenate((
-                np.abs(self._x_crds[1:] - self._x_crds[:-1]),
-                np.abs(self._y_crds[1:] - self._y_crds[:-1]))).mean()
+            cell_size = max(
+                np.abs(self._x_crds[1:] - self._x_crds[:-1]).max(),
+                np.abs(self._y_crds[1:] - self._y_crds[:-1]).max())
 
         elif self._crds_ndims == 2:
-            mean_cell_size = np.concatenate((
-                np.abs(self._x_crds[1:,:] - self._x_crds[:-1,:]),
-                np.abs(self._y_crds[:, 1:] - self._y_crds[:,:-1]))).mean()
+            cell_size = max(
+                np.abs(self._x_crds[1:,:] - self._x_crds[:-1,:]).max(),
+                np.abs(self._x_crds[:, 1:] - self._x_crds[:,:-1]).max(),
+                np.abs(self._y_crds[:, 1:] - self._y_crds[:,:-1]).max(),
+                np.abs(self._y_crds[1:,:] - self._y_crds[:-1,:]).max())
 
         else:
             raise NotImplementedError(
@@ -625,9 +628,9 @@ class GeomAndCrdsItsctIdxs:
                 f'dimensions ({self._crds_ndims})!')
 
         if self._vb:
-            print('INFO: Mean cell size is:', mean_cell_size)
+            print('INFO: Cell size is:', cell_size)
 
-        return mean_cell_size
+        return cell_size
 
     def _get_simplified_geoms(self):
 
@@ -698,7 +701,8 @@ class GeomAndCrdsItsctIdxs:
             np.all(diffs_lr > 0) or
             np.all(np.fliplr(diffs_lr) > 0) or
             np.all(diffs_ud > 0) or
-            np.all(np.flipud(diffs_ud) > 0)), (
+            np.all(np.flipud(diffs_ud) > 0) or
+            np.all(np.flipud(diffs_ud) < 0)), (
                 'crds not monotonically increasing or decreasing '
                 'in any direction!')
         return

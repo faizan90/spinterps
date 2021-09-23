@@ -16,12 +16,41 @@ from ..variograms.vgsinput import VariogramsData as VD
 
 class VGCSettings(VD):
 
+    '''
+    The settings class for variogram clustering. It is supposed to be
+    subclassed by another one.
+
+    Here, all the required settings and inputs are specified that may be
+    used by other classes that do the actual clustering. The data
+    is set in the relevant methods of the VariogramsData class (whose child
+    is this class).
+
+    Settings and inputs are specified for empirical variogram computation,
+    theoretical variogram fitting to the empirical. The empirical may be
+    based on clustering vectors/timesteps.
+
+    Finally, the fitted theoretical variograms, if more than one, may
+    also be clustered to an even smaller number.
+
+    Chosen variograms for each timestep/vector are saved as a text series.
+
+    For more please read the full documentations of all the classes in this
+    module.
+
+    To see usage, take a look at the test_fitcvgs.py in the test
+    directory of the spinterps module.
+
+    Last updated: 2021-Sep-23
+    '''
+
+    _sett_clus_cevg_types = ('months', 'years', 'manual', 'none',)
+    _sett_clus_cevg_evg_stats = ('mean', 'median', 'min', 'max',)
+    _sett_clus_tvg_tvgs_all = ('Sph', 'Exp', 'Nug', 'Gau', 'Pow', 'Lin',)
+
     def __init__(self, verbose=True):
 
-        VD.__init__(self, verbose)
+        VD.__init__(self, verbose), f'verbose not of the boolean datatype!'
 
-        self._sett_clus_cevg_types = ('months', 'years', 'manual', 'none')
-        self._sett_clus_cevg_evg_stats = ('mean', 'median', 'min', 'max')
         self._sett_clus_cevg_type = None
         self._sett_clus_cevg_ts = None
         self._sett_clus_cevg_ts_nan = None
@@ -33,9 +62,6 @@ class VGCSettings(VD):
         self._sett_clus_cevg_simplify_flag = False
         self._sett_clus_cevg_norm_flag = False
         self._sett_clus_cevg_max_dist_thresh = None
-
-        self._sett_clus_tvg_tvgs_all = (
-            'Sph', 'Exp', 'Nug', 'Gau', 'Pow', 'Lin')
 
         self._sett_clus_tvg_tvgs = None
         self._sett_clus_tvg_perm_sizes = None
@@ -72,6 +98,43 @@ class VGCSettings(VD):
             max_dist_thresh,
             clus_ts=None,
             clus_ts_nan=None):
+
+        f'''
+        Specify settings for the computing empirical variogram(s).
+
+        Parameters
+        ----------
+        clus_type : str
+            Specify the method of clustering the input series of vectors.
+            Each vector (row) represents a timestep or something similar.
+            Each component of the vector represents a dimensions.
+            So, each column can be seen as a timeseries of a station.
+            clus_type determines how to take the vectors. e.g. if it
+            is "months" then all the time series values that happen in
+            a given month are seen as single timestep where the distance
+            between the pairs are same but the difference between their
+            values keeps changing. Same applies for "years".
+            If "manual" then the argument "clus_ts" must be passed as a 1D
+            vector whose length is equal to the number of vectors in the
+            main data series. Then vectors are clustered based on the indices
+            of unique values in "clus_ts" e.g. all the timesteps with two
+            are taken as a single timestep to whom an empirical variogram
+            is fitted. It is a generic form of having "months" or "years"
+            as a clustering type. If "clus_ts_nan" is given then timesteps
+            with the value clus_ts_nan are not used or fitted with anything.
+            If clus_type is "none" then each vector is taken as is and
+            a variogram fitted. This is equivalent to the classical
+            variogram fitting. clus_type must be a string and only one of the
+            values from {self._sett_clus_cevg_types}.
+        ignore_zeros_flag : bool
+            Whether to ignore the zero difference between any two components,
+            while computing the variogram cloud. This may be important for
+            variables such as precipitation where no rain values dominate
+            the distribution and can result in low variance. Must be a
+            boolean value.
+        n_min_valid_values : int
+            For each pair in each cluster, the possible number of values
+        '''
 
         if self._vb:
             print_sl()
