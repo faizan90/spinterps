@@ -22,8 +22,8 @@ class VGCSettings(VD):
 
     Here, all the required settings and inputs are specified that may be
     used by other classes that do the actual clustering. The data
-    is set in the relevant methods of the VariogramsData class (whose child
-    is this class).
+    is set in the relevant methods of the VariogramsData class (parent of
+    this class).
 
     Settings and inputs are specified for empirical variogram computation,
     theoretical variogram fitting to the empirical. The empirical may be
@@ -41,7 +41,7 @@ class VGCSettings(VD):
     To see usage, take a look at the test_fitcvgs.py in the test
     directory of the spinterps module.
 
-    Last updated: 2021-Sep-23
+    Last updated: 2021-Sep-24
     '''
 
     _sett_clus_cevg_types = ('months', 'years', 'manual', 'none',)
@@ -374,7 +374,6 @@ class VGCSettings(VD):
             that are near the origin. The more points near the origin
             the more the weight. Which is good. Because more neighbors mean
             that we don't have to worry about the farther control points.
-
         '''
 
         if self._vb:
@@ -383,36 +382,57 @@ class VGCSettings(VD):
             print(
                 'Setting parameters for theoretical variogram fitting...\n')
 
-        assert isinstance(theoretical_variograms, (tuple, list))
+        assert isinstance(theoretical_variograms, (tuple, list)), (
+            f'Incorrect data type of theoretical_variograms!')
 
         theoretical_variograms = set(theoretical_variograms)
 
-        assert len(theoretical_variograms)
+        assert len(theoretical_variograms), (
+            f'No theoretical variograms specified!')
 
-        assert all([isinstance(tvg, str) for tvg in theoretical_variograms])
+        assert all([isinstance(tvg, str)
+                    for tvg in theoretical_variograms]), (
+                        f'Entries in theoretical_variograms are supposed '
+                        f'to be of the string data type!')
 
         assert all([tvg in self._sett_clus_tvg_tvgs_all
-                    for tvg in theoretical_variograms])
+                    for tvg in theoretical_variograms]), (
+                        f'At least on entry in theoretical_variograms '
+                        f'is unknown!')
 
         theoretical_variograms = tuple(theoretical_variograms)
 
-        assert isinstance(permutation_sizes, (tuple, list))
+        assert isinstance(permutation_sizes, (tuple, list)), (
+            f'permutation_sizes not of the correct data type!')
 
         permutation_sizes = set(permutation_sizes)
 
-        assert len(permutation_sizes)
-        assert all([isinstance(ps, int) for ps in permutation_sizes])
-        assert all([ps > 0 for ps in permutation_sizes])
+        assert len(permutation_sizes), (
+            f'No entries in permutation_sizes!')
+
+        assert all([isinstance(ps, int) for ps in permutation_sizes]), (
+            f'All entries in permutation_sizes are supposed to be integers!')
+
+        assert all([ps > 0 for ps in permutation_sizes]), (
+            f'All entries in permutation_sizes are supposed to be greater '
+            f'than zero!')
 
         permutation_sizes = tuple(permutation_sizes)
 
-        assert isinstance(max_opt_iters, int)
-        assert max_opt_iters > 0
+        assert isinstance(max_opt_iters, int), (
+            f'Incorrect data type of max_opt_iters!')
 
-        assert isinstance(max_variogram_range, (int, float))
-        assert max_variogram_range > 0
+        assert max_opt_iters > 0, (
+            f'max_opt_iters supposed to be greater than zero!')
 
-        assert isinstance(apply_wts_flag, bool)
+        assert isinstance(max_variogram_range, (int, float)), (
+            f'max_variogram_range not having the correct data type!')
+
+        assert max_variogram_range > 0, (
+            f'max_variogram_range supposed to be greater than zero!')
+
+        assert isinstance(apply_wts_flag, bool), (
+            f'Data type of apply_wts_flag is incorrect!')
 
         self._sett_clus_tvg_tvgs = theoretical_variograms
         self._sett_clus_tvg_perm_sizes = permutation_sizes
@@ -452,6 +472,52 @@ class VGCSettings(VD):
             ks_alpha,
             min_abs_kriging_weight,
             max_nrst_nebs):
+
+        '''
+        Specify settings for clustering of the fitted theoretical variograms
+        to fewer or equal clusters. This may or may not result in fewer
+        variograms. The final result depends on the type and also some
+        settings in the set_empirical_variogram_clustering_parameters
+        and set_theoretical_variogram_parameters methods. The final fits
+        are evaluated based on the Kolmogorov-Smirnov (KS) test. The
+        clustering is not very though of at this point. It could be better.
+
+        The algorithm starts by creating a variogram that is the mean of
+        all the fitted theoretical variograms. Then a theoretical variogram
+        is fitted to this mean. Kriging weights using this variogram by
+        considering a random neighbor in the coordinates as the origin
+        are computed. Now for the same station configuration, kriging weights
+        are computed using all the previously fitted variograms. The CDFs
+        coming from the mean variogram and each theoretical are compared
+        for similarity based on the KS test. The ones that pass the test
+        at a given confidence level are assigned this mean variogram and are
+        taken out of the clustering. Now a mean is fitted to the remianing
+        ones and the whole procedure is repeated till all the fitted
+        theoretical variograms are exhausted.
+
+        Parameters
+        ----------
+        n_distance_intervals : int
+            Starting from a distance of zero to max range, how many distances
+            should be taken to get the variogram values. The amount of
+            discretization affects the time it takes to optimize and
+            the accuracy of the finally clustered variograms. More
+            discretization equal more time but better results, which may mean
+            that no clusters are formed.
+        ks_alpha : float
+            The KS level of confidence, beyond which a theoretical variogram
+            is considered not to be from a given cluster.
+        min_abs_kriging_weight : float
+            The absolute minimum kriging weight to consider that is above
+            zero. Smaller weights than this values are rounded to zero.
+            Very small weights create problems for the KS test. They may
+            dominate the rejection while infact, such small weights do no
+            matter. Should be greater than zero and not more than one.
+        max_nrst_nebs : int
+            How many neighbors to take while generating the kriging weights
+            for the KS test. These are nearest neighbors to a randomly
+            selected point out all the given points.
+        '''
 
         if self._vb:
             print_sl()
