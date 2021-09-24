@@ -27,7 +27,8 @@ class VGCSettings(VD):
 
     Settings and inputs are specified for empirical variogram computation,
     theoretical variogram fitting to the empirical. The empirical may be
-    based on clustering vectors/timesteps.
+    based on clustering vectors/timesteps. The fitting assumes
+    stationarity (for now).
 
     Finally, the fitted theoretical variograms, if more than one, may
     also be clustered to an even smaller number.
@@ -133,7 +134,73 @@ class VGCSettings(VD):
             the distribution and can result in low variance. Must be a
             boolean value.
         n_min_valid_values : int
-            For each pair in each cluster, the possible number of values
+            For each pair in each cluster, the minimum possible number
+            of values that must be present to create a point in the
+            variogram cloud.
+        smoothing : int or float
+            How to smoothen the emprical variogram. The emprical variogram
+            is a line fitted to the variogram cloud. Among many choices,
+            three are provided here.
+            1. smoothing > 1: At any given distance of half the smoothing
+            values before this point and half from front are used to
+            get a corresponding empirical variogram value. The operation
+            that is applied on these values can be
+            {self._sett_clus_cevg_evg_stats}.
+            The operation is determined by the value of the variable
+            "evg_stat".
+            2. smoothing == 0: Then no values are used from front or back.
+            This may result in a very bumpy variogram.
+            3. 0 < smoothing < 1: smoothing percentage of the total values
+            are used from front and back (50-50) to get the empirical
+            variogram value for each distance.
+        evg_stat : str
+            The type of operation to apply when computing the emprical
+            variogram value for each distance. The distances are the between
+            pairs. The value can one of {self._sett_clus_cevg_evg_stats} only.
+        pstv_dfnt_flag : bool
+            While computing the empirical variogram, the resulting line
+            may not be monotonically increasing. For a theoretical variogram,
+            it is normally important to increase monotononically (I know,
+            the hole-effect variogram). Setting this flag to True, makes
+            the empirical variogram to increase monotonically so that it
+            looks more like a theoretical variogram. It may not matter
+            much at end because a theoretical variogram is fitted to it
+            anyways. Try with and without this flag and see how much it
+            matters. This positive definite is not the same as what we
+            have in linear algebra. Here the name was chosen because it
+            the operation makes it look like that it is positive definite.
+        simplify_flag : bool
+            If True, successive similar distance and empirical variogram
+            values are discarded. This may help with the fitting of
+            theoretical variogram because, less data points are used to fit.
+        norm_flag : bool
+            Whether to divide the empirical variograms by their mean
+            values to make them look similar. This is a bad idea if further
+            estimation variance is needed. Kriging itself is not affected by
+            linear scaling of the variogram. This does help in clustering
+            the final theoretical variograms to fewer ones.
+        max_dist_thresh : int or float
+            The maximum distance for which to compute the empirical
+            variogram. Computing variogram at very long distance doesn't
+            yield much if many neighbors exist close to the interpolation
+            point. This distance depends on how farther the stations are
+            spaced from the grid cells. The farther they are from cells,
+            the larger this threshold.
+        clus_ts : None of pd.Series
+            If clus_type is "manual", the clus_ts has to be specified.
+            Otherwise, it has to be None. This series should have the
+            same index as the input data dataframe. The unique values and
+            their corresponding steps are considered as a single step
+            and and empirical variogram is fitted to them.
+        clus_ts_nan : same datatype as clus_ts
+            The value that represents nodata in clus_ts. It can be NaN,
+            if values in clus_ts are floats. It can be an intger if clus_ts
+            has integer values. This value doesn't necessarily need to
+            occur in clus_ts. The important thing is that its datatype
+            should be exactly the same as that of clus_type. So, maybe
+            a cast from one of the numpy dtypes may be need e.g. int of
+            python is not the same as np.int64 or any integer dtypes in
+            numpy.
         '''
 
         if self._vb:
@@ -142,25 +209,58 @@ class VGCSettings(VD):
             print(
                 'Setting parameters for clustering empirical variograms...\n')
 
-        assert isinstance(clus_type, str)
-        assert isinstance(ignore_zeros_flag, bool)
-        assert isinstance(n_min_valid_values, int)
-        assert isinstance(smoothing, (int, float))
-        assert isinstance(evg_stat, str)
-        assert isinstance(pstv_dfnt_flag, bool)
-        assert isinstance(simplify_flag, bool)
-        assert isinstance(norm_flag, bool)
-        assert isinstance(max_dist_thresh, (int, float))
-        assert isinstance(clus_ts, (pd.Series, type(None)))
+        assert isinstance(clus_type, str), (
+            f'clus_type is not of the string data type!')
+
+        assert isinstance(ignore_zeros_flag, bool), (
+            f'ignore_zeros_flag is not of the boolean data type!')
+
+        # TODO: Is a check there for the upper limit of minimum values.
+        # This must be smaller than the maximum number of values available.
+        assert isinstance(n_min_valid_values, int), (
+            f'n_min_valid_values is not an integer!')
+
+        assert isinstance(smoothing, (int, float)), (
+            f'smoothing not of the datatype int or float!')
+
+        assert isinstance(evg_stat, str), (
+            f'evg_stat is not of the string data type!')
+
+        assert isinstance(pstv_dfnt_flag, bool), (
+            f'pstv_dfnt_flag is not of the boolean data type!')
+
+        assert isinstance(simplify_flag, bool), (
+            f'simplify_flag not of the boolean datatype!')
+
+        assert isinstance(norm_flag, bool), (
+            f'norm_flag not of the boolean data type!')
+
+        assert isinstance(max_dist_thresh, (int, float)), (
+            f'max_dist_thresh not an integer or a float value!')
+
+        assert isinstance(clus_ts, (pd.Series, type(None))), (
+            f'clus_ts neither of the pd.Series nor None data type!')
+
         if clus_ts is not None:
             assert clus_ts.values.dtype == type(clus_ts_nan), (
-                clus_ts.values.dtype, type(clus_ts_nan))
+                f'Data types of clus_ts and clus_ts_nan do not match:',
+                clus_ts.values.dtype,
+                type(clus_ts_nan))
 
-        assert clus_type in self._sett_clus_cevg_types
-        assert n_min_valid_values > 0
-        assert smoothing >= 0
-        assert evg_stat in self._sett_clus_cevg_evg_stats
-        assert max_dist_thresh > 0
+        assert clus_type in self._sett_clus_cevg_types, (
+            f'Unknown clus_type: {clus_type}!')
+
+        assert n_min_valid_values > 0, (
+            f'n_min_valid_values must be greater than zero!')
+
+        assert smoothing >= 0, (
+            f'smoothing must be greater than or equal to zero!')
+
+        assert evg_stat in self._sett_clus_cevg_evg_stats, (
+            f'Unknown evg_stat: {evg_stat}!')
+
+        assert max_dist_thresh > 0, (
+            f'max_dist_thresh must be greater than zero!')
 
         self._sett_clus_cevg_type = clus_type
         self._sett_clus_cevg_ignr_zeros_flag = ignore_zeros_flag
@@ -235,6 +335,48 @@ class VGCSettings(VD):
             max_variogram_range,
             apply_wts_flag):
 
+        f'''
+        Specify settings for the fitting theoretical variograms to the
+        empirical ones.
+
+        Parameters
+        ----------
+        theoretical_variograms : tuple list
+            A list/tuple of variograms that can be used to fit the empirical
+            ones. One never knows which ones will work out. The best way is
+            to try all available first. These can be any from
+            {self._sett_clus_tvg_tvgs_all}. Then the better ones can be
+            specified once more for the theoretical fit. This may be
+            important. Care should be taken which ones to use. For example,
+            the Gaussian variogram regularly results in a semivariogram
+            matrix whose determinant is zero. This is due to the fact that
+            Gaussian variogram rises very smoothly from zero to its sill
+            value. As floating precision is limited and matrix inversion
+            is not analytical, the resulting inverted matrix may be singular.
+            But the same does not pose a problem when used for simulating
+            a Gaussuan field using the Fourier transform. This is my
+            experience. Yours may vary.
+        permutation_sizes : tuple or list
+            The combination sizes or various variograms to use e.g.
+            An empirical variogram is better fitted if a combination
+            of various variograms or the same variogram with different
+            parameters is used. This may lead to overfitting. So, try various
+            sizes and then at use a limited number to refit.
+        max_opt_iters : int
+            The maximum number of iterations to perform while finding the
+            best fit variogram(s).
+        max_variogram_range : int or float
+            The upper limit of variogram range. The lower is zero.
+        apply_wts_flag : bool
+            If True, then each squared difference at a given distance between
+            a tested theoretical and empirical variogram is divided by the
+            square root of that distance. This puts more weight on the points
+            that are near the origin. The more points near the origin
+            the more the weight. Which is good. Because more neighbors mean
+            that we don't have to worry about the farther control points.
+
+        '''
+
         if self._vb:
             print_sl()
 
@@ -246,7 +388,9 @@ class VGCSettings(VD):
         theoretical_variograms = set(theoretical_variograms)
 
         assert len(theoretical_variograms)
+
         assert all([isinstance(tvg, str) for tvg in theoretical_variograms])
+
         assert all([tvg in self._sett_clus_tvg_tvgs_all
                     for tvg in theoretical_variograms])
 
