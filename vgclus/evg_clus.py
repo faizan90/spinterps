@@ -18,6 +18,13 @@ from .settings import VGCSettings as CS
 
 class CEVG(CS):
 
+    '''
+    Fit an empirical variogram to a cloud of points.
+
+    The way to do this is specified in the
+    set_empirical_variogram_clustering_parameters of the parent class.
+    '''
+
     def __init__(self, verbose=True):
 
         CS.__init__(self, verbose)
@@ -583,9 +590,9 @@ class CEVG(CS):
                 f'Unknown clus_type: {self._sett_clus_cevg_type}!')
 
         # The length needs to be one, this is what some methods assume.
-        assert len(cevg_pref) == 1
+        assert len(cevg_pref) == 1, (f'This is not supposed to happen!')
 
-        assert len(args)
+        assert len(args), (f'This is not supposed to happen!')
 
         self._cevg_pref = cevg_pref
         self._cevg_args = args
@@ -609,9 +616,11 @@ class CEVG(CS):
 
         CS._VGCSettings__verify(self)
 
-        assert self._data_df.shape[1] >= 3
+        assert self._data_df.shape[1] >= 3, (
+            f'Input data must have at least three columns!')
 
-        assert self._sett_clus_verify_flag
+        assert self._sett_clus_verify_flag, (
+            f'Verify method of setting not called!')
 
         self._cevg_verify_flag = True
         return

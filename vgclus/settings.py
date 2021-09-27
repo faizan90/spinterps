@@ -525,15 +525,30 @@ class VGCSettings(VD):
             print(
                 'Setting parameters for theoretical variogram clustering...\n')
 
-        assert isinstance(n_distance_intervals, int)
-        assert isinstance(ks_alpha, float)
-        assert isinstance(min_abs_kriging_weight, float)
-        assert isinstance(max_nrst_nebs, int)
+        assert isinstance(n_distance_intervals, int), (
+            f'In correct data type of n_distance_intervals!')
 
-        assert n_distance_intervals > 1
-        assert 0 < ks_alpha <= 1
-        assert min_abs_kriging_weight >= 0
-        assert max_nrst_nebs > 0
+        assert isinstance(ks_alpha, float), (
+            f'Incorrect data type of ks_alpha!')
+
+        assert isinstance(min_abs_kriging_weight, float), (
+            f'Incorrect data type of min_abs_kriging_weight!')
+
+        assert isinstance(max_nrst_nebs, int), (
+            f'Incorrect data type of max_nrst_nebs!')
+
+        assert n_distance_intervals > 1, (
+            f'n_distance_intervals must be greater than one!')
+
+        assert 0 < ks_alpha <= 1, (
+            f'ks_alpha must be greater than zero and less than equal to one!')
+
+        assert  0 <= min_abs_kriging_weight < 1, (
+            f'min_abs_krging_weight must be greater than or equal '
+            f'to zero and less than one!')
+
+        assert max_nrst_nebs > 0, (
+            f'max_nrst_nebs must be greater than zero!')
 
         self._sett_clus_ctvg_n_distances = n_distance_intervals
         self._sett_clus_ctvg_ks_alpha = ks_alpha
@@ -557,6 +572,8 @@ class VGCSettings(VD):
                 f'Maximum nearest neighbors for clustering: '
                 f'{self._sett_clus_ctvg_max_nebs}')
 
+            print_el()
+
         self._sett_clus_ctvg_set_flag = True
         return
 
@@ -567,14 +584,17 @@ class VGCSettings(VD):
 
         Parameters
         ----------
-        outputs_dir : str, Path-like
+        outputs_dir : str or Path-like
             Path to the directory where the outputs will be stored.
             Created if not there.
-        n_cpus : string, integer
+        n_cpus : string or int
             Maximum number of processes to use to generate realizations.
             If the string 'auto' then the number of logical cores - 1
             processes are used. If an integer > 0 then that number of
             processes are used.
+        plot_figs_flag: bool
+            Whether to plot the figures of the ouputs of various method
+            calls e.g. empirical variogram and the cloud that it comes from.
         '''
 
         if self._vb:
@@ -583,11 +603,13 @@ class VGCSettings(VD):
             print(
                 'Setting misc. settings for variogram clustering/fitting...\n')
 
-        assert isinstance(outputs_dir, (str, Path))
+        assert isinstance(outputs_dir, (str, Path)), (
+            f'Incorrect data type of outputs_dir!')
 
         outputs_dir = Path(outputs_dir).absolute()
 
-        assert outputs_dir.is_absolute()
+        assert outputs_dir.is_absolute(), (
+            f'Huh! This shouldn\'t have happend.')
 
         assert outputs_dir.parents[0].exists(), (
             'Parent directory of outputs dir does not exist!')
@@ -596,7 +618,7 @@ class VGCSettings(VD):
             outputs_dir.mkdir(exist_ok=True)
 
         if isinstance(n_cpus, str):
-            assert n_cpus == 'auto', 'Invalid n_cpus!'
+            assert n_cpus == 'auto', 'Invalid n_cpus string!'
 
             n_cpus = get_n_cpus()
 
@@ -605,7 +627,8 @@ class VGCSettings(VD):
 
             assert n_cpus > 0, 'Invalid n_cpus!'
 
-        assert isinstance(plot_figs_flag, bool)
+        assert isinstance(plot_figs_flag, bool), (
+            f'Incorrect data type of plot_figs_flag!')
 
         self._sett_clus_misc_outs_dir = outputs_dir
         self._sett_clus_misc_n_cpus = n_cpus
@@ -631,12 +654,17 @@ class VGCSettings(VD):
 
     def verify(self):
 
-        assert self._data_set_flag
-        assert self._sett_clus_cevg_set_flag
-        assert self._sett_clus_misc_set_flag
+        assert self._data_set_flag, f'Call set_data first!'
+
+        assert self._sett_clus_cevg_set_flag, (
+            f'Call set_empirical_variogram_clustering_parameters first!')
+
+        assert self._sett_clus_misc_set_flag, (
+            f'Call set_misc_settings first!')
 
         if self._sett_clus_ctvg_set_flag:
-            assert self._sett_clus_tvg_set_flag
+            assert self._sett_clus_tvg_set_flag, (
+                f'Call set_theoretical_variogram_parameters first!')
 
         self._sett_clus_verify_flag = True
         return
