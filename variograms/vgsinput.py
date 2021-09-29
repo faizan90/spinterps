@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..misc import get_dist_mat
+from ..misc import get_dist_mat, print_sl, print_el
 
 
 class VariogramsData:
@@ -54,6 +54,11 @@ class VariogramsData:
             neighbors. Distances that are zero or too small may result
             in SingularMatrix errors while kriging.
         '''
+
+        if self._vb:
+            print_sl()
+
+            print('Setting data...')
 
         assert isinstance(stns_time_ser_df, pd.DataFrame), (
             'stns_time_ser_df has to be a pd.DataFrame object!')
@@ -106,7 +111,6 @@ class VariogramsData:
             'stns_min_dist_thresh must be inbetween 0 and infinity!')
 
         if self._vb:
-            print('\n', '#' * 10, sep='')
             print(
                 f'Original shape of stns_time_ser_df: '
                 f'{stns_time_ser_df.shape}.')
@@ -175,7 +179,8 @@ class VariogramsData:
 
         if self._vb:
             print('Data set successfully!')
-            print('#' * 10)
+
+            print_el()
 
         self._data_set_flag = True
         return

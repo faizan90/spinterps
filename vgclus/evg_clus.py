@@ -23,6 +23,8 @@ class CEVG(CS):
 
     The way to do this is specified in the
     set_empirical_variogram_clustering_parameters of the parent class.
+
+    Last updated: 2021-Sep-28
     '''
 
     def __init__(self, verbose=True):
@@ -433,6 +435,68 @@ class CEVG(CS):
         return
 
     def cluster_evgs(self):
+
+        '''
+        Fit empirical variograms, by (may be) clustering various vectors
+        based on the information passed to the method
+        set_empirical_variogram_clustering_parameters.
+
+        Numpy (.npy) data for various settings is saved in the directory
+        cevgs_txt and cevgs_figs (if the figures flag was set).
+        Following are the various outputs and their formats based on the
+        flags set. X is the letter representing the type of clustering
+        (clus_type in the set_empirical_variogram_clustering_parameters).
+        It is M for months, Y for years, A for manual and N for none.
+        Y represents the cluster e.g. Y = 3 means the month of March,
+        if months are chosen as the clustering type or Y = 2000 means the
+        year 2000 if clustering type is years or A = 10 means the
+        that all vectors occuring whenvever clus_ts was equal to 10 or
+        it is the index of the vector when clustering type is none.
+        Each preceeding output below is applied to the corresponding
+        outputs before it (except the first one of course).
+
+        X_Y_evg_distances.npy : The distances at which empirical variogram
+            values are computed.
+        X_Y_evg_values.npy: The empirical variogram values. Each value is
+            the mean/median/min/max of all the empirical variogram values
+            (the terms 0.5 * (a - b)**2) for each pair. For each distance,
+            there is one lumped empirical variogram value. Suppose,
+            the mean of all the empirical variogram values for a pair of
+            time series for the months of June in a time series.
+        X_Y_smoothed_evg_distances.npy: The moving window mean distances.
+            The size of the moving window depends on the value of the
+            smoothing parameter.
+        X_Y_smoothed_evg_values.npy: The moving window of the mean of the
+            empirical varigram values. The size of the moving window
+            depends on the value of the smoothing parameter.
+        X_Y_pstv_dfnt_evg_distances : Distances of the monotonically
+            increasing empirical variogram values if the
+            pstv_dfnt_flag is set.
+        X_Y_pstv_dfnt_evg_values: Monotonically increasing empirical
+            variogram values corresponding to the previous distances
+            if the pstv_dfnt_flag is set.
+        X_Y_normed_evg_distances: Distances for normed empirical variogram
+            values.
+        X_Y_normed_evg_values: Normed empirical variogram values. These
+            are computed by dividing the mean/median/min/max of the
+            empirical variogram by the empirical variogram. This is done
+            to bring all variogram to a similar scale. Such a norming
+            makes sense for clustering variograms. Kriging weights are
+            not affected by scaling the variogram by a constant.
+            But it does affect the Estimation Variance. There, the normed
+            variogram has to be rescaled by multiplying by whatever was
+            used to norm it. Here, it is important to note that the proper
+            scaling required to unnorm the later fitted theoretical
+            variogram may not be the same scaling that was applied to norm
+            the variogram. So, if estimation variance is to be computed
+            then set the norm_flag to False.
+        X_Y_normed_norming_value: The floating-point value used to norm the
+            empirical variogram in the previous output.
+        X_Y.png: The figure showing the variogram cloud and the empirical
+            variogram. The Y-axis is logarithmic (IMHO, it looks better).
+            Some information such as the state of various flags and the
+            clustering type is shown in the title.
+        '''
 
         if self._vb:
             print_sl()

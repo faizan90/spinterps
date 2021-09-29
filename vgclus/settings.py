@@ -18,12 +18,12 @@ class VGCSettings(VD):
 
     '''
     The settings class for variogram clustering. It is supposed to be
-    subclassed by another one.
+    inherited by another one.
 
     Here, all the required settings and inputs are specified that may be
-    used by other classes that do the actual clustering. The data
-    is set in the relevant methods of the VariogramsData class (parent of
-    this class).
+    used by other classes that do the actual variogram fitting and
+    clustering. The data is set in the relevant methods of the
+    VariogramsData class (parent of this class).
 
     Settings and inputs are specified for empirical variogram computation,
     theoretical variogram fitting to the empirical. The empirical may be
@@ -35,13 +35,13 @@ class VGCSettings(VD):
 
     Chosen variograms for each timestep/vector are saved as a text series.
 
-    For more please read the full documentations of all the classes in this
-    module.
+    For more please read the full documentations of all the classes and
+    their in this module.
 
     To see usage, take a look at the test_fitcvgs.py in the test
     directory of the spinterps module.
 
-    Last updated: 2021-Sep-24
+    Last updated: 2021-Sep-28
     '''
 
     _sett_clus_cevg_types = ('months', 'years', 'manual', 'none',)
@@ -103,6 +103,31 @@ class VGCSettings(VD):
         f'''
         Specify settings for the computing empirical variogram(s).
 
+        For the description of outputs see the documentation of the
+        method cluster_evgs of the class CEVG (that inherits this one).
+
+        The empirical variograms are later required for getting the
+        theoretical variograms. So, calling this method is mandatory if
+        theoretical variograms are needed.
+
+        Normally, each point in the empirical variogram cloud is computed
+        for each time step (a vector), half the difference squared is
+        averaged for all the possible pairs and plotted against the
+        pair-wise distance. Here, the variograms are simplified.
+        For example, we can take all the time steps that belong to a
+        given month. For each pair, all the empirical variogram values
+        for each time are averaged (or operation from
+        {self._sett_clus_cevg_types}). This is taken as a single point
+        in the variogram cloud. The cloud is created by doing
+        the same for all the possible pairs. At the end, we get a single
+        empirical variogram for that given month for all the points and
+        all the timesteps, instead of seperate variograms for each time step.
+        This greatly simplifies Kriging because now the
+        semivartiogram/covariance matrix is only inverted once to produce
+        the weights. This, in practice makes sense for example for
+        precipitation that is seasonal or temperatures. This is what is
+        meant by clustering of variograms. For more read on.
+
         Parameters
         ----------
         clus_type : str
@@ -114,7 +139,9 @@ class VGCSettings(VD):
             is "months" then all the time series values that happen in
             a given month are seen as single timestep where the distance
             between the pairs are same but the difference between their
-            values keeps changing. Same applies for "years".
+            values keeps changing.
+            Same applies for "years" (but with years as the selection
+            criterium).
             If "manual" then the argument "clus_ts" must be passed as a 1D
             vector whose length is equal to the number of vectors in the
             main data series. Then vectors are clustered based on the indices
@@ -122,7 +149,7 @@ class VGCSettings(VD):
             are taken as a single timestep to whom an empirical variogram
             is fitted. It is a generic form of having "months" or "years"
             as a clustering type. If "clus_ts_nan" is given then timesteps
-            with the value clus_ts_nan are not used or fitted with anything.
+            with the value clus_ts_nan are not used for fitted with anything.
             If clus_type is "none" then each vector is taken as is and
             a variogram fitted. This is equivalent to the classical
             variogram fitting. clus_type must be a string and only one of the
@@ -131,8 +158,7 @@ class VGCSettings(VD):
             Whether to ignore the zero difference between any two components,
             while computing the variogram cloud. This may be important for
             variables such as precipitation where no rain values dominate
-            the distribution and can result in low variance. Must be a
-            boolean value.
+            the distribution can result in low variance.
         n_min_valid_values : int
             For each pair in each cluster, the minimum possible number
             of values that must be present to create a point in the
@@ -145,18 +171,18 @@ class VGCSettings(VD):
             values before this point and half from front are used to
             get a corresponding empirical variogram value. The operation
             that is applied on these values can be
-            {self._sett_clus_cevg_evg_stats}.
-            The operation is determined by the value of the variable
-            "evg_stat".
+            {self._sett_clus_cevg_evg_stats}. The operation is determined
+            by the value of the variable "evg_stat".
             2. smoothing == 0: Then no values are used from front or back.
             This may result in a very bumpy variogram.
             3. 0 < smoothing < 1: smoothing percentage of the total values
-            are used from front and back (50-50) to get the empirical
-            variogram value for each distance.
+            in the variogram cloud are used from front and back (50-50) to
+            get the empirical variogram value for each distance.
         evg_stat : str
             The type of operation to apply when computing the emprical
-            variogram value for each distance. The distances are the between
-            pairs. The value can one of {self._sett_clus_cevg_evg_stats} only.
+            variogram value for each distance. The distances are between the
+            pairs. The value can be one of {self._sett_clus_cevg_evg_stats}
+            only.
         pstv_dfnt_flag : bool
             While computing the empirical variogram, the resulting line
             may not be monotonically increasing. For a theoretical variogram,
@@ -164,18 +190,18 @@ class VGCSettings(VD):
             the hole-effect variogram). Setting this flag to True, makes
             the empirical variogram to increase monotonically so that it
             looks more like a theoretical variogram. It may not matter
-            much at end because a theoretical variogram is fitted to it
+            much at the end because a theoretical variogram is fitted to it
             anyways. Try with and without this flag and see how much it
             matters. This positive definite is not the same as what we
-            have in linear algebra. Here the name was chosen because it
+            have in Linear Algebra. Here the name was chosen because it
             the operation makes it look like that it is positive definite.
         simplify_flag : bool
             If True, successive similar distance and empirical variogram
             values are discarded. This may help with the fitting of
             theoretical variogram because, less data points are used to fit.
         norm_flag : bool
-            Whether to divide the empirical variograms by their mean
-            values to make them look similar. This is a bad idea if further
+            Whether to divide the empirical variograms by their "evg_stat"
+            values to make them look similar. This is a bad idea if later
             estimation variance is needed. Kriging itself is not affected by
             linear scaling of the variogram. This does help in clustering
             the final theoretical variograms to fewer ones.
@@ -186,21 +212,24 @@ class VGCSettings(VD):
             point. This distance depends on how farther the stations are
             spaced from the grid cells. The farther they are from cells,
             the larger this threshold.
-        clus_ts : None of pd.Series
-            If clus_type is "manual", the clus_ts has to be specified.
+        clus_ts : None or pd.Series
+            If clus_type is "manual", clus_ts has to be specified.
             Otherwise, it has to be None. This series should have the
-            same index as the input data dataframe. The unique values and
-            their corresponding steps are considered as a single step
-            and and empirical variogram is fitted to them.
-        clus_ts_nan : same datatype as clus_ts
+            same index as the input data dataframe, if not then its is
+            reindexed according to the data set in the set_data method.
+            The unique values and their corresponding steps are
+            considered as a single step and an empirical variogram is
+            fitted to them.
+        clus_ts_nan : same datatype as clus_ts.values
             The value that represents nodata in clus_ts. It can be NaN,
             if values in clus_ts are floats. It can be an intger if clus_ts
             has integer values. This value doesn't necessarily need to
             occur in clus_ts. The important thing is that its datatype
-            should be exactly the same as that of clus_type. So, maybe
-            a cast from one of the numpy dtypes may be need e.g. int of
-            python is not the same as np.int64 or any integer dtypes in
-            numpy.
+            should be exactly the same as that of clus_type. So,
+            a cast from one of the numpy or pandas dtypes may be needed
+            e.g. int of python is not the same as np.int64 or any integer
+            dtypes in numpy or pandas. pandas provides a special dtype
+            where NaNs may be included in an array of non-floats.
         '''
 
         if self._vb:
@@ -215,13 +244,11 @@ class VGCSettings(VD):
         assert isinstance(ignore_zeros_flag, bool), (
             f'ignore_zeros_flag is not of the boolean data type!')
 
-        # TODO: Is a check there for the upper limit of minimum values.
-        # This must be smaller than the maximum number of values available.
         assert isinstance(n_min_valid_values, int), (
             f'n_min_valid_values is not an integer!')
 
         assert isinstance(smoothing, (int, float)), (
-            f'smoothing not of the datatype int or float!')
+            f'smoothing not of the int or float data type!')
 
         assert isinstance(evg_stat, str), (
             f'evg_stat is not of the string data type!')
@@ -230,7 +257,7 @@ class VGCSettings(VD):
             f'pstv_dfnt_flag is not of the boolean data type!')
 
         assert isinstance(simplify_flag, bool), (
-            f'simplify_flag not of the boolean datatype!')
+            f'simplify_flag not of the boolean data type!')
 
         assert isinstance(norm_flag, bool), (
             f'norm_flag not of the boolean data type!')
@@ -341,7 +368,7 @@ class VGCSettings(VD):
 
         Parameters
         ----------
-        theoretical_variograms : tuple list
+        theoretical_variograms : tuple or list
             A list/tuple of variograms that can be used to fit the empirical
             ones. One never knows which ones will work out. The best way is
             to try all available first. These can be any from
@@ -349,7 +376,7 @@ class VGCSettings(VD):
             specified once more for the theoretical fit. This may be
             important. Care should be taken which ones to use. For example,
             the Gaussian variogram regularly results in a semivariogram
-            matrix whose determinant is zero. This is due to the fact that
+            matrix that is singular. This is due to the fact that the
             Gaussian variogram rises very smoothly from zero to its sill
             value. As floating precision is limited and matrix inversion
             is not analytical, the resulting inverted matrix may be singular.
@@ -361,7 +388,7 @@ class VGCSettings(VD):
             An empirical variogram is better fitted if a combination
             of various variograms or the same variogram with different
             parameters is used. This may lead to overfitting. So, try various
-            sizes and then at use a limited number to refit.
+            sizes and then at the end use a limited number to refit.
         max_opt_iters : int
             The maximum number of iterations to perform while finding the
             best fit variogram(s).
@@ -371,8 +398,8 @@ class VGCSettings(VD):
             If True, then each squared difference at a given distance between
             a tested theoretical and empirical variogram is divided by the
             square root of that distance. This puts more weight on the points
-            that are near the origin. The more points near the origin
-            the more the weight. Which is good. Because more neighbors mean
+            that are near the origin. The more the points near the origin
+            the more their weight. Which is good. Because more neighbors mean
             that we don't have to worry about the farther control points.
         '''
 
@@ -480,7 +507,7 @@ class VGCSettings(VD):
         settings in the set_empirical_variogram_clustering_parameters
         and set_theoretical_variogram_parameters methods. The final fits
         are evaluated based on the Kolmogorov-Smirnov (KS) test. The
-        clustering is not very though of at this point. It could be better.
+        clustering is not very thought out at this point. It could be better.
 
         The algorithm starts by creating a variogram that is the mean of
         all the fitted theoretical variograms. Then a theoretical variogram
@@ -490,8 +517,8 @@ class VGCSettings(VD):
         are computed using all the previously fitted variograms. The CDFs
         coming from the mean variogram and each theoretical are compared
         for similarity based on the KS test. The ones that pass the test
-        at a given confidence level are assigned this mean variogram and are
-        taken out of the clustering. Now a mean is fitted to the remianing
+        at the given confidence level are assigned this mean variogram and
+        are taken out of the clustering. Now a mean is fitted to the remianing
         ones and the whole procedure is repeated till all the fitted
         theoretical variograms are exhausted.
 
@@ -511,12 +538,12 @@ class VGCSettings(VD):
             The absolute minimum kriging weight to consider that is above
             zero. Smaller weights than this values are rounded to zero.
             Very small weights create problems for the KS test. They may
-            dominate the rejection while infact, such small weights do no
+            dominate the rejection while infact, such small weights do not
             matter. Should be greater than zero and not more than one.
         max_nrst_nebs : int
             How many neighbors to take while generating the kriging weights
             for the KS test. These are nearest neighbors to a randomly
-            selected point out all the given points.
+            selected point out of all the given points.
         '''
 
         if self._vb:
@@ -580,20 +607,21 @@ class VGCSettings(VD):
     def set_misc_settings(self, outputs_dir, n_cpus, plot_figs_flag):
 
         '''
-        Some more parameters
+        Some more parameters.
 
         Parameters
         ----------
         outputs_dir : str or Path-like
             Path to the directory where the outputs will be stored.
-            Created if not there.
+            Created if not there. The parent dire tory shoudl exist.
         n_cpus : string or int
-            Maximum number of processes to use to generate realizations.
-            If the string 'auto' then the number of logical cores - 1
-            processes are used. If an integer > 0 then that number of
-            processes are used.
+            Maximum number of processes to use to fit variograms (empirical
+            and theoretical). The actucal number may be lower than this.
+            If the string 'auto' then the number of physical cores
+            processes are used. At the end, one thread is spared..
+            If an integer > 0 then that number of processes are used.
         plot_figs_flag: bool
-            Whether to plot the figures of the ouputs of various method
+            Whether to plot the figures of the outputs of various method
             calls e.g. empirical variogram and the cloud that it comes from.
         '''
 
@@ -608,11 +636,8 @@ class VGCSettings(VD):
 
         outputs_dir = Path(outputs_dir).absolute()
 
-        assert outputs_dir.is_absolute(), (
-            f'Huh! This shouldn\'t have happend.')
-
         assert outputs_dir.parents[0].exists(), (
-            'Parent directory of outputs dir does not exist!')
+            'Parent directory of outputs_dir does not exist!')
 
         if not outputs_dir.exists():
             outputs_dir.mkdir(exist_ok=True)
@@ -665,6 +690,11 @@ class VGCSettings(VD):
         if self._sett_clus_ctvg_set_flag:
             assert self._sett_clus_tvg_set_flag, (
                 f'Call set_theoretical_variogram_parameters first!')
+
+        assert self._sett_clus_cevg_min_vlds <= self._data_df.shape[0], (
+            f'Minimum number of required valid vectors to compute the'
+            f'empirical variogram cloud cannot be greater than'
+            f'the number of vectors in data_df!')
 
         self._sett_clus_verify_flag = True
         return
