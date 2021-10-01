@@ -20,6 +20,38 @@ from ..misc import (
 
 class TVGSClus(TVGFit):
 
+    '''
+    Cluster the fitted theoretical variograms to fewer ones, if possible.
+
+    The clustering works by iteratively fitting a theoretical variogram
+    to the mean of all the theoretical variograms that do not belong to
+    a cluster.
+
+    The fitting criteria is the Kolmogorov-Smirnov test at a given
+    confidence level. It is applied to the weights of the considered
+    kriging weights of the considered theoretical variograms and the single
+    one that represents them. If the distribution of weights pass the
+    test, then it belongs to the new variogram. The rest are tested and
+    the algorithm runs till there are no theoretical variograms remainging
+    to cluster.
+
+    Some more details about the fitting procedure and the format of the
+    outputs is described in cluster_theoretical_variograms method.
+
+    To cluster the theoretical variograms into fewer ones the following
+    sequence of method calls is required:
+    - set_data
+    - set_empirical_variogram_clustering_parameters
+    - set_theoretical_variogram_parameters
+    - set_theoretical_variogram_clustering_parameters
+    - verify
+    - cluster_evgs
+    - fit_theoretical_variograms
+    - cluster_theoretical_variograms
+
+    Last updated: 2021-Sep-30
+    '''
+
     def __init__(self, verbose=True):
 
         TVGFit.__init__(self, verbose)
@@ -466,6 +498,62 @@ class TVGSClus(TVGFit):
         return vg_clusters
 
     def cluster_theoretical_variograms(self):
+
+        '''
+        Cluster the previously fitted theoretical variograms in to fewer
+        variograms (yes, clustering the clusters). The idea is that it is
+        possible that even though different theoretical variograms are
+        fitted to distinct theoretical variograms, the kriging weights
+        that they result it may be very similar. How similar, depends on
+        how different the variograms were to begin with but also the
+        configuration of points that are used for interpolating at another
+        point. Unlike inverse distance weighting, the configuration of
+        points matters for Kriging. Google the screening effect of Kriging.
+
+        KS test is used to test the similarity of the Kriging weights. The
+        closer the weights of a theoretical variogram to that of a cluster
+        variogram, the more its chances to get accepted. There is a couple
+        of problems that must be addressed to do this correctly.
+
+        The first problem:
+        Empirical distributions of the weights are used for the KS test.
+        The non-excceedence probabilites are derived from the ranks of
+        values (rank divided by the numer of values plus one). The problem
+        with ranks is that they change for difference in the sixteenth
+        decimal place, something which, probably, does not matter. Weights
+        close to zero are rounded to zero. This absolute weight threshold
+        is min_abs_kriging_weight.
+
+        The other problem:
+        The configuration of points to use. This means the number of
+        points to sample and which ones to sample. The number is set by
+        the user by the max_nrst_nebs parameter. Then points are randomly
+        chosen from all. This is done by going through each time step,
+        taking all the points that have valid values and taking a random
+        sample from those. The minimum threshold is that the number of
+        points be greater than 2 and max_nrst_nebs at maximum.
+        A random point among these is then taken as the origin. This is
+        point for which the Kriging weights are computed.
+
+        The following ouputs are produced. These are similar to the ones
+        produced by the fit_theoretical_Vvriograms method. Figures are
+        saved to the directory tvgs_clus_figs while the rest to
+        tvg_clus_txts. X is the acronym for clus_type (see other fitting
+        methods for what it means).
+
+        X_final_tvgs_clus.csv: The final variograms that are supposed to
+            cluster the previous theoretical variograms. They may be the
+            same as previous ones because of clustering being not possible.
+            The clustered variograms replace the theoretical variograms.
+            The labels for the clusters remain the same but one variogram
+            may be used for multiple clusters from the outputs
+            fit_theoretical_variograms. The file format is similar to
+            X_final_tvgs.csv.
+        X_final_tvgs_clus_ts.csv: The series of variograms. Here the
+            format is similar to that of X_final_tvgs_ts.csv. If the clustering
+            of theoretical variograms is successful, multiple theoretical
+            variograms are
+        '''
 
         if self._vb:
             print_sl()

@@ -20,6 +20,25 @@ from ..misc import print_sl, print_el, get_theo_vg_vals, all_mix_vg_ftns
 
 class TVGFit(CEVG):
 
+    '''
+    Fit theoretical variograms to the empirical ones.
+
+    The way to fit the theoretical variograms is described in the
+    fit_theoretical_variograms method. The outputs of that method are
+    also described there.
+
+    To get the theoretical variograms the following sequence of
+    method calls is required:
+    - set_data
+    - set_empirical_variogram_clustering_parameters
+    - set_theoretical_variogram_parameters
+    - verify
+    - cluster_evgs
+    - fit_theoretical_variograms
+
+    Last updated: 2021-Sep-30
+    '''
+
     def __init__(self, verbose=True):
 
         CEVG.__init__(self, verbose)
@@ -313,6 +332,36 @@ class TVGFit(CEVG):
 
     def fit_theoretical_variograms(self):
 
+        '''
+        Fit theoretical variograms to empiricals based on the criteria
+        set in the set_theoretical_variogram_parameters.
+
+        The objective function here is the sum of the squared differences
+        and the AIC. The AIC serves to limit overfitting when multiple
+        variogram combinations are used instead of just one.
+
+        The following outputs are created in the tvgs_fit_txts if they
+        are arrays (.npy) or pd.Series (.csv) and tvgs_fit_figs if they
+        are figures. The X represent clus_type acronym, same as that
+        in cluster_evgs method's outputs.
+
+        The variograms are of the format "A B(C)". Where, A is the sill,
+        B is the label of variogram and C is the range.
+
+        X_final_tvgs.csv: The theoretical variograms fitted to each cluster
+            or step if no clustering was chose. The index (first column)
+            is a combination of X and the cluster label. For example, it
+            is M04 for April if clus_type was months; Y2001 for the year
+            2000 if clus_type was years; A7 if clus_type was manual and the
+            label in the time clus_ts was 7; for clus_type none, it should
+            be N50 for the 50th vector (N is for none).
+        X_final_tvgs_ts.csv: A series of theoretical variograms. The index is
+            is the same as that of the data that was set in set_data.
+        Y_tvg_evg.png: A fitted unique theoretical variogram Y along with its
+            empirical variogram. Y in this case represents the cluster which
+            may be like M05, Y1999, A7 depending on the settings.
+        '''
+
         if self._vb:
             print_sl()
 
@@ -396,6 +445,13 @@ class TVGFit(CEVG):
 
     def prepare(self):
 
+        '''
+        Prepare some intermediate variables before fitting the
+        theoretical variograms to the empiricals. Must be called
+        before calling fit_theoretical_variograms. It is called
+        automatically if you forget.
+        '''
+
         self._tvgs_fit_txts_dir = (
                 self._sett_clus_misc_outs_dir / f'tvgs_fit_txts')
 
@@ -411,6 +467,12 @@ class TVGFit(CEVG):
         return
 
     def verify(self):
+
+        '''
+        Verify if all the required inputs to get the theoretical
+        variograms are set. Must be explicitly called before calling
+        fit_theoretical_variograms.
+        '''
 
         CEVG._CEVG__verify(self)
 

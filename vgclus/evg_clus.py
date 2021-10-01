@@ -24,7 +24,16 @@ class CEVG(CS):
     The way to do this is specified in the
     set_empirical_variogram_clustering_parameters of the parent class.
 
-    Last updated: 2021-Sep-28
+    The following sequence of method calls is required to get the empirical
+    variograms:
+    - set_data
+    - set_empirical_variogram_clustering_parameters
+    - verify
+    - cluster_evgs
+
+    Description of the outputs is given in the cluster_evgs method.
+
+    Last updated: 2021-Sep-29
     '''
 
     def __init__(self, verbose=True):
@@ -505,6 +514,8 @@ class CEVG(CS):
 
             evg_beg_time = timeit.default_timer()
 
+        assert self._cevg_verify_flag, 'Call verify first!'
+
         if not self._cevg_prepare_flag:
             CEVG._CEVG__prepare(self)
         #======================================================================
@@ -584,6 +595,12 @@ class CEVG(CS):
         return
 
     def prepare(self):
+
+        '''
+        Prepare some intermediate data for the empirical variogram
+        computation. Must be called before calling cluster_evg. It is
+        called automatically, in case you forget.
+        '''
 
         if self._sett_clus_cevg_type == 'months':
             cevg_pref = 'M'
@@ -677,6 +694,11 @@ class CEVG(CS):
         return
 
     def verify(self):
+
+        '''
+        Verify all inputs set till this point. Must be called explicitly
+        before calling cluster_evg.
+        '''
 
         CS._VGCSettings__verify(self)
 

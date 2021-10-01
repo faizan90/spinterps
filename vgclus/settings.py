@@ -150,9 +150,10 @@ class VGCSettings(VD):
             is fitted. It is a generic form of having "months" or "years"
             as a clustering type. If "clus_ts_nan" is given then timesteps
             with the value clus_ts_nan are not used for fitted with anything.
-            If clus_type is "none" then each vector is taken as is and
-            a variogram fitted. This is equivalent to the classical
-            variogram fitting. clus_type must be a string and only one of the
+            If clus_type is "none" then all vectors are taken as is and
+            a variogram is fitted. This is equivalent to seeing all the data
+            belonging to a single variogram type.
+            clus_type must be a string and only one of the
             values from {self._sett_clus_cevg_types}.
         ignore_zeros_flag : bool
             Whether to ignore the zero difference between any two components,
