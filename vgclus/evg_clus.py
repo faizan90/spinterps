@@ -19,10 +19,24 @@ from .settings import VGCSettings as CS
 class CEVG(CS):
 
     '''
-    Fit an empirical variogram to a cloud of points.
+    Fit empirical variograms to clouds of points.
 
     The way to do this is specified in the
     set_empirical_variogram_clustering_parameters of the parent class.
+    The main idea is that instead of taking on vector of points,
+    multiple can be taken to have a more robust cloud of points. An
+    empirical variogram is fitted to these then. FOr example, consider
+    temperature that is observed at multiple locations for the whole
+    year daily. Instead of fitting a variogram to each day, all the days
+    of each month can be taken and a variogram can be fitted to them
+    as temperature is also a function of time and the points, are not
+    moving of course. Then a single variogram represents the whole month,
+    instead of 30 or so variograms. Clustering in this way reduces the
+    effect of outliers on the emprical variogram. The main advantage is
+    seen when the kriging matrix is inverted the number of variogram times
+    rather then the number of steps.
+
+    The description of outputs is given in the method cluster_evgs.
 
     The following sequence of method calls is required to get the empirical
     variograms:
@@ -30,8 +44,6 @@ class CEVG(CS):
     - set_empirical_variogram_clustering_parameters
     - verify
     - cluster_evgs
-
-    Description of the outputs is given in the cluster_evgs method.
 
     Last updated: 2021-Sep-29
     '''
@@ -53,6 +65,8 @@ class CEVG(CS):
         return
 
     def _get_evg(self, data_df):
+
+        # For a given cluster of vectors.
 
         n_stns = data_df.shape[1]
 
@@ -268,7 +282,7 @@ class CEVG(CS):
 
         data_df, idntfr = args
 
-        assert self._cevg_verify_flag
+        assert self._cevg_verify_flag, f'Call verify first!'
         #======================================================================
 
         distances, evg_vals = self._get_evg(data_df)

@@ -142,10 +142,10 @@ class TVGFit(CEVG):
 
         mix_vg_names, dists, vg_vals = args
 
-        vg_mix = np.zeros_like(dists)  # to hold the variogram values
+        vg_mix = np.zeros_like(dists)  # To hold the variogram values.
 
         for i, name in enumerate(mix_vg_names):
-            sub_arg = prms[((i * 2)):((i * 2) + 2)]  # get vg params
+            sub_arg = prms[((i * 2)):((i * 2) + 2)]  # Get vg params.
 
             sub_vg = name[1](dists, sub_arg)
 
@@ -182,7 +182,7 @@ class TVGFit(CEVG):
         min_obj = np.inf
         best_vg_name = ''
         best_vg_param = ''
-        lb_thresh = 1e-8  # lower bound (used instead of zero)
+        lb_thresh = 1e-8  # Lower bound (used instead of zero).
 
         sub_bds_a = [
             (lb_thresh, 2),
@@ -199,10 +199,10 @@ class TVGFit(CEVG):
 
             for vg_strs in vg_perms:
                 if vg_strs in skip_perm_list:
-                    # if a given permutation exists then don't run further
+                    # If a given permutation exists then don't run further.
                     continue
 
-                mix_vg_names = []  # to hold the variogram names and ftns
+                mix_vg_names = []  # To hold the variogram names and ftns.
                 bounds = []
 
                 for i, vg_name in enumerate(vg_strs):
@@ -227,14 +227,14 @@ class TVGFit(CEVG):
                 assert opt.success, 'Optimization did not succeed!'
 
                 # Conditions for an optimization result to be selected:
-                # 1: Obj ftn value less than the previous * fit_thresh
-                # 2: Range of the variograms is in ascending order
+                # 1: Obj ftn value less than the (previous * fit_thresh).
+                # 2: Range of the variograms is in ascending order.
 
-                # minimize type optimization:
+                # Minimize type optimization.
                 rngs = opt.x[0::2].copy()
                 sills = opt.x[1::2].copy()
 
-                #  using Akaike Information Criterion (AIC) to select a model
+                # Using Akaike Information Criterion (AIC) to select a model.
                 curr_AIC = (
                     (evg_vals_fit.size * np.log(opt.fun)) +
                     (2 * opt.x.shape[0]))
@@ -245,7 +245,7 @@ class TVGFit(CEVG):
                     np.where(np.ediff1d(rngs) < 0, False, True))
 
                 if not cond_2_fun:
-                    # flipping ranges and sills into correct order
+                    # Flipping ranges and sills into correct order.
                     sort_idxs = np.argsort(rngs)
                     rngs = rngs[sort_idxs]
                     sills = sills[sort_idxs]
@@ -268,7 +268,7 @@ class TVGFit(CEVG):
                     best_vg_name = mix_vg_names
                     best_vg_param = prms
 
-        tvg_str = ''  # final nested variogram string
+        tvg_str = ''  # Final nested variogram string.
 
         for i in range(len(best_vg_name)):
             prms = best_vg_param[(i * 2): (i * 2 + 2)]
@@ -280,7 +280,7 @@ class TVGFit(CEVG):
             tvg_str = tvg_str[3:]
 
         if self._vb and (not self._tvgs_fit_fitted_flag):
-            print(f'Fitted {tvg_str} to {label}')
+            print(f'Fitted {tvg_str} to {label}.')
 
         assert tvg_str, 'No vg fitted!'
 
@@ -341,20 +341,20 @@ class TVGFit(CEVG):
         variogram combinations are used instead of just one.
 
         The following outputs are created in the tvgs_fit_txts if they
-        are arrays (.npy) or pd.Series (.csv) and tvgs_fit_figs if they
-        are figures. The X represent clus_type acronym, same as that
+        are arrays (.npy) or pd.Series (.csv) and in tvgs_fit_figs if they
+        are figures. The X represents clus_type acronym, same as that
         in cluster_evgs method's outputs.
 
         The variograms are of the format "A B(C)". Where, A is the sill,
         B is the label of variogram and C is the range.
 
-        X_final_tvgs.csv: The theoretical variograms fitted to each cluster
-            or step if no clustering was chose. The index (first column)
+        X_final_tvgs.csv: The theoretical variograms fitted to each cluster.
+            The index (first column)
             is a combination of X and the cluster label. For example, it
             is M04 for April if clus_type was months; Y2001 for the year
             2000 if clus_type was years; A7 if clus_type was manual and the
             label in the time clus_ts was 7; for clus_type none, it should
-            be N50 for the 50th vector (N is for none).
+            be N (N is for none).
         X_final_tvgs_ts.csv: A series of theoretical variograms. The index is
             is the same as that of the data that was set in set_data.
         Y_tvg_evg.png: A fitted unique theoretical variogram Y along with its
@@ -434,7 +434,7 @@ class TVGFit(CEVG):
             tvg_fit_end_time = timeit.default_timer()
 
             print(
-                f'Done fitting theoretical variograms to the clustered '
+                f'Done fitting theoretical variograms to '
                 f'empirical variograms in '
                 f'{tvg_fit_end_time - tvg_fit_beg_time:0.1f} seconds.')
 
@@ -449,7 +449,7 @@ class TVGFit(CEVG):
         Prepare some intermediate variables before fitting the
         theoretical variograms to the empiricals. Must be called
         before calling fit_theoretical_variograms. It is called
-        automatically if you forget.
+        automatically called if you forget.
         '''
 
         self._tvgs_fit_txts_dir = (
@@ -476,9 +476,10 @@ class TVGFit(CEVG):
 
         CEVG._CEVG__verify(self)
 
-        assert self._cevg_verify_flag
+        assert self._cevg_verify_flag, f'Call verify first!'
 
-        assert self._sett_clus_tvg_set_flag
+        assert self._sett_clus_tvg_set_flag, (
+            'Call set_theoretical_variogram_parameters first!')
 
         self._tvgs_fit_verify_flag = True
         return
