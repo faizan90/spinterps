@@ -24,39 +24,43 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\classi_ag_ncep_wett_nebs_longer_runs\ob00000010_c20030101_20101231_v20030101_20101231_cps06__rand_00_wb1-6-2\ppt_cps_kriging')
+        r'P:\hydmod_de\hourly\pet_hourly_2008_2020_interp_5km')
 
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'kriging.nc')
+    in_nc_path = Path(r'kriging_5km.nc')
 
-    var_label = 'OK'
+    var_label = 'PET'
     x_label = 'X'
     y_label = 'Y'
     time_label = 'time'
 
-    cbar_label = 'Precipitation (mm)'
+    # cbar_label = 'Precipitation (mm)'
+    cbar_label = 'PET (mm)'
 
-    cmap = 'jet'
+    cmap = 'viridis'
 
     var_min_val = None
     var_max_val = None
 
-    var_min_val = 0
-    var_max_val = 5
+    # var_min_val = 0
+    # var_max_val = 2
 
     show_title_flag = True
-    show_title_flag = False
+    # show_title_flag = False
 
-    out_figs_dir = Path(r'interp_plots_paper')
+    take_idxs_beg = 500
+    take_idxs_end = 600
+
+    out_figs_dir = Path(r'interp_plots')
     #==========================================================================
 
     with nc.Dataset(in_nc_path, 'r') as nc_hdl:
         x_crds = nc_hdl[x_label][...].data
         y_crds = nc_hdl[y_label][...].data
 
-        data = nc_hdl[var_label][...].data
-        times = nc_hdl[time_label][...].data
+        data = nc_hdl[var_label][take_idxs_beg:take_idxs_end].data
+        times = nc_hdl[time_label][take_idxs_beg:take_idxs_end].data
 
     x_crds_plt_msh, y_crds_plt_msh = np.meshgrid(x_crds, y_crds)
     #==========================================================================
@@ -66,6 +70,8 @@ def main():
     out_figs_dir.mkdir(exist_ok=True)
     out_var_figs_dir.mkdir(exist_ok=True)
     #==========================================================================
+
+    fig, ax = plt.subplots()
 
     for i in range(data.shape[0]):
         time_str = f'{times[i]}'
@@ -80,8 +86,6 @@ def main():
             grd_min = np.nanmin(interp_fld)
             grd_max = np.nanmax(interp_fld)
         #======================================================================
-
-        fig, ax = plt.subplots()
 
         pclr = ax.pcolormesh(
             x_crds_plt_msh,
@@ -112,8 +116,11 @@ def main():
         out_fig_name = f'{var_label.lower()}_{time_str}.png'
 
         plt.savefig(str(out_var_figs_dir / out_fig_name), bbox_inches='tight')
-        plt.close()
 
+        cb.remove()
+
+        plt.cla()
+    plt.close()
     return
 
 

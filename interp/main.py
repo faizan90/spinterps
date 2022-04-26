@@ -477,7 +477,7 @@ class SpInterpMain(SID, SIP):
 
                 break
 
-            if cpu_chunk_flag and (max_cpus_ctr > 1):
+            if cpu_chunk_flag:
                 max_cpus_ctr -= 1
                 cpu_chunk_flag = 0
 

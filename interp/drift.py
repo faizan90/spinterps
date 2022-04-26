@@ -103,6 +103,13 @@ class KrigingDrift:
                 print('#' * 30)
                 print('\n')
 
+            assert np.isfinite(drift_x_min), drift_x_min
+            assert np.isfinite(drift_y_max), drift_y_max
+            assert np.isfinite(drift_rows), drift_rows
+            assert np.isfinite(drift_cols), drift_cols
+            assert np.isfinite(cell_width), cell_width
+            assert np.isfinite(cell_height), cell_height
+
             check_valss[0].append(drift_x_min)
             check_valss[1].append(drift_y_max)
             check_valss[2].append(drift_rows)
@@ -118,8 +125,13 @@ class KrigingDrift:
                 for check_val in check_vals]), (
                     'Non numeric values of raster properties!')
 
-            assert np.all(np.isclose(check_vals, check_vals[0])), (
-                'Drift rasters have dissimilar spatial properties!')
+            if np.isnan(check_vals[0]):
+                assert np.all(np.isnan(check_vals)), check_vals
+
+            else:
+                assert np.all(np.isclose(check_vals, check_vals[0])), (
+                    f'Drift rasters have dissimilar spatial properties\n'
+                    f'{check_vals}, {check_vals[0]}!')
 
         self._drft_x_min = check_valss[0][0]
         self._drft_y_max = check_valss[1][0]

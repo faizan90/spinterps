@@ -12,20 +12,20 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\classi_ag_ncep_wett_nebs_longer_runs\ob00000010_c20030101_20101231_v20030101_20101231_cps06__rand_00_wb1-6-2\ppt_cps_kriging_test')
+    main_dir = Path(r'P:\Synchronize\IWS\Papers_Reviews\Papers\2018_model_inversion\elevations')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_Iran_shp\IRN_adm0__utm39n.shp'
-    label_field = r'ID_0'
+    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
+    label_field = r'DN'
 
 #     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_6MainBasins_sh\MainBasins_Iran__utm39n3.shp'
 #     label_field = r'HOZEH6'
 
-    path_to_ras = r'kriging.nc'
-    input_ras_type = 'nc'
+    # path_to_ras = r'kriging.nc'
+    # input_ras_type = 'nc'
 
-#     path_to_ras = r'P:\Synchronize\IWS\Colleagues_Students\Mischa\lulc_geohyd_ratio_rasters\lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.tif'
-#     input_ras_type = 'gtiff'
+    path_to_ras = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\fil.tif'
+    input_ras_type = 'gtiff'
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
@@ -57,7 +57,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'extract_mp23.h5')
+    path_to_output = Path(r'srtm_elevations.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)

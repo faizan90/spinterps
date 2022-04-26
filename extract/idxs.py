@@ -466,7 +466,7 @@ class GeomAndCrdsItsctIdxs:
             y_min = self._y_crds.min()
             y_max = self._y_crds.max()
 
-        if self._crds_ndims == 2 and self._geom_type == 3:
+        if self._geom_type == 3:
             self._cell_size = self._get_cell_size()
 
             if self._geom_sim_tol_ratio:

@@ -292,6 +292,17 @@ class SpInterpPrepare(SIBD, KDT):
         coordinates and time stamps will be saved in this file.
         '''
 
+        if self._vb:
+            print_sl()
+
+            print(
+                f'INFO: Output shape: '
+                f'({self._time_rng.shape[0]}, '
+                f'{self._nc_y_crds.shape[0]}, '
+                f'{self._nc_x_crds.shape[0]})')
+
+            print_el()
+
         nc_hdl = nc.Dataset(
             str(self._out_dir / (self._nc_out.split('.', 1)[0] + '.nc')),
             mode='w')
@@ -370,7 +381,7 @@ class SpInterpPrepare(SIBD, KDT):
 
                 print_sl()
                 print(
-                    f'WARNING: Setting the neighbor selection method to '
+                    f'INFO: Setting the neighbor selection method to '
                     f'\'all\' because n_neighbors ({self._n_nebs}) '
                     f'is greater than the number of available stations '
                     f'({n_avail_nebs})!')
@@ -470,7 +481,9 @@ class SpInterpPrepare(SIBD, KDT):
             self._cmpt_corner_coordinates()
 
         print_sl()
-        print('Final grid cell size:', self._cell_size)
+
+        print('INFO: Final grid cell size:', self._cell_size)
+
         print_el()
 
         assert self._cell_size is not None, 'Cell size unspecified!'

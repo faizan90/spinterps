@@ -144,11 +144,10 @@ class VariogramsData:
         dists_mat = get_dist_mat(
             stns_crds_df['X'].values, stns_crds_df['Y'].values)
 
-        assert (
-            (dists_mat <= stns_min_dist_thresh).sum() <=
-            stns_crds_df.shape[0]), (
-                f'Stations have neighbors with distances less '
-                f'than the threshold {stns_min_dist_thresh}!')
+        if ((dists_mat <= stns_min_dist_thresh).sum() <=
+            stns_crds_df.shape[0]):
+                (f'Warning: Stations have neighbors with distances less '
+                 f'than the threshold {stns_min_dist_thresh}!')
 
         if self._vb:
             print(

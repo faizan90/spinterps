@@ -741,7 +741,11 @@ def num2date(num_axis, units, calendar):
 
     res = None
     if not units.split(' ')[0] in ['years', 'months']:
-        res = nc.num2date(num_axis, units=units, calendar=calendar)
+        res = nc.num2date(
+            num_axis,
+            units=units,
+            calendar=calendar,
+            only_use_cftime_datetimes=True)
 
     else:
         units_as_days = 'days ' + ' '.join(units.split(' ')[1:])

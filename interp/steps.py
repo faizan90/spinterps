@@ -769,9 +769,6 @@ class SpInterpSteps:
                     interp_flds_dict[interp_label] = None
 
             else:
-                nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
-                ar_is = nc_is - beg_idx
-
                 for interp_label in interp_labels:
                     interp_flds = interp_flds_dict[interp_label]
 
