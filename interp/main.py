@@ -105,8 +105,7 @@ class SpInterpMain(SID, SIP):
 
             for i in range(interp_steps_idxs.size - 1))
 
-        maped_obj = spi_map(
-            interp_steps_cls.interpolate_subset, interp_gen)
+        maped_obj = spi_map(interp_steps_cls.interpolate_subset, interp_gen)
 
         if not self._mp_flag:
             list(maped_obj)
@@ -357,7 +356,7 @@ class SpInterpMain(SID, SIP):
         '''
         megabytes = 1024 ** 2
 
-        bytes_per_number = 8
+        bytes_per_number = 8  # A 64-bit float.
 
         # Actual interpreter size will probably be much smaller than this.
         interpreter_size = get_current_proc_size()
@@ -368,7 +367,7 @@ class SpInterpMain(SID, SIP):
             ps.virtual_memory().free * self._max_mem_usage_ratio)
 
 #         avail_threads_mem = tot_avail_mem - (self._n_cpus * interpreter_size)
-        avail_threads_mem = tot_avail_mem - interpreter_size
+        avail_threads_mem = tot_avail_mem  # - interpreter_size
 
         assert avail_threads_mem > 0, 'Memory too little or too many threads!'
 
@@ -378,9 +377,7 @@ class SpInterpMain(SID, SIP):
 
         # Size of the netcdf array to write.
         tot_interp_arr_size = bytes_per_number * len(self._interp_args) * (
-            self._data_df.shape[0] *
-            self._interp_crds_orig_shape[0] *
-            self._interp_crds_orig_shape[1])
+            self._data_df.shape[0] * self._interp_x_crds_msh.size)
 
         bytes_per_step = (
             bytes_per_number *
@@ -388,18 +385,16 @@ class SpInterpMain(SID, SIP):
             len(self._interp_args))
 
         dst_ref_2d_dists_size = bytes_per_number * (
-            self._interp_x_crds_msh.size *
-            self._crds_df.shape[0])
+            self._interp_x_crds_msh.size * self._crds_df.shape[0])
 
         if self._vgs_ser is not None:
             ref_ref_2d_dists_size = bytes_per_number * (
                 self._crds_df.shape[0] ** 2)
 
-            ref_ref_2d_vars_size = ref_ref_2d_dists_size * (
-                1)
+            ref_ref_2d_vars_size = ref_ref_2d_dists_size * 1
 
-            dst_ref_2d_vars_size = dst_ref_2d_dists_size * (
-                1)
+            # It is increased in size based on the type of interpolation used.
+            dst_ref_2d_vars_size = dst_ref_2d_dists_size * 1
 
         else:
             ref_ref_2d_dists_size = 0
@@ -451,7 +446,7 @@ class SpInterpMain(SID, SIP):
             else:
                 max_vgs_per_thread = 0
 
-            misc_size = interpreter_size
+            misc_size = interpreter_size * max_cpus_ctr
 
             misc_size += dst_ref_2d_dists_size * max_cpus_ctr
 
@@ -463,12 +458,17 @@ class SpInterpMain(SID, SIP):
             misc_size += (
                 dst_ref_2d_vars_size * max_vgs_per_thread * max_cpus_ctr)
 
+            misc_size += (
+                2 * bytes_per_number * self._interp_x_crds_msh.size)
+
+            if self._plot_figs_flag:
+                misc_size += (
+                    2 * bytes_per_number * self._interp_x_crds_plt_msh.size)
+
             # The extra percents are for other variables that are
             # created while interpolating.
-            has_size = 1.1 * (
-                (tot_interp_arr_size *
-                 min(1, np.ceil(max_cpus_ctr / max_chunks_ctr))
-                ) + misc_size)
+            has_size = 1.01 * (
+                np.ceil(tot_interp_arr_size / max_chunks_ctr) + misc_size)
 
             if has_size < tot_avail_mem:
                 self._n_cpus = max_cpus_ctr
@@ -520,6 +520,10 @@ class SpInterpMain(SID, SIP):
             print(
                 f'Misc. memory required by all threads: '
                 f'{misc_size / megabytes:0.1f} MB')
+
+            print(
+                f'Approximate maximum size of RAM needed at any instant: '
+                f'{has_size / megabytes:0.1f} MB')
 
             print('Final number of threads to use:', self._n_cpus)
 
