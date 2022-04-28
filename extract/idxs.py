@@ -1366,7 +1366,12 @@ class GeomAndCrdsItsctIdxs:
                     label_dict[key] = label_dict[key][fin_idxs]
 
             n_itsctd_cells = label_dict['itsctd_area'].size
+
             cells_area = label_dict['itsctd_area'].sum()
+
+            assert cells_area > 0, (
+                f'Intersected area of polygons of label {label} have an '
+                f'area of zero!')
 
             cells_area_sum += cells_area
 
@@ -1453,6 +1458,7 @@ class GeomAndCrdsItsctIdxs:
          min_itsct_area_pct_thresh) = args
 
         if not isinstance(poly_or_pts, ogr.Geometry):
+            # Points passed instead of polygons due to multiprocessing.
             n_pts = len(poly_or_pts)
 
             assert n_pts >= 3, (
@@ -1465,8 +1471,13 @@ class GeomAndCrdsItsctIdxs:
             poly = ogr.Geometry(ogr.wkbPolygon)
             poly.AddGeometry(ring)
 
+            # Needed for a special case.
+            mp_flag = True
+
         else:
             poly = poly_or_pts
+
+            mp_flag = False
 
         poly_or_pts = None
 
@@ -1496,7 +1507,6 @@ class GeomAndCrdsItsctIdxs:
             ridx = row_idx - min_row_idx
             cidx = col_idx - min_col_idx
 
-#             try:
             cell_ring.AddPoint_2D(x_crds[ridx, cidx], y_crds[ridx, cidx])
 
             cell_ring.AddPoint_2D(
@@ -1509,9 +1519,6 @@ class GeomAndCrdsItsctIdxs:
                 x_crds[ridx, cidx + 1], y_crds[ridx, cidx + 1])
 
             cell_ring.AddPoint_2D(x_crds[ridx, cidx], y_crds[ridx, cidx])
-
-#             except IndexError:
-#                 continue
 
             cell_poly = ogr.Geometry(ogr.wkbPolygon)
             cell_poly.AddGeometry(cell_ring)
@@ -1550,8 +1557,15 @@ class GeomAndCrdsItsctIdxs:
             y_crds_acptd.append(centroid.GetY())
         #======================================================================
 
-        assert atleast_1cell_acpt_flag or (n_cells_acptd > 0), (
-            f'Zero cells accepted for polygon: {label}!')
+        if not mp_flag:
+            # Multiple polygons of the same label may have the case that some
+            # of them do not intersect enough with the raster but others do.
+            # So, we just throw a warning, instead of stopping.
+            # Total intersected cell area is checked again later for
+            # having a non-zero value when data from all polygons of the same
+            # label is consolidated.
+            assert atleast_1cell_acpt_flag or (n_cells_acptd > 0), (
+                f'Zero cells accepted for polygon: {label}!')
 
         assert n_cells_acptd == len(x_crds_acptd_idxs)
         assert n_cells_acptd == len(y_crds_acptd_idxs)

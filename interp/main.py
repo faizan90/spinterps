@@ -41,7 +41,7 @@ class SpInterpMain(SID, SIP):
         self._edk_flag = False
         self._idw_flag = False
 
-        self._max_mem_usage_ratio = 0.95
+        self._max_mem_usage_ratio = 1.0
 
         self._main_vrfd_flag = False
         return
@@ -458,16 +458,17 @@ class SpInterpMain(SID, SIP):
             misc_size += (
                 dst_ref_2d_vars_size * max_vgs_per_thread * max_cpus_ctr)
 
-            misc_size += (
-                2 * bytes_per_number * self._interp_x_crds_msh.size)
-
-            if self._plot_figs_flag:
-                misc_size += (
-                    2 * bytes_per_number * self._interp_x_crds_plt_msh.size)
+            # Incorporated in the interpreter size.
+            # misc_size += (
+            #     2 * bytes_per_number * self._interp_x_crds_msh.size)
+            #
+            # if self._plot_figs_flag:
+            #     misc_size += (
+            #         2 * bytes_per_number * self._interp_x_crds_plt_msh.size)
 
             # The extra percents are for other variables that are
             # created while interpolating.
-            has_size = 1.01 * (
+            has_size = 1.0 * (
                 np.ceil(tot_interp_arr_size / max_chunks_ctr) + misc_size)
 
             if has_size < tot_avail_mem:
