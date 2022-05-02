@@ -4,25 +4,19 @@ Created on Nov 26, 2018
 @author: Faizan-Uni
 '''
 import timeit
-import warnings
 
 import numpy as np
 import netCDF4 as nc
 
-import matplotlib.pyplot as plt
-from descartes import PolygonPatch
-
 from .vgclus import VariogramCluster as VC
 from .grps import SpInterpNeighborGrouping as SIG
-from ..misc import traceback_wrapper, check_full_nuggetness
+from ..misc import traceback_wrapper, check_full_nuggetness, print_sl, print_el
 from ..cyth import (
     fill_wts_and_sum,
     get_mults_sum,
     fill_dists_2d_mat,
     fill_vg_var_arr,
     copy_2d_arr_at_idxs)
-
-plt.ioff()
 
 
 class SpInterpSteps:
@@ -37,17 +31,10 @@ class SpInterpSteps:
             '_min_var_thr',
             '_min_var_cut',
             '_max_var_cut',
-            '_nc_vlab',
-            '_nc_vunits',
-            '_plot_polys',
             '_cntn_idxs',
-            '_plot_figs_flag',
             '_interp_crds_orig_shape',
-            '_interp_x_crds_plt_msh',
-            '_interp_y_crds_plt_msh',
             '_interp_x_crds_msh',
             '_interp_y_crds_msh',
-            '_index_type',
             '_nc_file_path',
             '_neb_sel_mthd',
             '_n_nebs',
@@ -58,7 +45,7 @@ class SpInterpSteps:
         for read_lab in read_labs:
             setattr(self, read_lab, getattr(spinterp_main_cls, read_lab))
 
-        self._n_dst_pts = self._interp_x_crds_msh.shape[0]
+        # self._n_dst_pts = self._interp_x_crds_msh.shape[0]
         return
 
     def _get_dists_arr(self, x1s, y1s, x2s, y2s):
@@ -68,10 +55,10 @@ class SpInterpSteps:
         assert x1s.size == y1s.size
         assert x2s.size == y2s.size
 
-#         assert np.all(np.isfinite(x1s))
-#         assert np.all(np.isfinite(y1s))
-#         assert np.all(np.isfinite(x2s))
-#         assert np.all(np.isfinite(y2s))
+        # assert np.all(np.isfinite(x1s))
+        # assert np.all(np.isfinite(y1s))
+        # assert np.all(np.isfinite(x2s))
+        # assert np.all(np.isfinite(y2s))
 
         n1s, n2s = x1s.size, x2s.size
 
@@ -214,23 +201,26 @@ class SpInterpSteps:
             pass
 
         elif interp_type == 'EDK':
-
             ref_ref_2d_vars_arr_sub[n_refs_sub,:n_refs_sub] = 1.0
             ref_ref_2d_vars_arr_sub[:n_refs_sub, n_refs_sub] = 1.0
             dst_ref_2d_vars_arr_sub[:, n_refs_sub] = 1.0
             ref_ref_2d_vars_arr_sub[n_refs_sub:, n_refs_sub:] = 0.0
 
             for k in range(ref_drfts.shape[1]):
-                ref_ref_2d_vars_arr_sub[n_refs_sub + 1 + k,:n_refs_sub] = ref_drfts[:, k]
-                ref_ref_2d_vars_arr_sub[:n_refs_sub, n_refs_sub + 1 + k] = ref_drfts[:, k]
+                ref_ref_2d_vars_arr_sub[n_refs_sub + 1 + k,:n_refs_sub] = (
+                    ref_drfts[:, k])
+
+                ref_ref_2d_vars_arr_sub[:n_refs_sub, n_refs_sub + 1 + k] = (
+                    ref_drfts[:, k])
 
                 dst_ref_2d_vars_arr_sub[:, n_refs_sub + 1 + k] = dst_drfts[k,:]
 
         else:
             raise NotImplementedError
 
-#         assert np.all(np.isfinite(ref_ref_2d_vars_arr_sub))
-#         assert np.all(np.isfinite(dst_ref_2d_vars_arr_sub))
+        if False:
+            assert np.all(np.isfinite(ref_ref_2d_vars_arr_sub))
+            assert np.all(np.isfinite(dst_ref_2d_vars_arr_sub))
 
         return ref_ref_2d_vars_arr_sub, dst_ref_2d_vars_arr_sub
 
@@ -262,7 +252,9 @@ class SpInterpSteps:
 
         wts = np.full(n_refs, np.nan)
 
-        if interp_type == 'IDW':
+        # If only one neighbor is present, then the result is the neighbor
+        # itself. No need for kriging.
+        if (interp_type == 'IDW') or (n_refs == 1):
             for i in range(n_dsts):
                 wts_sum = fill_wts_and_sum(
                     dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
@@ -338,100 +330,6 @@ class SpInterpSteps:
 
         return dst_data
 
-    def _plot_interp(
-            self,
-            interp_fld,
-            curr_x_coords,
-            curr_y_coords,
-            interp_time,
-            model,
-            interp_type,
-            out_figs_dir,
-            data_vals):
-
-        if self._index_type == 'date':
-            time_str = interp_time.strftime('%Y_%m_%d_T_%H_%M')
-
-        elif self._index_type == 'obj':
-            time_str = interp_time
-
-        else:
-            raise NotImplementedError(
-                f'Unknown index_type: {self._index_type}!')
-
-        out_fig_name = f'{interp_type.lower()}_{time_str}.png'
-
-        fig, ax = plt.subplots()
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-
-            data_min = np.nanmin(data_vals)
-            data_max = np.nanmax(data_vals)
-            data_mean = np.nanmean(data_vals)
-            data_var = np.nanvar(data_vals)
-
-            grd_min = np.nanmin(interp_fld)
-            grd_max = np.nanmax(interp_fld)
-            grd_mean = np.nanmean(interp_fld)
-            grd_var = np.nanvar(interp_fld)
-
-        pclr = ax.pcolormesh(
-            self._interp_x_crds_plt_msh,
-            self._interp_y_crds_plt_msh,
-            interp_fld,
-            vmin=grd_min,
-            vmax=grd_max,
-            shading='flat')
-
-        cb = fig.colorbar(pclr)
-
-        cb.set_label(self._nc_vlab + ' (' + self._nc_vunits + ')')
-
-        if False:
-            ax.scatter(
-                curr_x_coords,
-                curr_y_coords,
-                label='obs. pts.',
-                marker='+',
-                c='r',
-                alpha=0.7)
-
-            ax.legend(framealpha=0.5, loc=1)
-
-        if self._plot_polys is not None:
-            for poly in self._plot_polys:
-                ax.add_patch(PolygonPatch(poly, alpha=1, fc='None', ec='k'))
-
-        ax.set_xlabel('Easting')
-        ax.set_ylabel('Northing')
-
-        title_str = f'Step: {time_str}\n'
-
-        if model is not None:
-            title_str += f'(VG: {model})\n'
-
-        title_str += (
-            f'Data stats:: Mean: {data_mean:0.4f}, '
-            f'Var.: {data_var:0.4f}, '
-            f'Min.: {data_min:0.4f}, '
-            f'Max.: {data_max:0.4f}\n')
-
-        title_str += (
-            f'Grid stats:: Mean: {grd_mean:0.4f}, '
-            f'Var.: {grd_var:0.4f}, '
-            f'Min.: {grd_min:0.4f}, '
-            f'Max.: {grd_max:0.4f}\n')
-
-        ax.set_title(title_str)
-
-        plt.setp(ax.get_xmajorticklabels(), rotation=70)
-        ax.set_aspect('equal', 'datalim')
-
-        plt.savefig(str(out_figs_dir / out_fig_name), bbox_inches='tight')
-        plt.close()
-        return
-
     def _mod_min_max(self, interp_fld):
 
         with np.errstate(invalid='ignore'):
@@ -455,9 +353,82 @@ class SpInterpSteps:
          drft_arrs,
          stns_drft_df,
          vgs_ser,
-         vgs_rord_tidxs_ser) = args
+         vgs_rord_tidxs_ser,
+         fld_beg_row,
+         fld_end_row,
+        ) = args
 
         interp_beg_time = timeit.default_timer()
+
+        interp_types = [interp_arg[0] for interp_arg in interp_args]
+        interp_labels = [interp_arg[2] for interp_arg in interp_args]
+
+        krg_flag = any(
+            [krg_type in interp_types for krg_type in ('OK', 'SK', 'EDK')])
+
+        edk_flag = 'EDK' in interp_types
+
+        time_steps = data_df.index
+        #======================================================================
+
+        fld_n_cols = self._interp_crds_orig_shape[1]
+        fld_beg_idx = fld_beg_row * fld_n_cols
+        fld_end_idx = fld_end_row * fld_n_cols
+
+        fld_grd_shape = (
+            (fld_end_row - fld_beg_row), self._interp_crds_orig_shape[1])
+
+        if self._cntn_idxs is not None:
+            fld_idxs_range = np.arange(fld_beg_idx, fld_end_idx)
+
+            cntn_idxs_whr = np.where(self._cntn_idxs)[0]
+            cntn_idxs_wr_range = np.arange(cntn_idxs_whr.size)
+
+            assert cntn_idxs_whr.size
+
+            msh_idxs = cntn_idxs_wr_range[
+                (cntn_idxs_whr >= fld_beg_idx) &
+                (cntn_idxs_whr < fld_end_idx)]
+
+            cntn_idxs_whr = cntn_idxs_whr[
+                (cntn_idxs_whr >= fld_beg_idx) &
+                (cntn_idxs_whr < fld_end_idx)]
+
+            assert fld_idxs_range[0] <= cntn_idxs_whr[0], (
+                fld_idxs_range[0], cntn_idxs_whr[0])
+
+            # Shift cntn_idxs_whr values backwards to match the sub field
+            # indices.
+            cntn_idxs_whr = cntn_idxs_whr - fld_idxs_range[0]
+
+            self._n_dst_pts = msh_idxs.size
+
+            self._interp_x_crds_msh = self._interp_x_crds_msh[msh_idxs]
+            self._interp_y_crds_msh = self._interp_y_crds_msh[msh_idxs]
+
+            if drft_arrs is not None:
+                assert edk_flag
+
+                drft_arrs = drft_arrs[:, msh_idxs]
+
+            msh_idxs = None
+            fld_idxs_range = None
+            cntn_idxs_wr_range = None
+
+        else:
+            self._n_dst_pts = np.prod(fld_grd_shape)
+
+            self._interp_x_crds_msh = self._interp_x_crds_msh[
+                fld_beg_idx:fld_end_idx]
+
+            self._interp_y_crds_msh = self._interp_y_crds_msh[
+                fld_beg_idx:fld_end_idx]
+
+            if drft_arrs is not None:
+                assert edk_flag
+
+                drft_arrs = drft_arrs[:, fld_beg_idx:fld_end_idx]
+        #======================================================================
 
         assert np.all(data_df.columns == self._crds_df.index)
 
@@ -471,28 +442,6 @@ class SpInterpSteps:
             vc_cls = VC(vgs_ser)
 
             vgs_clus_dict, vgs_ser = vc_cls.get_vgs_cluster()
-
-        interp_types = [interp_arg[0] for interp_arg in interp_args]
-        interp_labels = [interp_arg[2] for interp_arg in interp_args]
-
-        if self._plot_figs_flag:
-            out_figs_dirs = {
-                interp_arg[2]: interp_arg[1] for interp_arg in interp_args}
-
-        krg_flag = any(
-            [krg_type in interp_types for krg_type in ('OK', 'SK', 'EDK')])
-
-        edk_flag = 'EDK' in interp_types
-
-        time_steps = data_df.index
-
-        interp_flds_dict = {interp_label:np.full(
-            (time_steps.shape[0], np.prod(self._interp_crds_orig_shape)),
-            np.nan,
-            dtype=np.float64)
-            for interp_label in interp_labels}
-
-        cntn_idxs_wh = np.where(self._cntn_idxs)[0]
 
         grp_cls = SIG(
             self._neb_sel_mthd,
@@ -514,8 +463,8 @@ class SpInterpSteps:
 
         # TODO: Have a threshold of min and max stations for which the
         # neighbors are considered the same.
-
         #======================================================================
+
         if vgs_ser is not None:
             ref_ref_2d_dists_arr_all = self._get_dists_arr(
                 self._crds_df.loc[:, 'X'].values,
@@ -550,6 +499,13 @@ class SpInterpSteps:
 
         else:
             dst_ref_2d_vars_arr_all = None
+        #======================================================================
+
+        interp_flds_dict = {interp_label:np.full(
+            (time_steps.shape[0], np.prod(fld_grd_shape)),
+            np.nan,
+            dtype=np.float64)
+            for interp_label in interp_labels}
         #======================================================================
 
         prblm_time_steps = []
@@ -694,7 +650,7 @@ class SpInterpSteps:
                     if self._cntn_idxs is not None:
                         for j, time_idx in enumerate(interp_flds_time_idxs):
                             interp_flds[
-                                time_idx, cntn_idxs_wh[sub_pts_flags]] = (
+                                time_idx, cntn_idxs_whr[sub_pts_flags]] = (
                                     interp_vals[j])
 
                     else:
@@ -707,6 +663,8 @@ class SpInterpSteps:
             assert np.all(pts_done_flags), 'Some points not interpolated!'
 
         if prblm_time_steps:
+            print_sl()
+
             with lock:
                 print(
                     'WARNING: There were problems while interpolating '
@@ -715,33 +673,12 @@ class SpInterpSteps:
                 for prblm_stp in prblm_time_steps:
                     print(prblm_stp)
 
-        if self._plot_figs_flag:
-            for interp_type, interp_label in zip(interp_types, interp_labels):
-                out_figs_dir = out_figs_dirs[interp_label]
-                interp_flds = interp_flds_dict[interp_label]
-
-                for i in range(time_steps.shape[0]):
-                    if interp_type == 'IDW':
-                        model = None
-
-                    elif interp_type in ('OK', 'SK', 'EDK'):
-                        model = vgs_ser.iloc[i]
-
-                    else:
-                        raise NotImplementedError
-
-                    self._plot_interp(
-                        interp_flds[i].reshape(self._interp_crds_orig_shape),
-                        self._crds_df.loc[:, 'X'].values,
-                        self._crds_df.loc[:, 'Y'].values,
-                        time_steps[i],
-                        model,
-                        interp_type,
-                        out_figs_dir,
-                        data_df.loc[time_steps[i]].values)
+            print_el()
 
         with lock:
             if self._vb:
+                print_sl()
+
                 print(
                     f'Writing data between {beg_idx} and {end_idx} indices '
                     f'to disk...')
@@ -762,7 +699,8 @@ class SpInterpSteps:
 
                     for i in range(max_rng):
                         nc_hdl[interp_label][
-                            nc_is[i]:nc_is[i + 1],:,:] = (
+                            nc_is[i]:nc_is[i + 1],
+                            fld_beg_row:fld_end_row,:] = (
                                 interp_flds[ar_is[i]:ar_is[i + 1]])
 
                     nc_hdl.sync()
@@ -776,7 +714,8 @@ class SpInterpSteps:
 
                         nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
 
-                        nc_hdl[interp_label][nc_idx,:,:] = interp_flds[i]
+                        nc_hdl[interp_label][
+                            nc_idx, fld_beg_row:fld_end_row,:] = interp_flds[i]
 
                     nc_hdl.sync()
                     interp_flds_dict[interp_label] = None
@@ -788,10 +727,13 @@ class SpInterpSteps:
 
             if self._vb:
                 print(
-                    f'Done writing data between {beg_idx} and {end_idx} '
-                    f'indices to disk...')
+                    f'Done writing data between time indices of '
+                    f'{beg_idx} and {end_idx} and grid row indices between '
+                    f'{fld_beg_row} and {fld_end_row} to disk...')
 
                 print(
-                    f'Took {interp_end_time - interp_beg_time:0.3f} '
+                    f'Took {interp_end_time - interp_beg_time:0.1f} '
                     f'seconds to interpolate for this thread.')
+
+                print_el()
         return

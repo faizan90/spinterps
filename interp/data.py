@@ -351,11 +351,13 @@ class SpInterpData(VD):
             If False, the entire grid between minimum and maximum station
             coordinates is interpolated.
         polygon_cell_buffer_distance : None or int or float
-            The maximum distance away from the nearest polygon so that
+            If interp_around_polys_flag is False, then this is
+            the maximum distance away from the nearest polygon so that
             a cell is considered for interpolation. None by default but if
             interp_around_polys_flag is True then it should be a float or
-            an int.  It is up to the user to use consistent units for
-            every parameter.
+            an int. If interp_around_polys_flag is False, then this is buffer
+            distance added to the corner coordinates of the final grid.
+            It is up to the user to use consistent units for every parameter.
         simplify_tolerance_ratio : float
             Tolerance, used to simplify the polygons so they have fewer
             points, with respect to the cell size. Should be greater
@@ -397,16 +399,16 @@ class SpInterpData(VD):
 
         self._ipoly_flag = interp_around_polys_flag
 
-        if self._ipoly_flag:
-            assert isinstance(polygon_cell_buffer_distance, (float, int)), (
-                'polygon_cell_buffer_distance should be a float or an int '
-                'if interp_around_polys_flag is True!')
+        # if self._ipoly_flag:
+        assert isinstance(polygon_cell_buffer_distance, (float, int)), (
+            'polygon_cell_buffer_distance should be a float or an int '
+            'if interp_around_polys_flag is True!')
 
-            assert 0 <= polygon_cell_buffer_distance < np.inf, (
-                'polygon_cell_buffer_distance has to be in between zero and '
-                'infinity!')
+        assert 0 <= polygon_cell_buffer_distance < np.inf, (
+            'polygon_cell_buffer_distance has to be in between zero and '
+            'infinity!')
 
-            self._cell_bdist = float(polygon_cell_buffer_distance)
+        self._cell_bdist = float(polygon_cell_buffer_distance)
 
         if simplify_tolerance_ratio:
             self._poly_simplify_tol_ratio = simplify_tolerance_ratio

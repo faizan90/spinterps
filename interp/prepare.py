@@ -445,6 +445,16 @@ class SpInterpPrepare(SIBD, KDT):
 
         '''Main call for the preparation of required variables.'''
 
+        if not any([self._ork_flag, self._spk_flag, self._edk_flag]):
+            self._vg_ser_set_flag = False
+            self._vgs_ser = None
+
+            print_sl()
+
+            print('Set variogram time series to None due to no kriging flags.')
+
+            print_el()
+
         assert any([
             self._ork_flag,
             self._spk_flag,

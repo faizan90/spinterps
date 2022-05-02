@@ -16,6 +16,7 @@ import psutil as ps
 from .data import SpInterpData as SID
 from .steps import SpInterpSteps as SIS
 from .prepare import SpInterpPrepare as SIP
+from .plot import SpInterpPlot as SIPLT
 from ..misc import ret_mp_idxs, get_current_proc_size, print_sl, print_el
 
 os.environ[str('MKL_NUM_THREADS')] = str(1)
@@ -61,7 +62,7 @@ class SpInterpMain(SID, SIP):
 
         assert self._main_vrfd_flag, 'Call the verify method first!'
 
-        interp_steps_idxs = self._get_thread_steps_idxs()
+        interp_steps_idxs, grid_chunk_idxs, max_n_cpus = self._get_thread_steps_idxs()
 
         if self._mp_flag:
             mp_pool = Pool(self._n_cpus)
@@ -82,7 +83,12 @@ class SpInterpMain(SID, SIP):
             print_sl()
             print('Started interpolation...')
             print('Parent process ID:', os.getpid())
+            print('\n')
+
             print('Interpolation step indices:\n', interp_steps_idxs, sep='')
+            print('\n')
+
+            print('Grid chunk indices:\n', grid_chunk_idxs, sep='')
 
         ivar_names = [interp_arg[2] for interp_arg in self._interp_args]
 
@@ -90,39 +96,86 @@ class SpInterpMain(SID, SIP):
             interp_beg_time = timeit.default_timer()
 
             t_passes = int(np.ceil(
-                (interp_steps_idxs.shape[0] - 1) / self._n_cpus))
+                (interp_steps_idxs.shape[0] - 1) / max_n_cpus))
+
+            t_passes *= (grid_chunk_idxs.shape[0] - 1)
 
             print_sl()
+
             print('Current interpolation methods:', ivar_names)
             print(f'Using {t_passes} pass(es) to interpolate.')
-            print('\n')
+
+            print_el()
 
         interp_gen = (
             self._get_interp_gen_data(
                 interp_steps_idxs[i],
                 interp_steps_idxs[i + 1],
-                interp_steps_idxs.size - 1)
+                interp_steps_idxs.size - 1,
+                grid_chunk_idxs[j],
+                grid_chunk_idxs[j + 1],
+                )
 
-            for i in range(interp_steps_idxs.size - 1))
+            for i in range(interp_steps_idxs.size - 1)
+            for j in range(grid_chunk_idxs.shape[0] - 1))
 
         maped_obj = spi_map(interp_steps_cls.interpolate_subset, interp_gen)
 
         if not self._mp_flag:
             list(maped_obj)
 
+        if self._vb:
+            interp_time = timeit.default_timer() - interp_beg_time
+
+            print_sl()
+
+            print(
+                f'Done with the interpolation methods: {ivar_names} in '
+                f'{interp_time:0.1f} seconds.',)
+
+            print_el()
+
+        if self._plot_figs_flag:
+            if self._vb:
+                plot_beg_time = timeit.default_timer()
+
+                print_sl()
+
+                print('Plotting figures...')
+
+            interp_plot_cls = SIPLT(self)
+
+            plot_data_idxs = ret_mp_idxs(self._data_df.shape[0], self._n_cpus)
+
+            plot_gen = (
+                (self._data_df.iloc[plot_data_idxs[i]:plot_data_idxs[i + 1],:],
+                 plot_data_idxs[i],
+                 plot_data_idxs[i + 1],
+                 self._interp_args,
+                 self._vgs_ser,
+                 )
+                for i in range(plot_data_idxs.size - 1))
+
+            maped_obj = spi_map(interp_plot_cls.plot_interp_steps, plot_gen)
+
+            if not self._mp_flag:
+                list(maped_obj)
+
+            if self._vb:
+                plot_time = timeit.default_timer() - plot_beg_time
+
+                print(f'Done with plotting in {plot_time:0.1f} seconds.')
+
+                print_el()
+
+        if not self._mp_flag:
+            pass
+
         else:
             mp_pool.close()
             mp_pool.join()
             mp_pool = None
 
-        if self._vb:
-            tot_beg_time = timeit.default_timer() - interp_beg_time
-
-            print(
-                f'Done with the interpolation methods: {ivar_names} in '
-                f'{tot_beg_time:0.3f} seconds.',)
-
-            print_el()
         return
 
     def turn_ordinary_kriging_on(self):
@@ -306,9 +359,16 @@ class SpInterpMain(SID, SIP):
         self._idw_flag = False
         return
 
-    def _get_interp_gen_data(self, beg_idx, end_idx, max_rng):
+    def _get_interp_gen_data(
+            self,
+            beg_steps_idx,
+            end_steps_idx,
+            max_steps_rng,
+            beg_grid_idx,
+            end_grid_idx,
+            ):
 
-        data_df = self._data_df.iloc[beg_idx:end_idx]
+        data_df = self._data_df.iloc[beg_steps_idx:end_steps_idx]
 
         if any(
             [interp_arg[0] in ['OK', 'SK', 'EDK']
@@ -330,15 +390,18 @@ class SpInterpMain(SID, SIP):
 
         return (
             data_df,
-            beg_idx,
-            end_idx,
-            max_rng,
+            beg_steps_idx,
+            end_steps_idx,
+            max_steps_rng,
             self._interp_args,
             self._lock,
             drft_arrs,
             stns_drft_df,
             vgs_ser,
-            vgs_rord_tidxs_ser)
+            vgs_rord_tidxs_ser,
+            beg_grid_idx,
+            end_grid_idx,
+            )
 
     def _get_thread_steps_idxs(self):
 
@@ -377,7 +440,8 @@ class SpInterpMain(SID, SIP):
 
         # Size of the netcdf array to write.
         tot_interp_arr_size = bytes_per_number * len(self._interp_args) * (
-            self._data_df.shape[0] * self._interp_x_crds_msh.size)
+            self._data_df.shape[0] *
+            np.prod(self._interp_crds_orig_shape).astype(np.uint64))
 
         bytes_per_step = (
             bytes_per_number *
@@ -420,6 +484,10 @@ class SpInterpMain(SID, SIP):
 
             steps_per_thread = self._max_steps_per_chunk
 
+        grid_chunks = 2
+        grid_idxs = ret_mp_idxs(
+            self._interp_crds_orig_shape[0], grid_chunks)
+
         max_cpus_ctr = self._n_cpus
         max_chunks_ctr = step_idxs.size - 1
         cpu_chunk_flag = 0
@@ -448,7 +516,7 @@ class SpInterpMain(SID, SIP):
 
             misc_size = interpreter_size * max_cpus_ctr
 
-            misc_size += dst_ref_2d_dists_size * max_cpus_ctr
+            misc_size += (dst_ref_2d_dists_size / grid_chunks) * max_cpus_ctr
 
             misc_size += ref_ref_2d_dists_size * max_cpus_ctr
 
@@ -456,34 +524,30 @@ class SpInterpMain(SID, SIP):
                 ref_ref_2d_vars_size * max_vgs_per_thread * max_cpus_ctr)
 
             misc_size += (
-                dst_ref_2d_vars_size * max_vgs_per_thread * max_cpus_ctr)
-
-            # Incorporated in the interpreter size.
-            # misc_size += (
-            #     2 * bytes_per_number * self._interp_x_crds_msh.size)
-            #
-            # if self._plot_figs_flag:
-            #     misc_size += (
-            #         2 * bytes_per_number * self._interp_x_crds_plt_msh.size)
+                (dst_ref_2d_vars_size / grid_chunks) *
+                max_vgs_per_thread *
+                max_cpus_ctr)
 
             # The extra percents are for other variables that are
             # created while interpolating.
-            has_size = 1.0 * (
-                np.ceil(tot_interp_arr_size / max_chunks_ctr) + misc_size)
+            has_size = 1.1 * (
+                np.ceil(tot_interp_arr_size /
+                        grid_chunks /
+                        (max_chunks_ctr / max_cpus_ctr)) +
+                misc_size)
 
             if has_size < tot_avail_mem:
-                self._n_cpus = max_cpus_ctr
-
-                max_mem_per_thread = avail_threads_mem // self._n_cpus
+                max_mem_per_thread = avail_threads_mem // max_cpus_ctr
 
                 break
 
             if cpu_chunk_flag:
-                max_cpus_ctr -= 1
+                grid_chunks += 1
+                # max_cpus_ctr -= 1
                 cpu_chunk_flag = 0
 
             else:
-                max_chunks_ctr += 1
+                max_chunks_ctr += max_cpus_ctr
                 cpu_chunk_flag = 1
 
             assert max_cpus_ctr > 0, 'Not enough memory for the given grid!'
@@ -491,7 +555,13 @@ class SpInterpMain(SID, SIP):
             assert max_chunks_ctr < self._data_df.shape[0], (
                 'Not enough memory for the given grid!')
 
+            assert grid_chunks < self._interp_crds_orig_shape[0], (
+                'Not enough memory for the given grid!')
+
             step_idxs = ret_mp_idxs(self._data_df.shape[0], max_chunks_ctr)
+
+            grid_idxs = ret_mp_idxs(
+                self._interp_crds_orig_shape[0], grid_chunks)
 
         steps_per_thread = (step_idxs[+1:] - step_idxs[:-1]).max()
 
@@ -500,39 +570,43 @@ class SpInterpMain(SID, SIP):
 
             print('Memory management stuff...')
 
-            print(f'Main interpreter size: {interpreter_size // megabytes} MB')
+            print(f'Main interpreter size: {interpreter_size // megabytes} MB.')
 
             print(
                 f'Total memory available for use: '
-                f'{tot_avail_mem // megabytes} MB')
+                f'{tot_avail_mem // megabytes} MB.')
 
             print(
                 f'Memory available per thread: '
-                f'{max_mem_per_thread // megabytes} MB')
+                f'{max_mem_per_thread // megabytes} MB.')
 
             print(
                 f'Total size of the interpolated array: '
-                f'{tot_interp_arr_size / megabytes:0.1f} MB')
+                f'{tot_interp_arr_size / megabytes:0.1f} MB.')
 
-            print(f'Size per step: {bytes_per_step / megabytes:0.1f} MB')
+            print(f'Size per step: {bytes_per_step / megabytes:0.1f} MB.')
 
-            print(f'No. of steps interpolated per thread: {steps_per_thread}')
+            print(f'No. of steps interpolated per thread: {steps_per_thread}.')
+
+            print(f'No. of time step chunks: {max_chunks_ctr}.')
+
+            print(f'No. of grid chunks: {grid_chunks}.')
 
             print(
                 f'Misc. memory required by all threads: '
-                f'{misc_size / megabytes:0.1f} MB')
+                f'{misc_size / megabytes:0.1f} MB.')
 
             print(
                 f'Approximate maximum size of RAM needed at any instant: '
-                f'{has_size / megabytes:0.1f} MB')
+                f'{has_size / megabytes:0.1f} MB.')
 
-            print('Final number of threads to use:', self._n_cpus)
+            print(f'Final number of threads to use: {max_cpus_ctr}.')
 
             if max_vgs_per_thread:
                 print(
-                    'Mean variogram strings per thread:',
-                    round(max_vgs_per_thread, 1))
+                    f'Mean variogram strings per thread: '
+                    f'{round(max_vgs_per_thread, 1)}.')
 
             print_el()
 
-        return step_idxs
+        return step_idxs, grid_idxs, max_cpus_ctr

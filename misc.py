@@ -322,6 +322,7 @@ def chk_pt_cntmnt_in_polys_mp(polys, crds_df, n_cpus):
     for res in ress:
         fin_stns |= set(res)
 
+    fin_stns = list(fin_stns)
     return fin_stns
 
 

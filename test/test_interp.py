@@ -37,7 +37,7 @@ def main():
 
     index_type = 'date'
 
-    out_dir = Path(r'test_spinterps_edk_2')
+    out_dir = Path(r'test_spinterps_grd_split_08')
     var_units = 'mm'  # 'C'  # u'\u2103'  # 'centigrade'
     var_name = 'precipitation'  # 'temperature'  #
 
@@ -45,14 +45,14 @@ def main():
 
     freq = 'D'
     strt_date = r'1961-01-01'
-    end_date = r'1961-01-01'
+    end_date = r'1961-12-31'
 
     drop_stns = []
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_5km.tif')])
+        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_100m.tif')])
 
     in_bounds_shp_file = (
         Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds_all.shp'))
@@ -84,13 +84,13 @@ def main():
     min_nebor_dist_thresh = 1
 
     idw_exps = [5]
-    n_cpus = 1
+    n_cpus = 8
     buffer_dist = 22e3
-    sec_buffer_dist = 5e3
-    simplify_tolerance_ratio = 0.25
+    sec_buffer_dist = 5e3  # Buffer around computed grid/polygons bounds.
+    simplify_tolerance_ratio = 0.25  # Units same as polygons.
 
     neighbor_selection_method = 'nrst'
-    n_neighbors = 50
+    n_neighbors = 1
     n_pies = 8
 
     in_sep = ';'
@@ -104,13 +104,13 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    ord_krige_flag = False
-    sim_krige_flag = False
-#     edk_krige_flag = False
-    idw_flag = False
-#     plot_figs_flag = False
-#     verbose = False
-#     interp_around_polys_flag = False
+    # ord_krige_flag = False
+    # sim_krige_flag = False
+    # edk_krige_flag = False
+    # idw_flag = False
+    # plot_figs_flag = False
+    # verbose = False
+    # interp_around_polys_flag = False
 
     if in_data_file.suffix == '.csv':
         in_data_df = pd.read_csv(
