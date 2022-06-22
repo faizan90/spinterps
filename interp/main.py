@@ -8,7 +8,7 @@ import os
 import timeit
 from pathlib import Path
 from functools import partial
-from multiprocessing import Pool, Manager, Lock
+from multiprocessing import Pool, Manager, Lock, Process
 
 import numpy as np
 import psutil as ps
@@ -17,7 +17,13 @@ from .data import SpInterpData as SID
 from .steps import SpInterpSteps as SIS
 from .prepare import SpInterpPrepare as SIP
 from .plot import SpInterpPlot as SIPLT
-from ..misc import ret_mp_idxs, get_current_proc_size, print_sl, print_el
+from ..misc import (
+    ret_mp_idxs,
+    get_current_proc_size,
+    print_sl,
+    print_el,
+    get_proc_pid,
+    monitor_memory)
 
 os.environ[str('MKL_NUM_THREADS')] = str(1)
 os.environ[str('NUMEXPR_NUM_THREADS')] = str(1)
@@ -62,7 +68,11 @@ class SpInterpMain(SID, SIP):
 
         assert self._main_vrfd_flag, 'Call the verify method first!'
 
-        interp_steps_idxs, grid_chunk_idxs, max_n_cpus = self._get_thread_steps_idxs()
+        (interp_steps_idxs,
+         grid_chunk_idxs,
+         max_n_cpus) = self._get_thread_steps_idxs()
+
+        proc_pids = [(self._n_cpus, os.getpid())]
 
         if self._mp_flag:
             mp_pool = Pool(self._n_cpus)
@@ -72,10 +82,19 @@ class SpInterpMain(SID, SIP):
 
             self._lock = Manager().Lock()
 
+            proc_pids.extend(
+                list(spi_map(get_proc_pid,
+                             [(i,) for i in range(self._n_cpus)])))
+
         else:
             spi_map = map
 
-            self._lock = Lock()  #  The manager might slow things down.
+            self._lock = Lock()  # The manager might slow things down.
+
+        mem_mon_proc = Process(
+            target=monitor_memory, args=((proc_pids, self._out_dir, 0.5),))
+
+        mem_mon_proc.start()
 
         interp_steps_cls = SIS(self)
 
@@ -175,6 +194,12 @@ class SpInterpMain(SID, SIP):
             mp_pool.close()
             mp_pool.join()
             mp_pool = None
+
+        try:
+            mem_mon_proc.terminate()
+
+        except Exception as msg:
+            print(f'Error upon terminating mem_mon_proc: {msg}')
 
         return
 
@@ -484,10 +509,11 @@ class SpInterpMain(SID, SIP):
 
             steps_per_thread = self._max_steps_per_chunk
 
-        grid_chunks = 2
-        grid_idxs = ret_mp_idxs(
-            self._interp_crds_orig_shape[0], grid_chunks)
+        grid_chunks = 1
+        grid_idxs = ret_mp_idxs(self._interp_crds_orig_shape[0], grid_chunks)
 
+        # TODO: The case when the number of interpolated steps is less
+        # than the number of threads. It happens rarely. No big worries though.
         max_cpus_ctr = self._n_cpus
         max_chunks_ctr = step_idxs.size - 1
         cpu_chunk_flag = 0
@@ -530,7 +556,7 @@ class SpInterpMain(SID, SIP):
 
             # The extra percents are for other variables that are
             # created while interpolating.
-            has_size = 1.1 * (
+            has_size = 1.3 * (
                 np.ceil(tot_interp_arr_size /
                         grid_chunks /
                         (max_chunks_ctr / max_cpus_ctr)) +

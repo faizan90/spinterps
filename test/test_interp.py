@@ -35,24 +35,31 @@ def main():
     in_vgs_file = Path(
         r'P:\hydmod_de\daily\ppt_daily_1961_2020__no_0s\tvgs_clus_txts\M_final_tvgs_clus_ts.csv')
 
+    # in_vgs_file = Path(
+    #     r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_precipitation_kriging_20190119\vg_strs.csv')
+
     index_type = 'date'
 
-    out_dir = Path(r'test_spinterps_grd_split_08')
-    var_units = 'mm'  # 'C'  # u'\u2103'  # 'centigrade'
-    var_name = 'precipitation'  # 'temperature'  #
+    out_dir = Path(r'test_spinterps_grd_split_17_ppt_cvgs_1km')
 
-    out_krig_net_cdf_file = r'kriging_%s_to_%s_5km.nc'
+    # var_units = 'C'
+    # var_name = 'temperature'
+
+    var_units = 'mm'
+    var_name = 'precipitation'
+
+    out_krig_net_cdf_file = r'kriging_%s_to_%s.nc'
 
     freq = 'D'
     strt_date = r'1961-01-01'
-    end_date = r'1961-12-31'
+    end_date = r'2015-12-31'
 
     drop_stns = []
 
     out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
 
     in_drift_rasters_list = (
-        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_100m.tif')])
+        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif')])
 
     in_bounds_shp_file = (
         Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds_all.shp'))
@@ -64,9 +71,12 @@ def main():
     nc_time_units = 'days since 1900-01-01 00:00:00.0'
     nc_calendar = 'gregorian'
 
-    min_var_val_thresh = 0.1  # -float('inf')  #
+    # min_var_val_thresh = -float('inf')
+    # min_var_val = None
+    # max_var_val = None
 
-    min_var_val = 0  # None #
+    min_var_val_thresh = 0.1
+    min_var_val = 0
     max_var_val = None
 
     min_vg_val = 1e-4
@@ -90,7 +100,7 @@ def main():
     simplify_tolerance_ratio = 0.25  # Units same as polygons.
 
     neighbor_selection_method = 'nrst'
-    n_neighbors = 1
+    n_neighbors = 50
     n_pies = 8
 
     in_sep = ';'
@@ -104,8 +114,8 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    # ord_krige_flag = False
-    # sim_krige_flag = False
+    ord_krige_flag = False
+    sim_krige_flag = False
     # edk_krige_flag = False
     # idw_flag = False
     # plot_figs_flag = False

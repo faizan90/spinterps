@@ -48,6 +48,17 @@ class SpInterpSteps:
         # self._n_dst_pts = self._interp_x_crds_msh.shape[0]
         return
 
+    @traceback_wrapper
+    def interpolate_subset(self, args_for_interp):
+
+        # Calling like this allows for proper garbage collection,
+        # in case I forgot to dereference some variables that require
+        # a lot of RAM.
+        args_for_disk = self._get_all_interp_outputs(args_for_interp)
+
+        self._write_to_disk(args_for_disk)
+        return
+
     def _get_dists_arr(self, x1s, y1s, x2s, y2s):
 
         assert x1s.ndim == y1s.ndim == x2s.ndim == y2s.ndim == 1
@@ -341,8 +352,7 @@ class SpInterpSteps:
 
         return
 
-    @traceback_wrapper
-    def interpolate_subset(self, args):
+    def _get_all_interp_outputs(self, args):
 
         (data_df,
          beg_idx,
@@ -499,6 +509,9 @@ class SpInterpSteps:
 
         else:
             dst_ref_2d_vars_arr_all = None
+
+        self._interp_x_crds_msh = None
+        self._interp_y_crds_msh = None
         #======================================================================
 
         interp_flds_dict = {interp_label:np.full(
@@ -588,8 +601,8 @@ class SpInterpSteps:
 
                 sub_ref_data = time_stn_grp_data_vals[:, sub_ref_idxs].copy(
                     'c')
-
                 #==============================================================
+
                 ref_ref_sub_idxs = time_stn_grp_idxs[sub_ref_idxs]
 
                 dst_ref_2d_dists_arr_sub = self._get_2d_arr_subset(
@@ -661,6 +674,17 @@ class SpInterpSteps:
                 pts_done_flags[time_neb_idxs_grp] = True
 
             assert np.all(pts_done_flags), 'Some points not interpolated!'
+        #======================================================================
+
+        # Release memory.
+        ref_ref_2d_vars_arr_all = None
+        dst_ref_2d_dists_arr_all = None
+        dst_ref_2d_vars_arr_all = None
+
+        dst_ref_2d_dists_arr_sub = None
+
+        grp_cls = None
+        #======================================================================
 
         if prblm_time_steps:
             print_sl()
@@ -674,6 +698,37 @@ class SpInterpSteps:
                     print(prblm_stp)
 
             print_el()
+
+        return (
+            lock,
+            beg_idx,
+            end_idx,
+            data_df,
+            vgs_ser,
+            max_rng,
+            interp_labels,
+            interp_flds_dict,
+            fld_beg_row,
+            fld_end_row,
+            vgs_rord_tidxs_ser,
+            time_steps,
+            interp_beg_time)
+
+    def _write_to_disk(self, args):
+
+        (lock,
+         beg_idx,
+         end_idx,
+         data_df,
+         vgs_ser,
+         max_rng,
+         interp_labels,
+         interp_flds_dict,
+         fld_beg_row,
+         fld_end_row,
+         vgs_rord_tidxs_ser,
+         time_steps,
+         interp_beg_time) = args
 
         with lock:
             if self._vb:

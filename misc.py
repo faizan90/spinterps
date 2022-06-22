@@ -5,9 +5,11 @@ Created on Nov 25, 2018
 '''
 import os
 import sys
+import time
+import datetime as pydt
 import traceback as tb
 from queue import Queue
-from math import pi, ceil
+from math import pi, ceil, isnan
 from functools import wraps
 from pathos.multiprocessing import ProcessPool
 
@@ -46,6 +48,100 @@ def traceback_wrapper(func):
         return func_res
 
     return wrapper
+
+
+def monitor_memory(args):
+
+    (idxs_pids,
+     out_dir,
+     intval,
+    ) = args
+
+    procs = [ps.Process(pid) for _, pid in idxs_pids]
+
+    sep = ';'
+
+    nl = '\n'
+
+    mb = 1024.0 ** 2
+
+    nan = float('nan')
+
+    with open(out_dir / 'memmon_ts.csv', 'w') as txt_hdl:
+
+        header = f'{sep}'.join([f'{idx}_{pid}' for idx, pid in idxs_pids])
+
+        # Last one has no sep after it.
+        txt_hdl.write(
+            'timestamp' + sep +
+            header + sep +
+            'physical_used' + sep +
+            'physical_available' + sep +
+            'swap_used' +
+            nl)
+
+        while True:
+            time_str = pydt.datetime.now().isoformat()
+
+            mems_phy = []
+            mems_swap = []
+            procs_ctr = 0
+            for proc in procs:
+                try:
+                    mems_phy.append(proc.memory_info().rss)
+
+                except ps.NoSuchProcess:
+                    mems_phy.append(nan)
+
+                try:
+                    mems_swap.append(proc.memory_info().vms)
+                    procs_ctr += 1
+
+                except ps.NoSuchProcess:
+                    mems_swap.append(nan)
+
+            if procs_ctr == 0:
+                break
+
+            # Just in case the processes terminated before swap was accessed.
+            mems_phy = mems_phy[:procs_ctr]
+
+            assert len(mems_phy) == len(mems_swap), (
+                len(mems_phy), len(mems_swap))
+
+            mem_str = f'{sep}'.join(
+                [f'{round(mem / mb, 1)}' for mem in mems_phy])
+
+            phy_used = round(
+                sum([mem for mem in mems_phy if not isnan(mem)]) / mb, 1)
+
+            swap_used = round(sum(
+                [mem for mem in mems_swap if not isnan(mem)]) / mb, 1)
+
+            phy_avail = round(ps.virtual_memory().free / mb, 1)
+
+            # Last one has no sep after it.
+            txt_hdl.write(
+                time_str + sep +
+                mem_str + sep +
+                str(phy_used) + sep +
+                str(phy_avail) + sep +
+                str(swap_used) +
+                nl)
+
+            txt_hdl.flush()
+
+            time.sleep(intval)
+
+    return
+
+
+def get_proc_pid(args):
+
+    (process_idx,
+    ) = args
+
+    return (process_idx, os.getpid())
 
 
 def linearize_sub_polys(poly, polys, simplify_tol):

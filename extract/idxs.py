@@ -533,7 +533,7 @@ class GeomAndCrdsItsctIdxs:
 
                 print(
                     'INFO: Converting coordinates to 2D due to '
-                    'transformation!')
+                    'polygon geometry!')
 
         else:
             raise NotImplementedError
