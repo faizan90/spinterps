@@ -399,7 +399,6 @@ class SpInterpData(VD):
 
         self._ipoly_flag = interp_around_polys_flag
 
-        # if self._ipoly_flag:
         assert isinstance(polygon_cell_buffer_distance, (float, int)), (
             'polygon_cell_buffer_distance should be a float or an int '
             'if interp_around_polys_flag is True!')

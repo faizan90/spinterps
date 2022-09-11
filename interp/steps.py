@@ -270,6 +270,8 @@ class SpInterpSteps:
                 wts_sum = fill_wts_and_sum(
                     dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
 
+                assert wts_sum > 0, wts_sum
+
                 for j in range(n_time):
                     if interp_steps_flags[j]:
                         mults_sum = get_mults_sum(wts, ref_data[j])

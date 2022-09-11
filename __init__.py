@@ -30,4 +30,4 @@ from .extract import (
 
 from .vgclus import ClusteredVariograms
 
-from .misc import get_theo_vg_vals
+from .misc import get_theo_vg_vals, show_formatted_elapsed_time

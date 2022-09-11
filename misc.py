@@ -18,11 +18,78 @@ import psutil as ps
 import netCDF4 as nc
 import shapefile as shp
 from osgeo import ogr, gdal
-from cftime import utime, datetime
+# from cftime import utime, datetime
+from cftime import datetime  # utime: not supoorted.
 
 from .cyth import fill_dists_2d_mat, fill_theo_vg_vals
 
 print_line_str = 40 * '#'
+
+
+def show_formatted_elapsed_time(seconds_elapsed):
+
+    '''
+    Take number of seconds and convert it to a string
+    that shows weeks, days, hours, minutes and seconds.
+    '''
+
+    assert isinstance(seconds_elapsed, (int, float)), (
+        f'seconds_elapsed ({type(seconds_elapsed)}) must be a finite number!')
+
+    assert -float('inf') < seconds_elapsed < +float('inf'), (
+        'seconds_elapsed must be a finite number!')
+
+    assert seconds_elapsed >= 0, (
+        f'second_elapsed ({seconds_elapsed}) cannot be negative!')
+
+    secs_rem = float(seconds_elapsed)
+
+    # Constants.
+    secs_in_minutes = 60.0
+    secs_in_hours = secs_in_minutes * 60.0
+    secs_in_day = secs_in_hours * 24.0
+    secs_in_week = secs_in_day * 7.0
+
+    # Weeks.
+    n_weeks = int(secs_rem // secs_in_week)
+
+    secs_rem = secs_rem % secs_in_week
+
+    # Days.
+    n_days = int(secs_rem // secs_in_day)
+
+    secs_rem = secs_rem % secs_in_day
+
+    # Hours.
+    n_hours = int(secs_rem // secs_in_hours)
+
+    secs_rem = secs_rem % secs_in_hours
+
+    # Minutes.
+    n_minutes = int(secs_rem // secs_in_minutes)
+
+    # Seconds.
+    secs_rem = secs_rem % secs_in_minutes
+
+    # Output string.
+    out_str = []
+
+    if n_weeks:
+        out_str.append(f'{n_weeks} week(s)')
+
+    if n_days:
+        out_str.append(f'{n_days} day(s)')
+
+    if n_hours:
+        out_str.append(f'{n_hours} hour(s)')
+
+    if n_minutes:
+        out_str.append(f'{n_minutes} minute(s)')
+
+    if secs_rem or (len(out_str) == 0):
+        out_str.append(f'{secs_rem:0.3f} second(s)')
+
+    return ' '.join(out_str)
 
 
 def traceback_wrapper(func):
@@ -93,6 +160,9 @@ def monitor_memory(args):
                 except ps.NoSuchProcess:
                     mems_phy.append(nan)
 
+                # It may happen that the monitored process terminates when the
+                # code is here. Then, there is mismatch between the lengths of
+                # mems_phy and mems_swap.
                 try:
                     mems_swap.append(proc.memory_info().vms)
                     procs_ctr += 1
@@ -184,8 +254,10 @@ def linearize_sub_polys(poly, polys, simplify_tol):
                     poly.GetGeometryRef(i), polys, simplify_tol)
 
         elif gct == 0:
-            raise ValueError(
-                'Encountered a geometry with a count of 0!')
+            # raise ValueError(
+                # 'Encountered a geometry with a point count of 0!')
+            print(
+                'WARNING: Encountered a geometry with a point count of 0!')
 
     return
 
@@ -859,7 +931,10 @@ def num2date(num_axis, units, calendar):
                 add_year(start_date, years_to_add)
                 for years_to_add in np.arange(min_years, max_years + 2)])
 
-            cdftime = utime(units_as_days, calendar=calendar)
+            # cftime.utime is no longer supported.
+            # cdftime = utime(units_as_days, calendar=calendar)
+            cdftime = datetime.toordinal(units_as_days, calendar=calendar)
+
             years_axis_as_days = cdftime.date2num(years_axis)
 
             yind = np.vectorize(np.int)(np.floor(num_axis_mod))
@@ -880,7 +955,10 @@ def num2date(num_axis, units, calendar):
                 add_month(start_date, months_to_add)
                 for months_to_add in np.arange(min_months, max_months + 12)])
 
-            cdftime = utime(units_as_days, calendar=calendar)
+            # cftime.utime is no longer supported.
+            # cdftime = utime(units_as_days, calendar=calendar)
+            cdftime = datetime.toordinal(units_as_days, calendar=calendar)
+
             months_axis_as_days = cdftime.date2num(months_axis)
 
             mind = np.vectorize(np.int)(np.floor(num_axis_mod))

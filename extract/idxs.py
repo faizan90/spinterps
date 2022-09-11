@@ -531,9 +531,10 @@ class GeomAndCrdsItsctIdxs:
 
                 self._crds_ndims = 2
 
-                print(
-                    'INFO: Converting coordinates to 2D due to '
-                    'polygon geometry!')
+                if self._vb:
+                    print(
+                        'INFO: Converting coordinates to 2D due to '
+                        'polygon geometry!')
 
         else:
             raise NotImplementedError
@@ -1133,14 +1134,16 @@ class GeomAndCrdsItsctIdxs:
             self._geoms[label].GetGeometryType() for label in self._labels]
 
         if all([gt == 3 for gt in org_poly_types]):
-            print('INFO: All geometries are POLYGONs!')
+            if self._vb:
+                print('INFO: All geometries are POLYGONs!')
 
             lin_labels = self._labels
             lin_polys = [self._geoms[label] for label in self._labels]
             lin_polys_area = org_polys_area
 
         else:
-            print('INFO: Some geometries are MULTIPOLYGONs!')
+            if self._vb:
+                print('INFO: Some geometries are MULTIPOLYGONs!')
 
             labels_polys = Queue()
 
@@ -1220,23 +1223,24 @@ class GeomAndCrdsItsctIdxs:
         itsct_idxs_dict, cells_area_sum = self._assemble_itsct_idxs_dict(
             ress)
 
-        print(
-            f'INFO: Total area of original polygons: '
-            f'{org_polys_area} units.')
-
-        print(
-            f'INFO: Total area of linearized polygons: '
-            f'{lin_polys_area} units.')
-
-        print(
-            f'INFO: Total area of cells intersecting with the polygons: '
-            f'{cells_area_sum} units.')
-
         pdiff = 100 * (cells_area_sum - lin_polys_area) / lin_polys_area
 
-        print(
-            f'INFO: Mismatch in total area: '
-            f'{cells_area_sum - lin_polys_area} units ({pdiff:0.3f}%).')
+        if self._vb or (abs(pdiff) > 0.00001):
+            print(
+                f'INFO: Total area of original polygons: '
+                f'{org_polys_area} units.')
+
+            print(
+                f'INFO: Total area of linearized polygons: '
+                f'{lin_polys_area} units.')
+
+            print(
+                f'INFO: Total area of cells intersecting with the polygons: '
+                f'{cells_area_sum} units.')
+
+            print(
+                f'INFO: Mismatch in total area: '
+                f'{cells_area_sum - lin_polys_area} units ({pdiff:0.3f}%).')
 
         return itsct_idxs_dict
 

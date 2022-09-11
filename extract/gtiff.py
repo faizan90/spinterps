@@ -374,7 +374,7 @@ class ExtractGTiffValues:
             print('Extracting GeoTiff values...')
 
         assert self._set_in_flag, 'Call the set_input method first!'
-        assert self._set_out_flag, 'Call the set_ouput method first!'
+        assert self._set_out_flag, 'Call the set_output method first!'
 
         assert isinstance(indices, dict), 'indices not a dictionary!'
         assert indices, 'Empty indices dictionary!'

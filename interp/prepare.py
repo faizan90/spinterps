@@ -490,11 +490,12 @@ class SpInterpPrepare(SIBD, KDT):
         else:
             self._cmpt_corner_coordinates()
 
-        print_sl()
+        if self._vb:
+            print_sl()
 
-        print('INFO: Final grid cell size:', self._cell_size)
+            print('INFO: Final grid cell size:', self._cell_size)
 
-        print_el()
+            print_el()
 
         assert self._cell_size is not None, 'Cell size unspecified!'
         #======================================================================
