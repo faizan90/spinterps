@@ -187,10 +187,14 @@ class CEVG(CS):
 
     def _get_simplified_evg(self, dists, vg_vals):
 
+        assert vg_vals.size > 1, vg_vals.size
+
         vg_vals_diffs = vg_vals[1:] - vg_vals[:-1]
 
         take_idxs_raw = ~(np.isclose(vg_vals_diffs, 0))
         take_idxs = take_idxs_raw.copy()
+
+        assert take_idxs.size
 
         for i in range(1, take_idxs_raw.size):
             if take_idxs_raw[i]:

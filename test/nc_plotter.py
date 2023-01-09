@@ -24,19 +24,20 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'P:\hydmod_de\hourly\pet_hourly_2008_2020_interp_5km')
+        r'P:\hydmod_ammer\daily\tem_daily_tn_1970_2020_interp_1km')
 
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'kriging_5km.nc')
+    in_nc_path = Path(r'kriging_1km.nc')
 
-    var_label = 'PET'
+    var_label = 'EDK'
     x_label = 'X'
     y_label = 'Y'
     time_label = 'time'
 
     # cbar_label = 'Precipitation (mm)'
-    cbar_label = 'PET (mm)'
+    # cbar_label = 'PET (mm)'
+    cbar_label = 'Temperature (C)'
 
     cmap = 'viridis'
 
@@ -49,8 +50,8 @@ def main():
     show_title_flag = True
     # show_title_flag = False
 
-    take_idxs_beg = 500
-    take_idxs_end = 600
+    take_idxs_beg = 18400
+    take_idxs_end = 18700
 
     out_figs_dir = Path(r'interp_plots')
     #==========================================================================

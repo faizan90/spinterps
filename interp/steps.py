@@ -343,14 +343,15 @@ class SpInterpSteps:
 
         return dst_data
 
+    @np.errstate(invalid='ignore')
     def _mod_min_max(self, interp_fld):
 
-        with np.errstate(invalid='ignore'):
-            if self._min_var_cut is not None:
-                interp_fld[interp_fld < self._min_var_cut] = self._min_var_cut
+        # with np.errstate(invalid='ignore'):
+        if self._min_var_cut is not None:
+            interp_fld[interp_fld < self._min_var_cut] = self._min_var_cut
 
-            if self._max_var_cut is not None:
-                interp_fld[interp_fld > self._max_var_cut] = self._max_var_cut
+        if self._max_var_cut is not None:
+            interp_fld[interp_fld > self._max_var_cut] = self._max_var_cut
 
         return
 
