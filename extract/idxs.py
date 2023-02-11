@@ -1118,7 +1118,7 @@ class GeomAndCrdsItsctIdxs:
         Summary:
         1. Each multipolygon is split into polygons.
         2. Incase of a multithreaded scenario, polygons that have too many
-           points for in them are broken into chunks to distributed the load
+           points in them are broken into chunks to distribute the load
            across threads uniformly.
         3. X and Y corner coordinates of cells are tested for containment.
         4. Each multipolygon that was split for a given label, their data
@@ -1513,14 +1513,21 @@ class GeomAndCrdsItsctIdxs:
 
             cell_ring.AddPoint_2D(x_crds[ridx, cidx], y_crds[ridx, cidx])
 
-            cell_ring.AddPoint_2D(
-                x_crds[ridx + 1, cidx], y_crds[ridx + 1, cidx])
+            # This tries to access a point that does not exist.
+            # Becomes evident when the bounds of the shapefile and netCDF
+            # are very similar.
+            try:
+                cell_ring.AddPoint_2D(
+                    x_crds[ridx + 1, cidx], y_crds[ridx + 1, cidx])
 
-            cell_ring.AddPoint_2D(
-                x_crds[ridx + 1, cidx + 1], y_crds[ridx + 1, cidx + 1])
+                cell_ring.AddPoint_2D(
+                    x_crds[ridx + 1, cidx + 1], y_crds[ridx + 1, cidx + 1])
 
-            cell_ring.AddPoint_2D(
-                x_crds[ridx, cidx + 1], y_crds[ridx, cidx + 1])
+                cell_ring.AddPoint_2D(
+                    x_crds[ridx, cidx + 1], y_crds[ridx, cidx + 1])
+
+            except IndexError:
+                continue
 
             cell_ring.AddPoint_2D(x_crds[ridx, cidx], y_crds[ridx, cidx])
 

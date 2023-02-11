@@ -24,20 +24,20 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'P:\hydmod_ammer\daily\tem_daily_tn_1970_2020_interp_1km')
+        r'U:\fradnc')
 
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'kriging_1km.nc')
+    in_nc_path = Path(r'2021.nc')
 
-    var_label = 'EDK'
-    x_label = 'X'
-    y_label = 'Y'
+    var_label = 'RW'
+    x_label = 'x_utm32n'
+    y_label = 'y_utm32n'
     time_label = 'time'
 
-    # cbar_label = 'Precipitation (mm)'
+    cbar_label = 'Precipitation (mm)'
     # cbar_label = 'PET (mm)'
-    cbar_label = 'Temperature (C)'
+    # cbar_label = 'Temperature (C)'
 
     cmap = 'viridis'
 
@@ -50,8 +50,8 @@ def main():
     show_title_flag = True
     # show_title_flag = False
 
-    take_idxs_beg = 18400
-    take_idxs_end = 18700
+    take_idxs_beg = 0
+    take_idxs_end = 20
 
     out_figs_dir = Path(r'interp_plots')
     #==========================================================================
@@ -63,7 +63,11 @@ def main():
         data = nc_hdl[var_label][take_idxs_beg:take_idxs_end].data
         times = nc_hdl[time_label][take_idxs_beg:take_idxs_end].data
 
-    x_crds_plt_msh, y_crds_plt_msh = np.meshgrid(x_crds, y_crds)
+    if x_crds.ndim == 1:
+        x_crds_plt_msh, y_crds_plt_msh = np.meshgrid(x_crds, y_crds)
+
+    else:
+        x_crds_plt_msh, y_crds_plt_msh = (x_crds, y_crds)
     #==========================================================================
 
     out_var_figs_dir = out_figs_dir / var_label

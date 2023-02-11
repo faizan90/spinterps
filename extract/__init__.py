@@ -151,7 +151,19 @@ class Extract:
             nc_vals_cls.set_input(path_to_nc, variable_label, time_label)
             nc_vals_cls.set_output(path_to_output)
 
-            nc_vals_cls.extract_values(itsct_cls.get_intersect_indices())
+            if nc_vals_cls._out_fmt == 'h5':
+                nc_vals_cls.extract_values(itsct_cls.get_intersect_indices())
+
+            elif nc_vals_cls._out_fmt == 'nc':
+                nc_vals_cls.snip_values(
+                    itsct_cls.get_intersect_indices(), nc_crds_cls)
+
+            elif nc_vals_cls._out_fmt == 'raw':
+                pass
+
+            else:
+                raise ValueError(
+                    f'Unknown output format: {nc_vals_cls._out_fmt}!')
 
             if path_to_output is None:
                 ress[variable_label] = nc_vals_cls.get_values()

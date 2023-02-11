@@ -12,24 +12,24 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Papers_Reviews\Papers\2018_model_inversion\elevations')
+    main_dir = Path(r'P:\hydmod\upper_neckar\daily_2014_2020_spinterp_1km_tg')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds.shp'
+    path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Lenja\vector\upper_neckar_cats__subset_cumm.shp'
     label_field = r'DN'
 
 #     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_6MainBasins_sh\MainBasins_Iran__utm39n3.shp'
 #     label_field = r'HOZEH6'
 
-    # path_to_ras = r'kriging.nc'
-    # input_ras_type = 'nc'
+    path_to_ras = r'test_nc_snip.nc'
+    input_ras_type = 'nc'
 
-    path_to_ras = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\fil.tif'
-    input_ras_type = 'gtiff'
+    # path_to_ras = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\fil.tif'
+    # input_ras_type = 'gtiff'
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
-    nc_variable_labels = ['OK']
+    nc_variable_labels = ['EDK']
     nc_time_label = 'time'
 
     src_epsg = None
@@ -37,7 +37,7 @@ def main():
 
     simplify_tol_ratio = 0.25
     minimum_cell_area_intersection_percentage = 1e-3
-    n_cpus = 'auto'
+    n_cpus = 1  # 'auto'
 
 #     src_epsg = 4326
 #     dst_epsg = 31467
@@ -57,7 +57,7 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'srtm_elevations.h5')
+    path_to_output = Path(r'test_nc_snip.h5')
 #     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
 
     Ext = Extract(True)

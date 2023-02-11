@@ -307,23 +307,27 @@ class SpInterpPrepare(SIBD, KDT):
             str(self._out_dir / (self._nc_out.split('.', 1)[0] + '.nc')),
             mode='w')
 
+        dim_x_lab = 'dimx'
+        dim_y_lab = 'dimy'
+        dim_t_lab = 'dimt'
+
         nc_hdl.set_auto_mask(False)
-        nc_hdl.createDimension(self._nc_xlab, self._nc_x_crds.shape[0])
-        nc_hdl.createDimension(self._nc_ylab, self._nc_y_crds.shape[0])
-        nc_hdl.createDimension(self._nc_tlab, self._time_rng.shape[0])
+        nc_hdl.createDimension(dim_x_lab, self._nc_x_crds.shape[0])
+        nc_hdl.createDimension(dim_y_lab, self._nc_y_crds.shape[0])
+        nc_hdl.createDimension(dim_t_lab, self._time_rng.shape[0])
 
         x_coords_nc = nc_hdl.createVariable(
-            self._nc_xlab, 'd', dimensions=self._nc_xlab)
+            self._nc_xlab, 'd', dimensions=dim_x_lab)
 
         x_coords_nc[:] = self._nc_x_crds
 
         y_coords_nc = nc_hdl.createVariable(
-            self._nc_ylab, 'd', dimensions=self._nc_ylab)
+            self._nc_ylab, 'd', dimensions=dim_y_lab)
 
         y_coords_nc[:] = self._nc_y_crds
 
         time_nc = nc_hdl.createVariable(
-            self._nc_tlab, 'i8', dimensions=self._nc_tlab)
+            self._nc_tlab, 'i8', dimensions=dim_t_lab)
 
         if self._index_type == 'date':
             time_nc[:] = nc.date2num(
@@ -347,7 +351,7 @@ class SpInterpPrepare(SIBD, KDT):
             nc_var = nc_hdl.createVariable(
                 ivar_name,
                 'd',
-                dimensions=(self._nc_tlab, self._nc_ylab, self._nc_xlab),
+                dimensions=(dim_t_lab, dim_y_lab, dim_x_lab),
                 fill_value=False)
 
             nc_var.units = self._nc_vunits
