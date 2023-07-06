@@ -1143,7 +1143,7 @@ class GeomAndCrdsItsctIdxs:
 
         else:
             if self._vb:
-                print('INFO: Some geometries are MULTIPOLYGONs!')
+                print('INFO: Some geometries may be MULTIPOLYGONs!')
 
             labels_polys = Queue()
 
@@ -1157,8 +1157,7 @@ class GeomAndCrdsItsctIdxs:
             [(lin_labels.append(label), lin_polys.append(poly))
              for label, poly in labels_polys.queue]
 
-            assert all([label in lin_labels
-                        for label in self._labels]), (
+            assert all([label in lin_labels for label in self._labels]), (
                 'Missing labels after linearizing polygons!')
 
             lin_polys_area = sum([poly.GetArea() for poly in lin_polys])

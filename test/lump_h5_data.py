@@ -23,16 +23,17 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\QGIS_Neckar\hydmod\input_hyd_data')
+    main_dir = Path(r'P:\cmip6\ec-earth3-cc\bw\neckar')
     os.chdir(main_dir)
 
-    in_h5_file = Path(r'neckar_all_subcats_watersheds_cumm_1961_2015_1km_daily_tem_mean.h5')
+    in_h5_file = Path(r'pr_1950_2014_bw_neckar.h5')
 
-    data_grp = 'full_neckar_avg_temp_kriging_1961-01-01_to_2015-12-31_1km_all'
+    data_grp = 'pr_1950_2014_bw'
 
-    out_file_name_pref = f'neckar_{data_grp}'
+    out_file_name_pref = f'{data_grp}'
 
-    variable_labels = ['EDK']
+    variable_labels = ['pr']
+    cell_area_label = 'itsctd_area'
     rel_cell_area_label = 'rel_itsctd_area'
 
     time_label = 'time/time_strs'
@@ -41,14 +42,25 @@ def main():
 
     float_fmt = '%0.16f'
 
-    out_time_fmt = '%Y-%m-%d'
+    out_time_fmt = '%Y-%m-%d %H:%M'
 
     fig_size = (15, 7)
 
-    fig_xlabel = 'Time (days)'
-    fig_ylabel = 'Temperature (C)'
+    fig_xlabel = 'Time (day)'
+    # fig_ylabel = 'Temperature (C)'
+    fig_ylabel = 'Precipitation (mm)'
 
-    set_na_to_zero_flag = False
+    set_na_to_zero_flag = True
+    # set_na_to_zero_flag = False
+
+    # Int or Float matters.
+    missing_value = None
+    # missing_value = 9969209968386869046778552952102584320.0
+
+    # Use polygon area. In case of climate model runs. Units in kg.m^2.s^-1.
+    # False when using spinterps' output.
+    use_cat_area_flag = True
+    use_cat_area_flag = False
 
     save_df_pkl_flag = False
 
@@ -68,11 +80,19 @@ def main():
             out_df = pd.DataFrame(index=h5_times, columns=keys, dtype=float)
 
             for key in keys:
-                itsctd_area = h5_hdl[f'{rel_cell_area_label}/{key}'][:]
 
-                out_df[key][:] = (
-                    data_ds[f'{variable_label}/{key}'] * itsctd_area.T
-                    ).sum(axis=1)
+                if use_cat_area_flag:
+                    itsctd_area = h5_hdl[f'{cell_area_label}/{key}'][:]
+
+                else:
+                    itsctd_area = h5_hdl[f'{rel_cell_area_label}/{key}'][:]
+
+                data = data_ds[f'{variable_label}/{key}'][:]
+
+                if missing_value is not None:
+                    data[np.isclose(data, missing_value)] = np.nan
+
+                out_df[key][:] = (data * itsctd_area.T).sum(axis=1)  # * (3600 * 24)
 
                 plt.figure(figsize=fig_size)
 

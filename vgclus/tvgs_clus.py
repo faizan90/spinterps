@@ -565,6 +565,7 @@ class TVGSClus(TVGFit):
 
             ctvg_beg_time = timeit.default_timer()
 
+        assert self._sett_clus_ctvg_set_flag
         assert self._tvgs_fit_fitted_flag
         assert self._tvgs_clus_verify_flag
 
@@ -635,7 +636,7 @@ class TVGSClus(TVGFit):
 
         assert self._tvgs_fit_verify_flag
 
-        assert self._sett_clus_ctvg_set_flag
+        # assert self._sett_clus_ctvg_set_flag
 
         self._tvgs_clus_verify_flag = True
         return

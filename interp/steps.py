@@ -101,6 +101,9 @@ class SpInterpSteps:
         # covar_flag is 1 for SK and 0 for OK and EDK.
         svars_dict = {}
         for vg in vgs:
+
+            assert vg != 'nan'
+
             if var_flag:
                 svars_arr = np.full_like(dists_arr, np.nan)
 

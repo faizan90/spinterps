@@ -7,6 +7,7 @@ import timeit
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from spinterps import (
@@ -20,22 +21,22 @@ from spinterps import (
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Colleagues_Students\Bianca\santa_ppt_interps')
+    main_dir = Path(r'P:\Synchronize\IWS\Colleagues_Students\Jochen\plettenberg')
     os.chdir(main_dir)
 
-    path_to_shp = 'stns_within_santa.shp'
-    label_field = 'field_1'
+    path_to_shp = 'crds_wgs84.shp'
+    label_field = 'stn'
 
-    path_to_ras = r'reformated_monthly_infilling_ctvg\orig\orig.nc'
+    path_to_ras = r'U:\fradnc\2023.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = (
 #         r'lower_de_gauss_z3_2km_atkis_19_extended_hydmod_lulc_ratios.tif')
 #     input_ras_type = 'gtiff'
 
-    nc_x_crds_label = 'X'
-    nc_y_crds_label = 'Y'
-    nc_variable_labels = ['OK']
+    nc_x_crds_label = 'lon'
+    nc_y_crds_label = 'lat'
+    nc_variable_labels = ['RW']
     nc_time_label = 'time'
 
     src_epsg = None
@@ -44,11 +45,11 @@ def main():
     # It can be None, or have and extension of h5 or if save_as_txt_flag is
     # set then the directory. pref is used a along with the data
     # label as the file name.
-    path_to_output = Path(r'reformated_monthly_infilling_ctvg\orig')
+    path_to_output = main_dir
 
     # For output as text.
     save_as_txt_flag = True
-    pref = 'ts_interp'
+    pref = 'ts_radolan_hourly_2023'
     sep = ';'
 
     verbose = True
@@ -152,7 +153,9 @@ def main():
                 pt_sers = []
                 for key, value in extd_vals.items():
                     pt_ser = pd.Series(
-                        index=value.keys(), data=value.values(), name=key)
+                        index=value.keys(),
+                        data=np.concatenate(list(value.values()), axis=0),
+                        name=key)
 
                     pt_sers.append(pt_ser)
 

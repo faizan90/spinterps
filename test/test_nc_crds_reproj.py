@@ -24,10 +24,10 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\RADOLAN')
+    main_dir = Path(r'P:\cmip6\ec-earth3-cc\bw')
     os.chdir(main_dir)
 
-    path_to_ncs = Path(r'U:\fradnc').glob('*.nc')
+    path_to_ncs = main_dir.glob('pr_*bw.nc')
 
     src_crs = 'EPSG:4326'
     dst_crs = 'EPSG:32632'
@@ -35,8 +35,9 @@ def main():
     src_y_lab = 'lat'
     dst_x_lab = 'x_utm32n'
     dst_y_lab = 'y_utm32n'
-    dim_x_lab = 'dimx'
-    dim_y_lab = 'dimy'
+    dim_x_lab = 'lon'
+    dim_y_lab = 'lat'
+    data_var = 'pr'
 
     verbose = True
     #==========================================================================
@@ -54,7 +55,8 @@ def main():
             dst_x_lab,
             dst_y_lab,
             dim_x_lab,
-            dim_y_lab)
+            dim_y_lab,
+            data_var)
 
     return
 

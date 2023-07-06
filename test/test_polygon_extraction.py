@@ -12,30 +12,41 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\hydmod\upper_neckar\daily_2014_2020_spinterp_1km_tg')
+    main_dir = Path(r'P:\cmip6\ec-earth3-cc\bw')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Lenja\vector\upper_neckar_cats__subset_cumm.shp'
+    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_dem_2km\watersheds_cumm.shp'
     label_field = r'DN'
 
 #     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_6MainBasins_sh\MainBasins_Iran__utm39n3.shp'
 #     label_field = r'HOZEH6'
 
-    path_to_ras = r'test_nc_snip.nc'
+    # path_to_rass = [Path(f'{year}.nc') for year in range(2006, 2021)]
+    # path_to_rass = main_dir.glob('pr_*bw.nc')
+    path_to_rass = [Path(r'pr_1950_2014_bw.nc')]
     input_ras_type = 'nc'
 
     # path_to_ras = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\fil.tif'
     # input_ras_type = 'gtiff'
 
-    nc_x_crds_label = 'X'
-    nc_y_crds_label = 'Y'
-    nc_variable_labels = ['EDK']
+    nc_x_crds_label = 'x_utm32n'
+    nc_y_crds_label = 'y_utm32n'
+    nc_variable_labels = ['pr']
     nc_time_label = 'time'
+
+    # nc_x_crds_label = 'lon'
+    # nc_y_crds_label = 'lat'
+    # nc_variable_labels = ['pr']
+    # nc_time_label = 'time'
+
+    out_ext = 'h5'  # h5 means time series of pts in h5, nc snips it.
+
+    out_suff = 'neckar'
 
     src_epsg = None
     dst_epsg = None
 
-    simplify_tol_ratio = 0.25
+    simplify_tol_ratio = 0.001
     minimum_cell_area_intersection_percentage = 1e-3
     n_cpus = 1  # 'auto'
 
@@ -57,40 +68,46 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
-    path_to_output = Path(r'test_nc_snip.h5')
-#     path_to_output = 'lower_de_gauss_z3_1km_hydrogeol_einheit_nr_hydmod_lulc_ratios.h5'
-
     Ext = Extract(True)
 
     res = None
 
     if input_ras_type == 'gtiff':
-        res = Ext.extract_from_geotiff(
-            path_to_shp,
-            label_field,
-            path_to_ras,
-            path_to_output,
-            minimum_cell_area_intersection_percentage,
-            n_cpus,
-            src_epsg,
-            dst_epsg,
-            simplify_tol_ratio)
+
+        for path_to_ras in path_to_rass:
+
+            path_to_output = Path(rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+
+            res = Ext.extract_from_geotiff(
+                path_to_shp,
+                label_field,
+                path_to_ras,
+                path_to_output,
+                minimum_cell_area_intersection_percentage,
+                n_cpus,
+                src_epsg,
+                dst_epsg,
+                simplify_tol_ratio)
 
     elif input_ras_type == 'nc':
-        res = Ext.extract_from_netCDF(
-            path_to_shp,
-            label_field,
-            path_to_ras,
-            path_to_output,
-            nc_x_crds_label,
-            nc_y_crds_label,
-            nc_variable_labels,
-            nc_time_label,
-            minimum_cell_area_intersection_percentage,
-            n_cpus,
-            src_epsg,
-            dst_epsg,
-            simplify_tol_ratio)
+        for path_to_ras in path_to_rass:
+
+            path_to_output = Path(rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+
+            res = Ext.extract_from_netCDF(
+                path_to_shp,
+                label_field,
+                path_to_ras,
+                path_to_output,
+                nc_x_crds_label,
+                nc_y_crds_label,
+                nc_variable_labels,
+                nc_time_label,
+                minimum_cell_area_intersection_percentage,
+                n_cpus,
+                src_epsg,
+                dst_epsg,
+                simplify_tol_ratio)
 
     else:
         raise NotImplementedError

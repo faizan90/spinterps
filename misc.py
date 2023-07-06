@@ -228,6 +228,8 @@ def linearize_sub_polys(poly, polys, simplify_tol):
         gt = poly.GetGeometryType()
 
         assert gt in (2, 3, 6), 'Meant for polygons only!'
+        
+        assert gct > 0, 'Are there holes in a geometry?'
 
         if gt == 2:
             lin_ring = poly

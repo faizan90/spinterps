@@ -4,10 +4,13 @@ Created on May 27, 2019
 @author: Faizan-Uni
 '''
 
+from math import ceil
 from pathlib import Path
 
 import h5py
 import numpy as np
+import pandas as pd
+import psutil as ps
 import netCDF4 as nc
 
 from ..misc import print_sl, print_el, num2date
@@ -522,7 +525,15 @@ class ExtractNetCDFValues:
         path_stem = self._in_path.stem
         assert path_stem, 'Input file has no name?'
 
+        if in_time_strs is not None:
+            in_time_data = in_time_strs
+
+        else:
+            in_time_data = in_time[...]
+
         misc_grp_labs = add_var_labels | set(('rows', 'cols'))
+
+        extrtd_data = None
 
         if self._out_fmt == 'h5':
             out_hdl = h5py.File(str(self._out_path), mode='a', driver=None)
@@ -611,7 +622,10 @@ class ExtractNetCDFValues:
                 out_var_grp.attrs['units'] = in_var.units
 
         elif self._out_fmt == 'raw':
-            extrtd_data = {}
+            extrtd_data = pd.DataFrame(
+                index=in_time_data,
+                columns=list(indices.keys()),
+                dtype=np.float64)
 
         else:
             raise NotImplementedError
@@ -622,13 +636,18 @@ class ExtractNetCDFValues:
             print(f'Shape of extraction variable: {in_var.shape}')
             print(f'Shape of time variable: {in_time.shape}')
 
-        in_var_data = in_var[...]
+        # Memory management.
+        in_var_nbytes = in_var.dtype.itemsize * np.prod(
+            in_var.shape, dtype=np.uint64)
 
-        if in_time_strs is not None:
-            in_time_data = in_time_strs
+        tot_avail_mem = int(ps.virtual_memory().free * 0.5)
 
-        else:
-            in_time_data = in_time[...]
+        n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
+
+        assert n_mem_time_prds >= 1, n_mem_time_prds
+
+        if n_mem_time_prds == 1:
+            in_var_data = in_var[:]
 
         for label, crds_idxs in indices.items():
 
@@ -644,10 +663,10 @@ class ExtractNetCDFValues:
             assert (rows_idxs_max >= 0) & (rows_idxs_min >= 0), (
                 'Row indices are not allowed to be negative!')
 
-            assert rows_idxs_max < in_var_data.shape[1], (
+            assert rows_idxs_max < in_var.shape[1], (
                 'One or more row indices are out of bounds!')
 
-            assert cols_idxs_max < in_var_data.shape[2], (
+            assert cols_idxs_max < in_var.shape[2], (
                 'One or more column indices are out of bounds!')
 
             if self.raise_on_duplicate_row_col_flag:
@@ -658,16 +677,21 @@ class ExtractNetCDFValues:
 
             if self._out_fmt == 'raw':
 
-                steps_data = {}
-                for i in range(in_time.shape[0]):
-                    step = in_time_data[i]
-                    step_data = in_var_data[i, rows_idxs, cols_idxs][0]
+                if n_mem_time_prds == 1:
+                    steps_data = in_var_data[:, rows_idxs, cols_idxs]
 
-                    steps_data[step] = step_data
+                else:
+                    steps_data = []
+                    for i in range(in_time.shape[0]):
+                        step_data = in_var[i][(rows_idxs, cols_idxs)]
 
-                assert steps_data, 'This should not have happend!'
+                        steps_data.append(step_data)
 
-                extrtd_data[label] = steps_data
+                    steps_data = np.array(steps_data)
+
+                assert steps_data.size, 'This should not have happend!'
+
+                extrtd_data.loc[:, [label]] = steps_data
 
                 steps_data = None
 
@@ -734,14 +758,22 @@ class ExtractNetCDFValues:
                     out_hdl[f'rows/{label_str}'] = rows_idxs
                     out_hdl[f'cols/{label_str}'] = cols_idxs
 
-                out_var_grp[label_str] = in_var_data[:, rows_idxs, cols_idxs]
+                out_lab_ds = out_var_grp.create_dataset(
+                    label_str,
+                    (in_var.shape[0], rows_idxs.size),
+                    in_var.dtype)
+
+                if n_mem_time_prds == 1:
+                    out_lab_ds[:] = in_var[:][:, rows_idxs, cols_idxs]
+
+                else:
+                    for i in range(in_var.shape[0]):
+                        out_lab_ds[i] = in_var[i][(rows_idxs, cols_idxs)]
 
                 out_hdl.flush()
 
             else:
                 raise NotImplementedError
-
-        in_var_data = None
 
         in_hdl.close()
         in_hdl = None
@@ -752,7 +784,7 @@ class ExtractNetCDFValues:
             out_hdl = None
 
         elif self._out_fmt == 'raw':
-            assert extrtd_data, 'This should not have happend!'
+            assert extrtd_data is not None, 'This should not have happend!'
             self._extrtd_data = extrtd_data
 
         else:
@@ -835,6 +867,9 @@ class ExtractNetCDFValues:
         in_time = in_hdl[self._in_time_lab]
         in_time.set_always_mask(False)
 
+        in_x_lab = nc_crds_cls._x_crds_lab
+        in_y_lab = nc_crds_cls._y_crds_lab
+
         assert np.issubdtype(in_time.dtype, np.number), (
             f'Data type of the input time variable: {self._in_time_lab} '
             f'not a subtype of np.number!')
@@ -899,16 +934,16 @@ class ExtractNetCDFValues:
 
             # X dim.
             assert (
-                in_hdl[nc_crds_cls._x_crds_lab].ndim ==
-                in_hdl[nc_crds_cls._y_crds_lab].ndim), (
-                    in_hdl[nc_crds_cls._x_crds_lab].ndim,
-                    in_hdl[nc_crds_cls._y_crds_lab].ndim)
+                in_hdl[in_x_lab].ndim ==
+                in_hdl[in_y_lab].ndim), (
+                    in_hdl[in_x_lab].ndim,
+                    in_hdl[in_y_lab].ndim)
 
-            if in_hdl[nc_crds_cls._x_crds_lab].ndim == 1:
-                in_x_dim = in_hdl[nc_crds_cls._x_crds_lab].get_dims()[0]
+            if in_hdl[in_x_lab].ndim == 1:
+                in_x_dim = in_hdl[in_x_lab].get_dims()[0]
 
-            elif in_hdl[nc_crds_cls._x_crds_lab].ndim == 2:
-                in_x_dim = in_hdl[nc_crds_cls._x_crds_lab].get_dims()[1]
+            elif in_hdl[in_x_lab].ndim == 2:
+                in_x_dim = in_hdl[in_x_lab].get_dims()[1]
 
             else:
                 raise ValueError(
@@ -917,11 +952,11 @@ class ExtractNetCDFValues:
             in_x_dim_lab = in_x_dim.name
 
             # Y dim.
-            if in_hdl[nc_crds_cls._y_crds_lab].ndim == 1:
-                in_y_dim = in_hdl[nc_crds_cls._y_crds_lab].get_dims()[0]
+            if in_hdl[in_y_lab].ndim == 1:
+                in_y_dim = in_hdl[in_y_lab].get_dims()[0]
 
-            elif in_hdl[nc_crds_cls._y_crds_lab].ndim == 2:
-                in_y_dim = in_hdl[nc_crds_cls._y_crds_lab].get_dims()[0]
+            elif in_hdl[in_y_lab].ndim == 2:
+                in_y_dim = in_hdl[in_y_lab].get_dims()[0]
 
             else:
                 raise ValueError(
@@ -984,93 +1019,28 @@ class ExtractNetCDFValues:
                 out_hdl.createDimension(
                     in_x_dim_lab, snip_col_max - snip_col_min + 1)
 
-                if in_hdl[nc_crds_cls._x_crds_lab].ndim == 1:
-                    out_x = out_hdl.createVariable(
-                        nc_crds_cls._x_crds_lab,
-                        in_hdl[nc_crds_cls._x_crds_lab].dtype,
-                        in_x_dim_lab)
-
-                    out_x[:] = in_hdl[nc_crds_cls._x_crds_lab][
-                        snip_col_min:snip_col_max + 1]
-
-                elif in_hdl[nc_crds_cls._x_crds_lab].ndim == 2:
-                    out_x = out_hdl.createVariable(
-                        nc_crds_cls._x_crds_lab,
-                        in_hdl[nc_crds_cls._x_crds_lab].dtype,
-                        (in_y_dim_lab, in_x_dim_lab))
-
-                    out_x[:] = in_hdl[nc_crds_cls._x_crds_lab][
-                        snip_row_min:snip_row_max + 1,
-                        snip_col_min:snip_col_max + 1]
-
-                else:
-                    raise ValueError(
-                        'Dimensions of coordinates cannot be more than 2!')
-
-            else:
-                if in_hdl[nc_crds_cls._x_crds_lab].ndim == 1:
-
-                    assert ((snip_col_max - snip_col_min + 1) ==
-                            out_hdl[nc_crds_cls._x_crds_lab].size), (
-                                'Size of x coordinates not equal for inputs '
-                                'and outputs!')
-
-                    assert np.all(np.isclose(
-                        in_hdl[nc_crds_cls._x_crds_lab][
-                            snip_col_min:snip_col_max + 1],
-                        out_hdl[nc_crds_cls._x_crds_lab][:])), (
-                            'Values of x coordinates do not match for input '
-                            'and output!')
-
-                elif in_hdl[nc_crds_cls._x_crds_lab].ndim == 2:
-
-                    assert ((snip_col_max - snip_col_min + 1) ==
-                            out_hdl[nc_crds_cls._x_crds_lab].shape[1]), (
-                                'Size of x coordinates not equal for inputs '
-                                'and outputs!')
-
-                    assert ((snip_row_max - snip_row_min + 1) ==
-                            out_hdl[nc_crds_cls._x_crds_lab].shape[0]), (
-                                'Size of x coordinates not equal for inputs '
-                                'and outputs!')
-
-                    assert np.all(np.isclose(
-                        in_hdl[nc_crds_cls._x_crds_lab][
-                            snip_row_min:snip_row_max + 1,
-                            snip_col_min:snip_col_max + 1],
-                        out_hdl[nc_crds_cls._x_crds_lab][:])), (
-                            'Values of x coordinates do not match for input '
-                            'and output!')
-
-                else:
-                    raise ValueError(
-                        'Dimensions of coordinates cannot be more than 2!')
-
-            if hasattr(in_hdl[nc_crds_cls._x_crds_lab], 'units'):
-                in_hdl[nc_crds_cls._x_crds_lab].units = (
-                    in_hdl[nc_crds_cls._x_crds_lab].units)
-
             # Y.
             if in_y_dim_lab not in out_hdl.dimensions:
                 out_hdl.createDimension(
                     in_y_dim_lab, snip_row_max - snip_row_min + 1)
 
-                if in_hdl[nc_crds_cls._y_crds_lab].ndim == 1:
-                    out_y = out_hdl.createVariable(
-                        nc_crds_cls._y_crds_lab,
-                        in_hdl[nc_crds_cls._y_crds_lab].dtype,
-                        in_y_dim_lab)
+            if in_x_lab not in out_hdl.variables:
+                if in_hdl[in_x_lab].ndim == 1:
+                    out_x = out_hdl.createVariable(
+                        in_x_lab,
+                        in_hdl[in_x_lab].dtype,
+                        in_x_dim_lab)
 
-                    out_y[:] = in_hdl[nc_crds_cls._y_crds_lab][
-                        snip_row_min:snip_row_max + 1]
+                    out_x[:] = in_hdl[in_x_lab][
+                        snip_col_min:snip_col_max + 1]
 
-                elif in_hdl[nc_crds_cls._y_crds_lab].ndim == 2:
-                    out_y = out_hdl.createVariable(
-                        nc_crds_cls._y_crds_lab,
-                        in_hdl[nc_crds_cls._y_crds_lab].dtype,
-                        (in_y_dim_lab, in_y_dim_lab))
+                elif in_hdl[in_x_lab].ndim == 2:
+                    out_x = out_hdl.createVariable(
+                        in_x_lab,
+                        in_hdl[in_x_lab].dtype,
+                        (in_y_dim_lab, in_x_dim_lab))
 
-                    out_y[:] = in_hdl[nc_crds_cls._y_crds_lab][
+                    out_x[:] = in_hdl[in_x_lab][
                         snip_row_min:snip_row_max + 1,
                         snip_col_min:snip_col_max + 1]
 
@@ -1078,48 +1048,114 @@ class ExtractNetCDFValues:
                     raise ValueError(
                         'Dimensions of coordinates cannot be more than 2!')
 
+                if hasattr(in_hdl[in_x_lab], 'units'):
+                    out_x.units = in_hdl[in_x_lab].units
+
             else:
-                if in_hdl[nc_crds_cls._y_crds_lab].ndim == 1:
-
-                    assert ((snip_row_max - snip_row_min + 1) ==
-                            out_hdl[nc_crds_cls._y_crds_lab].size), (
-                                'Size of y coordinates not equal for inputs '
-                                'and outputs!')
-
-                    assert np.all(np.isclose(
-                        in_hdl[nc_crds_cls._y_crds_lab][
-                            snip_row_min:snip_row_max + 1],
-                        out_hdl[nc_crds_cls._y_crds_lab][:])), (
-                            'Values of y coordinates do not match for input '
-                            'and output!')
-
-                elif in_hdl[nc_crds_cls._y_crds_lab].ndim == 2:
-
-                    assert ((snip_row_max - snip_row_min + 1) ==
-                            out_hdl[nc_crds_cls._y_crds_lab].shape[0]), (
-                                'Size of y coordinates not equal for inputs '
-                                'and outputs!')
+                if in_hdl[in_x_lab].ndim == 1:
 
                     assert ((snip_col_max - snip_col_min + 1) ==
-                            out_hdl[nc_crds_cls._y_crds_lab].shape[1]), (
-                                'Size of y coordinates not equal for inputs '
+                            out_hdl[in_x_lab].size), (
+                                'Size of x coordinates not equal for inputs '
                                 'and outputs!')
 
                     assert np.all(np.isclose(
-                        in_hdl[nc_crds_cls._y_crds_lab][
+                        in_hdl[in_x_lab][
+                            snip_col_min:snip_col_max + 1],
+                        out_hdl[in_x_lab][:])), (
+                            'Values of x coordinates do not match for input '
+                            'and output!')
+
+                elif in_hdl[in_x_lab].ndim == 2:
+
+                    assert ((snip_col_max - snip_col_min + 1) ==
+                            out_hdl[in_x_lab].shape[1]), (
+                                'Size of x coordinates not equal for inputs '
+                                'and outputs!')
+
+                    assert ((snip_row_max - snip_row_min + 1) ==
+                            out_hdl[in_x_lab].shape[0]), (
+                                'Size of x coordinates not equal for inputs '
+                                'and outputs!')
+
+                    assert np.all(np.isclose(
+                        in_hdl[in_x_lab][
                             snip_row_min:snip_row_max + 1,
                             snip_col_min:snip_col_max + 1],
-                        out_hdl[nc_crds_cls._y_crds_lab][:])), (
-                            'Values of y coordinates do not match for input '
+                        out_hdl[in_x_lab][:])), (
+                            'Values of x coordinates do not match for input '
                             'and output!')
 
                 else:
                     raise ValueError(
                         'Dimensions of coordinates cannot be more than 2!')
 
-            if hasattr(in_hdl[nc_crds_cls._y_crds_lab], 'units'):
-                in_hdl[nc_crds_cls._y_crds_lab].units = (
-                    in_hdl[nc_crds_cls._y_crds_lab].units)
+            if in_y_lab not in out_hdl.variables:
+
+                if in_hdl[in_y_lab].ndim == 1:
+                    out_y = out_hdl.createVariable(
+                        in_y_lab,
+                        in_hdl[in_y_lab].dtype,
+                        in_y_dim_lab)
+
+                    out_y[:] = in_hdl[in_y_lab][
+                        snip_row_min:snip_row_max + 1]
+
+                elif in_hdl[in_y_lab].ndim == 2:
+                    out_y = out_hdl.createVariable(
+                        in_y_lab,
+                        in_hdl[in_y_lab].dtype,
+                        (in_y_dim_lab, in_x_dim_lab))
+
+                    out_y[:] = in_hdl[in_y_lab][
+                        snip_row_min:snip_row_max + 1,
+                        snip_col_min:snip_col_max + 1]
+
+                else:
+                    raise ValueError(
+                        'Dimensions of coordinates cannot be more than 2!')
+
+                if hasattr(in_hdl[in_y_lab], 'units'):
+                    out_y.units = in_hdl[in_y_lab].units
+
+            else:
+                if in_hdl[in_y_lab].ndim == 1:
+
+                    assert ((snip_row_max - snip_row_min + 1) ==
+                            out_hdl[in_y_lab].size), (
+                                'Size of y coordinates not equal for inputs '
+                                'and outputs!')
+
+                    assert np.all(np.isclose(
+                        in_hdl[in_y_lab][
+                            snip_row_min:snip_row_max + 1],
+                        out_hdl[in_y_lab][:])), (
+                            'Values of y coordinates do not match for input '
+                            'and output!')
+
+                elif in_hdl[in_y_lab].ndim == 2:
+
+                    assert ((snip_row_max - snip_row_min + 1) ==
+                            out_hdl[in_y_lab].shape[0]), (
+                                'Size of y coordinates not equal for inputs '
+                                'and outputs!')
+
+                    assert ((snip_col_max - snip_col_min + 1) ==
+                            out_hdl[in_y_lab].shape[1]), (
+                                'Size of y coordinates not equal for inputs '
+                                'and outputs!')
+
+                    assert np.all(np.isclose(
+                        in_hdl[in_y_lab][
+                            snip_row_min:snip_row_max + 1,
+                            snip_col_min:snip_col_max + 1],
+                        out_hdl[in_y_lab][:])), (
+                            'Values of y coordinates do not match for input '
+                            'and output!')
+
+                else:
+                    raise ValueError(
+                        'Dimensions of coordinates cannot be more than 2!')
 
             # Data.
             if self._in_var_lab not in out_hdl.variables:
@@ -1136,27 +1172,27 @@ class ExtractNetCDFValues:
                         'Size of time of existing output data not as '
                         'expected!')
 
-                if out_hdl[nc_crds_cls._x_crds_lab].ndim == 1:
+                if out_hdl[in_x_lab].ndim == 1:
 
                     assert (out_data.shape[2] ==
-                            out_hdl[nc_crds_cls._x_crds_lab].shape[0]), (
+                            out_hdl[in_x_lab].shape[0]), (
                                 'Size of x coordinates of existing output '
                                 'data not as expected!')
 
                     assert (out_data.shape[1] ==
-                            out_hdl[nc_crds_cls._y_crds_lab].shape[0]), (
+                            out_hdl[in_y_lab].shape[0]), (
                                 'Size of y coordinates of existing output '
                                 'data not as expected!')
 
-                elif out_hdl[nc_crds_cls._x_crds_lab].ndim == 2:
+                elif out_hdl[in_x_lab].ndim == 2:
 
                     assert (out_data.shape[1:] ==
-                            out_hdl[nc_crds_cls._x_crds_lab].shape), (
+                            out_hdl[in_x_lab].shape), (
                                 'Size of x coordinates of existing output '
                                 'data not as expected!')
 
                     assert (out_data.shape[1:] ==
-                            out_hdl[nc_crds_cls._y_crds_lab].shape), (
+                            out_hdl[in_y_lab].shape), (
                                 'Size of y coordinates of existing output '
                                 'data not as expected!')
 
@@ -1176,20 +1212,27 @@ class ExtractNetCDFValues:
             print(f'Shape of extraction variable: {in_var.shape}')
             print(f'Shape of time variable: {in_time.shape}')
 
-        in_var_data = in_var[...]
-
         if in_time_strs is not None:
             in_time_data = in_time_strs
 
         else:
             in_time_data = in_time[...]
 
+        # Memory management.
+        in_var_nbytes = in_var.dtype.itemsize * np.prod(
+            in_var.shape, dtype=np.uint64)
+
+        tot_avail_mem = int(ps.virtual_memory().free * 0.5)
+
+        n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
+
+        assert n_mem_time_prds >= 1, n_mem_time_prds
+
         if self._out_fmt == 'raw':
 
             for i in range(in_time.shape[0]):
                 step = in_time_data[i]
-                step_data = in_var_data[
-                    i, snip_row_slice, snip_col_slice][0]
+                step_data = in_var[i][snip_row_slice, snip_col_slice]
 
                 steps_data[step] = step_data
 
@@ -1197,14 +1240,17 @@ class ExtractNetCDFValues:
 
         elif self._out_fmt == 'nc':
 
-            out_data[:] = in_var_data[:, snip_row_slice, snip_col_slice]
+            if n_mem_time_prds == 1:
+                out_data[:] = in_var[:, snip_row_slice, snip_col_slice]
+
+            else:
+                for i in range(in_var.shape[0]):
+                    out_data[i] = in_var[i][snip_row_slice, snip_col_slice]
 
             out_hdl.sync()
 
         else:
             raise NotImplementedError
-
-        in_var_data = None
 
         in_hdl.close()
         in_hdl = None

@@ -24,15 +24,15 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'U:\fradnc')
+        r'P:\hydmod\upper_neckar\daily_1961_2020_spinterp_500m_ppt')
 
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'2021.nc')
+    in_nc_path = Path(r'kriging.nc')
 
-    var_label = 'RW'
-    x_label = 'x_utm32n'
-    y_label = 'y_utm32n'
+    var_label = 'EDK'
+    x_label = 'X'
+    y_label = 'Y'
     time_label = 'time'
 
     cbar_label = 'Precipitation (mm)'
@@ -50,8 +50,8 @@ def main():
     show_title_flag = True
     # show_title_flag = False
 
-    take_idxs_beg = 0
-    take_idxs_end = 20
+    take_idxs_beg = 4321
+    take_idxs_end = 4727
 
     out_figs_dir = Path(r'interp_plots')
     #==========================================================================
