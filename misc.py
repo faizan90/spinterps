@@ -176,6 +176,10 @@ def monitor_memory(args):
             # Just in case the processes terminated before swap was accessed.
             mems_phy = mems_phy[:procs_ctr]
 
+            # It only fails if the process ended before vms is retrieved.
+            if len(mems_phy) != len(mems_swap):
+                break
+
             assert len(mems_phy) == len(mems_swap), (
                 len(mems_phy), len(mems_swap))
 
@@ -228,7 +232,7 @@ def linearize_sub_polys(poly, polys, simplify_tol):
         gt = poly.GetGeometryType()
 
         assert gt in (2, 3, 6), 'Meant for polygons only!'
-        
+
         assert gct > 0, 'Are there holes in a geometry?'
 
         if gt == 2:

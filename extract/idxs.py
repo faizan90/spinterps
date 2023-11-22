@@ -1259,7 +1259,8 @@ class GeomAndCrdsItsctIdxs:
             extents = poly.GetEnvelope()
             poly_xmin, poly_xmax, poly_ymin, poly_ymax = extents
 
-            # NOTE: After buffering, the extents can go out of that of the raster.
+            # NOTE: After buffering, the extents can go out of that of the
+            # raster.
             poly_xmin -= self._cell_size
             poly_xmax += self._cell_size
             poly_ymin -= self._cell_size

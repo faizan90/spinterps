@@ -23,16 +23,16 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\cmip6\ec-earth3-cc\bw\neckar')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\variograms\krig_sims\test_krig_sims_1961_2020_01')
     os.chdir(main_dir)
 
-    in_h5_file = Path(r'pr_1950_2014_bw_neckar.h5')
+    in_h5_file = Path(r'kriging_neckar.h5')
 
-    data_grp = 'pr_1950_2014_bw'
+    data_grp = 'kriging'
 
     out_file_name_pref = f'{data_grp}'
 
-    variable_labels = ['pr']
+    variable_labels = ['OK']
     cell_area_label = 'itsctd_area'
     rel_cell_area_label = 'rel_itsctd_area'
 
@@ -40,7 +40,7 @@ def main():
 
     sep = ';'
 
-    float_fmt = '%0.16f'
+    float_fmt = '%0.2f'
 
     out_time_fmt = '%Y-%m-%d %H:%M'
 
@@ -51,7 +51,7 @@ def main():
     fig_ylabel = 'Precipitation (mm)'
 
     set_na_to_zero_flag = True
-    # set_na_to_zero_flag = False
+    set_na_to_zero_flag = False
 
     # Int or Float matters.
     missing_value = None
@@ -64,7 +64,7 @@ def main():
 
     save_df_pkl_flag = False
 
-    out_dir = Path('watersheds_cumm_neckar')
+    out_dir = Path('watersheds_neckar')
 
     out_dir.mkdir(exist_ok=True)
 

@@ -24,25 +24,27 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\cmip6\ec-earth3-cc\bw')
+    main_dir = Path(r'T:\TUM\sri\ba_gleam_ghana')
     os.chdir(main_dir)
 
-    path_to_ncs = main_dir.glob('pr_*bw.nc')
+    path_to_ncs = main_dir.glob('E_*.nc')
 
     src_crs = 'EPSG:4326'
-    dst_crs = 'EPSG:32632'
+    dst_crs = 'EPSG:32630'
     src_x_lab = 'lon'
     src_y_lab = 'lat'
-    dst_x_lab = 'x_utm32n'
-    dst_y_lab = 'y_utm32n'
+    dst_x_lab = 'x_utm30n'
+    dst_y_lab = 'y_utm30n'
     dim_x_lab = 'lon'
     dim_y_lab = 'lat'
-    data_var = 'pr'
+    data_var = 'E'
 
     verbose = True
     #==========================================================================
 
     for path_to_nc in path_to_ncs:
+
+        print(path_to_nc)
 
         reproj_nc_cls = CrdsReProjNC(verbose)
 

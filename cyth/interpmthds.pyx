@@ -332,7 +332,7 @@ cdef class OrdinaryKriging:
         self.in_vars[:, self.in_count] = np.ones(self.in_count + 1)
         self.in_vars[self.in_count, self.in_count] = 0
 
-        self.in_vars_inv = np.linalg.inv(self.in_vars)
+        self.in_vars_inv = np.linalg.pinv(self.in_vars)
 
         for k in range(self.out_count):
             x_interp = self.xk[k]
@@ -442,7 +442,7 @@ cdef class SimpleKriging:
                     elif h > g:
                         self.in_covars[h, g] = self.in_covars[g, h]
 
-        self.in_covars_inv = np.linalg.inv(self.in_covars)
+        self.in_covars_inv = np.linalg.pinv(self.in_covars)
 
         for k in range(self.out_count):
             x_interp = self.xk[k]
@@ -556,7 +556,7 @@ cdef class ExternalDriftKriging:
         self.in_vars[self.in_count + 1, :self.in_count] = self.si
         self.in_vars[:self.in_count, self.in_count + 1] = self.si
  
-        self.in_vars_inv = np.linalg.inv(self.in_vars)
+        self.in_vars_inv = np.linalg.pinv(self.in_vars)
 
         for k in range(self.out_count):
             x_interp = self.xk[k]
@@ -686,7 +686,7 @@ cdef class ExternalDriftKriging_MD:
             self.in_vars[self.in_count + 1 + m, :self.in_count] = self.si[m]
             self.in_vars[:self.in_count, self.in_count + 1 + m] = self.si[m]
  
-        self.in_vars_inv = np.linalg.inv(self.in_vars)
+        self.in_vars_inv = np.linalg.pinv(self.in_vars)
 
         for k in range(self.out_count):
             x_interp = self.xk[k]
@@ -888,3 +888,36 @@ cpdef void sel_equidist_refs(
 
                 ref_sel_pie_idxs[srtd_tem_ref_sel_dist_idxs[i]] = i
     return
+
+
+cpdef get_nd_dists(double[:, ::1] pts):
+
+    cdef:
+        Py_ssize_t i, j, k, n_pts, n_dims, n_dists, pt_ctr
+        double dist
+        double[::1] dists
+
+    n_pts = pts.shape[0]
+    n_dims = pts.shape[1]
+    n_dists = (n_pts * (n_pts - 1)) // 2
+
+    dists = np.full(n_dists, np.nan, dtype=np.float64)
+
+    pt_ctr = 0
+    for i in range(n_pts):
+        for j in range(n_pts):
+            if i <= j:
+                continue
+
+            dist = 0.0
+            for k in range(n_dims):
+                dist += (pts[i, k] - pts[j, k]) ** 2
+
+            dist **= 0.5
+
+            dists[pt_ctr] = dist
+
+            pt_ctr += 1
+    
+    assert n_dists == pt_ctr
+    return np.asarray(dists)

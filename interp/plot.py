@@ -62,7 +62,7 @@ class SpInterpPlot:
             out_figs_dir = out_figs_dirs[interp_label]
 
             for i, nc_idx in enumerate(range(beg_nc_idx, end_nc_idx)):
-                if interp_type == 'IDW':
+                if interp_type in ('IDW', 'NNB'):
                     model = None
 
                 elif interp_type in ('OK', 'SK', 'EDK'):

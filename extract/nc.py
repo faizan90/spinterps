@@ -640,7 +640,7 @@ class ExtractNetCDFValues:
         in_var_nbytes = in_var.dtype.itemsize * np.prod(
             in_var.shape, dtype=np.uint64)
 
-        tot_avail_mem = int(ps.virtual_memory().free * 0.5)
+        tot_avail_mem = int(ps.virtual_memory().free * 0.75)
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 
@@ -648,6 +648,9 @@ class ExtractNetCDFValues:
 
         if n_mem_time_prds == 1:
             in_var_data = in_var[:]
+
+        else:
+            if self._vb: print('Memory not enough to read in one go!')
 
         for label, crds_idxs in indices.items():
 
@@ -681,13 +684,20 @@ class ExtractNetCDFValues:
                     steps_data = in_var_data[:, rows_idxs, cols_idxs]
 
                 else:
-                    steps_data = []
-                    for i in range(in_time.shape[0]):
-                        step_data = in_var[i][(rows_idxs, cols_idxs)]
+                    if False:
+                        steps_data = []
+                        for i in range(in_time.shape[0]):
+                            step_data = in_var[i][(rows_idxs, cols_idxs)]
 
-                        steps_data.append(step_data)
+                            steps_data.append(step_data)
 
-                    steps_data = np.array(steps_data)
+                            steps_data = np.array(steps_data)
+
+                    else:
+                        steps_data = in_var[
+                            (np.arange(in_time.shape[0]),
+                             rows_idxs,
+                             cols_idxs)].reshape(-1, 1)
 
                 assert steps_data.size, 'This should not have happend!'
 
@@ -916,7 +926,13 @@ class ExtractNetCDFValues:
             snip_row_min = snip_row_slice.start
             snip_row_max = snip_row_slice.stop - 1
 
-            out_hdl = nc.Dataset(str(self._out_path), mode='a')
+            # NOTE: Mode 'a' stopped working on non-existing files for some
+            # reason.
+            if self._out_path.exists():
+                out_hdl = nc.Dataset(str(self._out_path), mode='a')
+
+            else:
+                out_hdl = nc.Dataset(str(self._out_path), mode='w')
 
             # Time dim.
             in_time_dim = in_hdl[self._in_time_lab].get_dims()[0]
@@ -1222,11 +1238,14 @@ class ExtractNetCDFValues:
         in_var_nbytes = in_var.dtype.itemsize * np.prod(
             in_var.shape, dtype=np.uint64)
 
-        tot_avail_mem = int(ps.virtual_memory().free * 0.5)
+        tot_avail_mem = int(ps.virtual_memory().free * 0.75)
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 
         assert n_mem_time_prds >= 1, n_mem_time_prds
+
+        if n_mem_time_prds > 1:
+            if self._vb: print('Memory not enough to read in one go!')
 
         if self._out_fmt == 'raw':
 

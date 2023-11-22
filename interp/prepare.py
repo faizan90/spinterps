@@ -281,7 +281,7 @@ class SpInterpPrepare(SIBD, KDT):
         self._interp_x_crds_msh = self._interp_x_crds_msh[fin_cntn_idxs]
         self._interp_y_crds_msh = self._interp_y_crds_msh[fin_cntn_idxs]
 
-        assert fin_cntn_idxs.dtype == np.bool, 'Expected a boolean array!'
+        assert fin_cntn_idxs.dtype == np.bool_, 'Expected a boolean array!'
         self._cntn_idxs = fin_cntn_idxs
         return
 
@@ -304,8 +304,9 @@ class SpInterpPrepare(SIBD, KDT):
             print_el()
 
         nc_hdl = nc.Dataset(
-            str(self._out_dir / (self._nc_out.split('.', 1)[0] + '.nc')),
-            mode='w')
+            self._out_dir / (self._nc_out.split(".", 1)[0] + ".nc"),
+            mode='w',
+            encoding='utf-8')
 
         dim_x_lab = 'dimx'
         dim_y_lab = 'dimy'
@@ -358,10 +359,17 @@ class SpInterpPrepare(SIBD, KDT):
 
             if interp_arg[0] == 'IDW':
                 nc_var.standard_name = self._nc_vlab + (
-                    f' ({ivar_name[:3]}_exp_{interp_arg[2]})')
+                    f' ({ivar_name[:3]}_exp_{interp_arg[3]})')
 
             else:
                 nc_var.standard_name = self._nc_vlab + f' ({ivar_name})'
+
+        if self._interp_flag_est_vars:
+            nc_hdl.createVariable(
+                'EST_VARS_OK',
+                'd',
+                dimensions=(dim_t_lab, dim_y_lab, dim_x_lab),
+                fill_value=False)
 
         self._nc_file_path = nc_hdl.filepath()
 
@@ -463,7 +471,8 @@ class SpInterpPrepare(SIBD, KDT):
             self._ork_flag,
             self._spk_flag,
             self._edk_flag,
-            self._idw_flag])
+            self._idw_flag,
+            self._nnb_flag])
 
         if self._index_type == 'date':
 
@@ -556,6 +565,9 @@ class SpInterpPrepare(SIBD, KDT):
                     exp_str = ('%0.3f' % idw_exp).replace('.', '').rstrip('0')
                     fig_dirs[f'IDW_{i:03d}'] = 'idw_exp_%s_figs' % exp_str
 
+            if self._nnb_flag:
+                fig_dirs['NNB'] = 'nrst_nebr_figs'
+
             interp_plot_dirs = {}
 
             for fig_dir_lab in fig_dirs:
@@ -567,6 +579,7 @@ class SpInterpPrepare(SIBD, KDT):
         #======================================================================
 
         self._interp_args = []
+
         if self._ork_flag:
             if self._plot_figs_flag:
                 fig_dir = interp_plot_dirs['OK']
@@ -605,6 +618,15 @@ class SpInterpPrepare(SIBD, KDT):
                     fig_dir = None
 
                 self._interp_args.append(('IDW', fig_dir, idw_lab, idw_exp))
+
+        if self._nnb_flag:
+            if self._plot_figs_flag:
+                fig_dir = interp_plot_dirs['NNB']
+
+            else:
+                fig_dir = None
+
+            self._interp_args.append(('NNB', fig_dir, 'NNB'))
         #======================================================================
 
         self._initiate_nc()

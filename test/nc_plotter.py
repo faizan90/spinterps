@@ -14,7 +14,9 @@ import warnings
 import traceback as tb
 from pathlib import Path
 
+import fiona
 import numpy as np
+import pandas as pd
 import netCDF4 as nc
 import matplotlib.pyplot as plt; plt.ioff()
 
@@ -24,13 +26,13 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'P:\hydmod\upper_neckar\daily_1961_2020_spinterp_500m_ppt')
+        r'U:\hydmod\neckar\daily_1961_2020_spinterp_2km_ppt')
 
     os.chdir(main_dir)
 
     in_nc_path = Path(r'kriging.nc')
 
-    var_label = 'EDK'
+    var_label = 'EDK'  # 'IDW_000'
     x_label = 'X'
     y_label = 'Y'
     time_label = 'time'
@@ -39,19 +41,44 @@ def main():
     # cbar_label = 'PET (mm)'
     # cbar_label = 'Temperature (C)'
 
-    cmap = 'viridis'
+    # cbar_label = 'Estimation variance'
+
+    cmap = 'Blues'  # 'viridis'
 
     var_min_val = None
     var_max_val = None
 
     # var_min_val = 0
-    # var_max_val = 2
+    # var_max_val = 80
+
+    x_llim = None
+    x_ulim = None
+
+    y_llim = None
+    y_ulim = None
+
+    # x_llim = 480000
+    # x_ulim = 870000
+
+    # y_llim = 5.61e6
+    # y_ulim = 5.23e6
 
     show_title_flag = True
     # show_title_flag = False
 
-    take_idxs_beg = 4321
-    take_idxs_end = 4727
+    plot_sum_flag = True
+    plot_sum_flag = False
+
+    beg_time, end_time = pd.to_datetime(
+        ['1970-01-20 00:00:00', '1970-02-10 00:00:00'],
+        format='%Y-%m-%d %H:%M:%S')
+
+    # beg_time, end_time = pd.to_datetime(
+    #     ['20190520T070000', '20190521T070000'],
+    #     format='%Y%m%dT%H%M%S')
+
+    in_cat_file = Path(r'P:\Synchronize\IWS\QGIS_Neckar\vector\427_2km.shp')
+    # in_cat_file = None
 
     out_figs_dir = Path(r'interp_plots')
     #==========================================================================
@@ -60,8 +87,20 @@ def main():
         x_crds = nc_hdl[x_label][...].data
         y_crds = nc_hdl[y_label][...].data
 
+        times = nc.num2date(
+            nc_hdl[time_label][:].data,
+            units=nc_hdl[time_label].units,
+            calendar=nc_hdl[time_label].calendar,
+            only_use_cftime_datetimes=False,
+            only_use_python_datetimes=True)
+
+        times = pd.DatetimeIndex(times)
+
+        take_idxs_beg = times.get_loc(beg_time)
+        take_idxs_end = times.get_loc(end_time)
+
+        times = times[take_idxs_beg:take_idxs_end]
         data = nc_hdl[var_label][take_idxs_beg:take_idxs_end].data
-        times = nc_hdl[time_label][take_idxs_beg:take_idxs_end].data
 
     if x_crds.ndim == 1:
         x_crds_plt_msh, y_crds_plt_msh = np.meshgrid(x_crds, y_crds)
@@ -74,6 +113,9 @@ def main():
 
     out_figs_dir.mkdir(exist_ok=True)
     out_var_figs_dir.mkdir(exist_ok=True)
+
+    if in_cat_file is not None:
+        cats_hdl = fiona.open(str(in_cat_file))
     #==========================================================================
 
     fig, ax = plt.subplots()
@@ -83,13 +125,18 @@ def main():
 
         print(f'Plotting {time_str}')
 
-        interp_fld = data[i]
+        if plot_sum_flag:
+            interp_fld = data.sum(axis=0)
+
+        else:
+            interp_fld = data[i]
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
 
             grd_min = np.nanmin(interp_fld)
             grd_max = np.nanmax(interp_fld)
+            grd_men = np.nanmean(interp_fld)
         #======================================================================
 
         pclr = ax.pcolormesh(
@@ -111,20 +158,59 @@ def main():
         if show_title_flag:
             title = (
                 f'Time: {time_str}\n'
-                f'Min.: {grd_min:0.4f}, Max.: {grd_max:0.4f}')
+                f'Min.: {grd_min:0.4f}, Mean: {grd_men:0.4f}, '
+                f'Max.: {grd_max:0.4f}')
 
             ax.set_title(title)
 
         plt.setp(ax.get_xmajorticklabels(), rotation=70)
         ax.set_aspect('equal', 'datalim')
+        #======================================================================
+
+        if in_cat_file is not None:
+
+            for geom in cats_hdl:
+
+                geom_type = geom['geometry']['type']
+                if geom_type == 'Polygon':
+                    pts = [np.array(geom['geometry']['coordinates'][0]), ]
+
+                elif geom_type == 'MultiPolygon':
+                    pts = [
+                        np.array(sub_geom[0])
+                        for sub_geom in geom['geometry']['coordinates']]
+
+                else:
+                    raise ValueError(f'Unknown geometry type: {geom_type}!')
+
+                for geom_i in range(len(pts)):
+                    # poly = plt.Polygon(
+                    #     pts[geom_i],
+                    #     closed=False,
+                    #     color='',
+                    #     alpha=0.95,
+                    #     ec=None)
+                    #
+                    # ax.add_patch(poly)
+
+                    ax.plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='k')
+        #======================================================================
+
+        ax.set_xlim(x_llim, x_ulim)
+        ax.set_ylim(y_ulim, y_llim)
 
         out_fig_name = f'{var_label.lower()}_{time_str}.png'
+
+        out_fig_name = out_fig_name.replace(':', '_')
 
         plt.savefig(str(out_var_figs_dir / out_fig_name), bbox_inches='tight')
 
         cb.remove()
 
         plt.cla()
+
+        if plot_sum_flag:
+            break
     plt.close()
     return
 

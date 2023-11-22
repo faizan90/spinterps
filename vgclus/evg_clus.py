@@ -245,7 +245,7 @@ class CEVG(CS):
             min_evg_val_str = '%e' % min_evg_val
             max_evg_val_str = '%e' % max_evg_val
 
-            ylim_lower = float(min_evg_val_str.split('e')[-1]) - 1
+            ylim_lower = float(min_evg_val_str.split('e')[-1]) - 0
             ylim_upper = float(max_evg_val_str.split('e')[-1]) + 1
 
             plt.ylim(10 ** ylim_lower, 10 ** ylim_upper)

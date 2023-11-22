@@ -22,25 +22,25 @@ from spinterps import SpInterpMain
 def main():
 
     main_dir = Path(
-        r'P:\hydmod_de')
+        r'P:\Synchronize\IWS\Testings\variograms\krig_sims')
 
     os.chdir(main_dir)
 
     in_data_file = Path(
-        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_clim_data_2\precipitation.csv')
+        r'daily_neckar_ppt_50km_buff_Y1961_2022.pkl')
 
     in_stns_coords_file = Path(
-        r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_clim_data_2\precipitation_coords.csv')
+        r'daily_ppt_epsg32632.csv')
 
     in_vgs_file = Path(
-        r'P:\hydmod_de\daily\ppt_daily_1961_2020__no_0s\tvgs_clus_txts\M_final_tvgs_clus_ts.csv')
+        r'ppt_cvgs_1961_2020_01\tvgs_fit_txts\M_final_tvgs_ts.csv')
 
     # in_vgs_file = Path(
     #     r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_precipitation_kriging_20190119\vg_strs.csv')
 
     index_type = 'date'
 
-    out_dir = Path(r'test_spinterps_grd_split_17_ppt_cvgs_1km')
+    out_dir = Path(r'test_krig_sims_1961_2020_01')
 
     # var_units = 'C'
     # var_name = 'temperature'
@@ -48,22 +48,23 @@ def main():
     var_units = 'mm'
     var_name = 'precipitation'
 
-    out_krig_net_cdf_file = r'kriging_%s_to_%s.nc'
+    out_krig_net_cdf_file = r'kriging.nc'
 
     freq = 'D'
-    strt_date = r'1961-01-01'
-    end_date = r'2015-12-31'
+    # strt_date = '1998-09-10'
+    # end_date = '1998-09-10'
+
+    strt_date = '1961-01-01'
+    end_date = '2020-12-31'
 
     drop_stns = []
 
-    out_krig_net_cdf_file = out_krig_net_cdf_file % (strt_date, end_date)
-
     in_drift_rasters_list = (
-        [Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\lower_de_gauss_z3_1km.tif')])
+        [Path(r'fil.tif')])
 
     in_bounds_shp_file = (
-        Path(r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\watersheds_all.shp'))
-#     in_bounds_shp_file = None
+        Path(r'watersheds.shp'))
+    # in_bounds_shp_file = None
 
     align_ras_file = in_drift_rasters_list[0]
 #     align_ras_file = None
@@ -94,13 +95,13 @@ def main():
     min_nebor_dist_thresh = 1
 
     idw_exps = [5]
-    n_cpus = 8
-    buffer_dist = 22e3
-    sec_buffer_dist = 5e3  # Buffer around computed grid/polygons bounds.
+    n_cpus = 4
+    buffer_dist = 55e3
+    sec_buffer_dist = 4e3  # Buffer around computed grid/polygons bounds.
     simplify_tolerance_ratio = 0.25  # Units same as polygons.
 
     neighbor_selection_method = 'nrst'
-    n_neighbors = 50
+    n_neighbors = 5
     n_pies = 8
 
     in_sep = ';'
@@ -114,11 +115,11 @@ def main():
     verbose = True
     interp_around_polys_flag = True
 
-    ord_krige_flag = False
+    # ord_krige_flag = False
     sim_krige_flag = False
-    # edk_krige_flag = False
-    # idw_flag = False
-    # plot_figs_flag = False
+    edk_krige_flag = False
+    idw_flag = False
+    plot_figs_flag = False
     # verbose = False
     # interp_around_polys_flag = False
     #==========================================================================

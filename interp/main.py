@@ -47,8 +47,11 @@ class SpInterpMain(SID, SIP):
         self._spk_flag = False
         self._edk_flag = False
         self._idw_flag = False
+        self._nnb_flag = False
 
         self._max_mem_usage_ratio = 1.0
+
+        self._prc_mem_mon_flag = False
 
         self._main_vrfd_flag = False
         return
@@ -75,7 +78,11 @@ class SpInterpMain(SID, SIP):
         proc_pids = [(self._n_cpus, os.getpid())]
 
         if self._mp_flag:
-            mp_pool = Pool(self._n_cpus)
+            try:
+                mp_pool = Pool(self._n_cpus)
+
+            except Exception as msg:
+                print(f'Error creating Pool for interpolation: {msg}',)
 
             # Has to be a blocking one.
             spi_map = partial(mp_pool.map, chunksize=1)
@@ -91,10 +98,11 @@ class SpInterpMain(SID, SIP):
 
             self._lock = Lock()  # The manager might slow things down.
 
-        mem_mon_proc = Process(
-            target=monitor_memory, args=((proc_pids, self._out_dir, 0.5),))
+        if self._prc_mem_mon_flag:
+            mem_mon_proc = Process(
+                target=monitor_memory, args=((proc_pids, self._out_dir, 0.5),))
 
-        mem_mon_proc.start()
+            mem_mon_proc.start()
 
         interp_steps_cls = SIS(self)
 
@@ -195,11 +203,12 @@ class SpInterpMain(SID, SIP):
             mp_pool.join()
             mp_pool = None
 
-        try:
-            mem_mon_proc.terminate()
+        if self._prc_mem_mon_flag:
+            try:
+                mem_mon_proc.terminate()
 
-        except Exception as msg:
-            print(f'Error upon terminating mem_mon_proc: {msg}')
+            except Exception as msg:
+                print(f'Error upon terminating mem_mon_proc: {msg}')
 
         return
 
@@ -382,6 +391,31 @@ class SpInterpMain(SID, SIP):
         self._n_idw_exps = None
 
         self._idw_flag = False
+        return
+
+    def turn_nearest_neighbor_on(self):
+
+        if self._vb:
+            print_sl()
+
+            print('Set nearest neighbor flag to True.')
+
+            print_el()
+
+        self._nnb_flag = True
+        return
+
+    def turn_nearest_neighbor_off(self):
+
+        assert self._nnb_flag
+        if self._vb:
+            print_sl()
+
+            print('Set nearest neighbor flag to False.')
+
+            print_el()
+
+        self._nnb_flag = False
         return
 
     def _get_interp_gen_data(

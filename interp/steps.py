@@ -10,13 +10,20 @@ import netCDF4 as nc
 
 from .vgclus import VariogramCluster as VC
 from .grps import SpInterpNeighborGrouping as SIG
-from ..misc import traceback_wrapper, check_full_nuggetness, print_sl, print_el
+from ..misc import traceback_wrapper, check_full_nuggetness  # , print_sl, print_el
 from ..cyth import (
     fill_wts_and_sum,
     get_mults_sum,
     fill_dists_2d_mat,
     fill_vg_var_arr,
     copy_2d_arr_at_idxs)
+
+
+def print_sl():
+    return
+
+
+print_el = print_sl
 
 
 class SpInterpSteps:
@@ -40,6 +47,7 @@ class SpInterpSteps:
             '_n_nebs',
             '_n_pies',
             '_min_vg_val',
+            '_interp_flag_est_vars',
             ]
 
         for read_lab in read_labs:
@@ -54,6 +62,7 @@ class SpInterpSteps:
         # Calling like this allows for proper garbage collection,
         # in case I forgot to dereference some variables that require
         # a lot of RAM.
+
         args_for_disk = self._get_all_interp_outputs(args_for_interp)
 
         self._write_to_disk(args_for_disk)
@@ -66,11 +75,6 @@ class SpInterpSteps:
         assert x1s.size == y1s.size
         assert x2s.size == y2s.size
 
-        # assert np.all(np.isfinite(x1s))
-        # assert np.all(np.isfinite(y1s))
-        # assert np.all(np.isfinite(x2s))
-        # assert np.all(np.isfinite(y2s))
-
         n1s, n2s = x1s.size, x2s.size
 
         dists_arr = np.full((n1s, n2s), np.nan)
@@ -80,8 +84,6 @@ class SpInterpSteps:
         return dists_arr
 
     def _get_svars_arr(self, dists_arr, vgs, interp_types, diag_mat_flag):
-
-#         assert np.all(np.isfinite(dists_arr))
 
         assert isinstance(interp_types, (list, tuple))
 
@@ -262,18 +264,37 @@ class SpInterpSteps:
 
         dst_data = np.full((n_time, n_dsts), np.nan)
 
+        if self._interp_flag_est_vars:
+            est_vars = np.full(
+                (n_time, n_dsts), np.nan, dtype=np.float64)
+
+        else:
+            est_vars = None
+
         ref_means = ref_data.mean(axis=1)
 
         wts = np.full(n_refs, np.nan)
 
         # If only one neighbor is present, then the result is the neighbor
-        # itself. No need for kriging.
-        if (interp_type == 'IDW') or (n_refs == 1):
+        # itself. No need for interpolation.
+        if n_refs == 1:
+            for j in range(n_time): dst_data[j,:] = ref_data[j,:]
+
+        elif interp_type == 'NNB':
+
+            for i in range(n_dsts):
+                nnb_idx = np.argmin(dst_ref_2d_dists_arr_sub[i])
+
+                for j in range(n_time):
+                    dst_data[j, i] = ref_data[j, nnb_idx]
+
+        elif interp_type == 'IDW':
+
             for i in range(n_dsts):
                 wts_sum = fill_wts_and_sum(
                     dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
 
-                assert wts_sum > 0, wts_sum
+                assert (wts_sum >= 1e-14), wts_sum
 
                 for j in range(n_time):
                     if interp_steps_flags[j]:
@@ -283,7 +304,7 @@ class SpInterpSteps:
                     else:
                         dst_data[j, i] = ref_means[j]
 
-        else:
+        elif interp_type in ('OK', 'SK', 'EDK'):
             old_model = ''
             last_failed_flag = False
 
@@ -299,7 +320,7 @@ class SpInterpSteps:
                     continue
 
                 if model == 'nan':
-                    continue
+                    raise ValueError('NaN VG!')
 
                 if model != old_model:
                     (ref_ref_2d_vars_arr_sub,
@@ -316,35 +337,111 @@ class SpInterpSteps:
                     old_model = model
 
                     try:
-                        ref_2d_vars_inv = np.linalg.inv(
+                        ref_2d_vars_inv = np.linalg.pinv(
                             ref_ref_2d_vars_arr_sub)
+
+                        # # This comes after inversion is successful.
+                        # eig_vals = np.linalg.eigvals(
+                        #     ref_ref_2d_vars_arr_sub).round(14)
+                        #
+                        # if np.any(eig_vals) <= 0:
+                        #     raise ValueError
 
                         last_failed_flag = False
 
                     except Exception:
-                        if sub_time_steps[j] not in prblm_time_steps:
-                            prblm_time_steps.append(sub_time_steps[j])
-
                         last_failed_flag = True
 
-                if last_failed_flag:
-                    # IDW used when kriging fails.
-                    # TODO: have a flag for this.
-                    for i in range(n_dsts):
-                        wts_sum = fill_wts_and_sum(
-                            dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
+                        if last_failed_flag:
+                            if (sub_time_steps[j] not in prblm_time_steps):
+                                prblm_time_steps.append(sub_time_steps[j])
 
-                        mults_sum = get_mults_sum(wts, ref_data[j])
-                        dst_data[j, i] = mults_sum / wts_sum
+                            ref_2d_vars_inv = np.nan
+
+                if last_failed_flag:
+                    self._fill_idw_dst_data(
+                        n_dsts,
+                        dst_ref_2d_dists_arr_sub,
+                        wts,
+                        ref_data[j],
+                        dst_data,
+                        j,
+                        2.0)
 
                 else:
-                    for i in range(n_dsts):
-                        lmds = np.matmul(
-                            ref_2d_vars_inv, dst_ref_2d_vars_arr_sub[i])
+                    self._fill_krig_idw_dst_data(
+                        n_refs,
+                        n_dsts,
+                        ref_2d_vars_inv,
+                        dst_ref_2d_vars_arr_sub,
+                        dst_ref_2d_dists_arr_sub,
+                        wts,
+                        ref_data,
+                        j,
+                        dst_data,
+                        est_vars)
 
-                        dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
+        else:
+            raise NotImplementedError(interp_type)
 
-        return dst_data
+        return dst_data, est_vars
+
+    def _fill_krig_idw_dst_data(
+            self,
+            n_refs,
+            n_dsts,
+            ref_2d_vars_inv,
+            dst_ref_2d_vars_arr_sub,
+            dst_ref_2d_dists_arr_sub,
+            wts,
+            ref_data,
+            j,
+            dst_data,
+            est_vars):
+
+        for i in range(n_dsts):
+            lmds = np.matmul(ref_2d_vars_inv, dst_ref_2d_vars_arr_sub[i])
+
+            if not np.isclose(lmds[:n_refs].sum(), 1.0):
+
+                # IDW used when kriging fails.
+                # TODO: have a flag for this.
+
+                self._fill_idw_dst_data(
+                    n_dsts,
+                    dst_ref_2d_dists_arr_sub,
+                    wts,
+                    ref_data[j],
+                    dst_data,
+                    j,
+                    2.0)
+
+            else:
+                dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
+
+            if self._interp_flag_est_vars:
+                est_vars[j, i] = (
+                    (lmds * dst_ref_2d_vars_arr_sub[i]).sum() +
+                    lmds[n_refs])
+        return
+
+    def _fill_idw_dst_data(
+            self,
+            n_dsts,
+            dst_ref_2d_dists_arr_sub,
+            wts,
+            ref_data_j,
+            dst_data,
+            j,
+            idw_exp):
+
+        for i in range(n_dsts):
+            wts_sum = fill_wts_and_sum(dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
+
+            mults_sum = get_mults_sum(wts, ref_data_j)
+
+            dst_data[j, i] = mults_sum / wts_sum
+        return
 
     @np.errstate(invalid='ignore')
     def _mod_min_max(self, interp_fld):
@@ -383,6 +480,9 @@ class SpInterpSteps:
             [krg_type in interp_types for krg_type in ('OK', 'SK', 'EDK')])
 
         edk_flag = 'EDK' in interp_types
+
+        if krg_flag:
+            assert np.all(vgs_ser != 'nan'), 'NaN VGs not allowed!'
 
         time_steps = data_df.index
         #======================================================================
@@ -473,10 +573,6 @@ class SpInterpSteps:
         # proximity. Because, if a very close nebor is active at a time
         # when others are inactive than there is no need to drop one.
 
-        # TODO: At some timesteps, the inversion result is wrong. Probably
-        # due to very small values. Have a test for this and rectify it.
-        # Use known time steps that result in such a problem.
-
         # TODO: Have a threshold of min and max stations for which the
         # neighbors are considered the same.
         #======================================================================
@@ -525,6 +621,15 @@ class SpInterpSteps:
             np.nan,
             dtype=np.float64)
             for interp_label in interp_labels}
+
+        if self._interp_flag_est_vars:
+            est_vars_flds_dict = {'EST_VARS_OK':np.full(
+                (time_steps.shape[0], np.prod(fld_grd_shape)),
+                np.nan,
+                dtype=np.float64)}
+
+        else:
+            est_vars_flds_dict = None
         #======================================================================
 
         prblm_time_steps = []
@@ -645,7 +750,7 @@ class SpInterpSteps:
                     else:
                         idw_exp = 5  # In case inversion fails.
 
-                    interp_vals = self._get_interp(
+                    interp_vals, est_vars = self._get_interp(
                         sub_ref_data,
                         interp_type,
                         sub_ref_drifts,
@@ -666,16 +771,27 @@ class SpInterpSteps:
 
                     interp_flds = interp_flds_dict[interp_labels[i]]
 
+                    if self._interp_flag_est_vars:
+                        est_vars_flds = est_vars_flds_dict[
+                            f'EST_VARS_{interp_labels[i]}']
+
                     if self._cntn_idxs is not None:
                         for j, time_idx in enumerate(interp_flds_time_idxs):
                             interp_flds[
                                 time_idx, cntn_idxs_whr[sub_pts_flags]] = (
                                     interp_vals[j])
 
+                            if self._interp_flag_est_vars: est_vars_flds[
+                                time_idx, cntn_idxs_whr[sub_pts_flags]] = (
+                                    est_vars[j])
+
                     else:
                         for j, time_idx in enumerate(interp_flds_time_idxs):
                             interp_flds[time_idx, sub_pts_flags] = (
                                 interp_vals[j])
+
+                            if self._interp_flag_est_vars: est_vars_flds[
+                                time_idx, sub_pts_flags] = est_vars[j]
 
                 pts_done_flags[time_neb_idxs_grp] = True
 
@@ -700,8 +816,12 @@ class SpInterpSteps:
                     'WARNING: There were problems while interpolating '
                     'at the following steps:')
 
-                for prblm_stp in prblm_time_steps:
-                    print(prblm_stp)
+                if len(prblm_time_steps) <= 10:
+                    for prblm_stp in prblm_time_steps:
+                        print(prblm_stp)
+
+                else:
+                    print(prblm_time_steps)
 
             print_el()
 
@@ -718,7 +838,8 @@ class SpInterpSteps:
             fld_end_row,
             vgs_rord_tidxs_ser,
             time_steps,
-            interp_beg_time)
+            interp_beg_time,
+            est_vars_flds_dict)
 
     def _write_to_disk(self, args):
 
@@ -734,7 +855,8 @@ class SpInterpSteps:
          fld_end_row,
          vgs_rord_tidxs_ser,
          time_steps,
-         interp_beg_time) = args
+         interp_beg_time,
+         est_vars_flds_dict) = args
 
         with lock:
             if self._vb:
@@ -764,8 +886,19 @@ class SpInterpSteps:
                             fld_beg_row:fld_end_row,:] = (
                                 interp_flds[ar_is[i]:ar_is[i + 1]])
 
-                    nc_hdl.sync()
                     interp_flds_dict[interp_label] = None
+
+                    # est_var_flds = est_vars_flds_dict[f'EST_VARS_{interp_label}']
+                    #
+                    # for i in range(max_rng):
+                    #     nc_hdl[f'EST_VARS_{interp_label}'][
+                    #         nc_is[i]:nc_is[i + 1],
+                    #         fld_beg_row:fld_end_row,:] = (
+                    #             est_var_flds[ar_is[i]:ar_is[i + 1]])
+                    #
+                    # est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
+
+                    nc_hdl.sync()
 
             else:
                 for interp_label in interp_labels:
@@ -778,10 +911,28 @@ class SpInterpSteps:
                         nc_hdl[interp_label][
                             nc_idx, fld_beg_row:fld_end_row,:] = interp_flds[i]
 
-                    nc_hdl.sync()
                     interp_flds_dict[interp_label] = None
 
+                    if self._interp_flag_est_vars: est_vars_flds = est_vars_flds_dict[
+                        f'EST_VARS_{interp_label}']
+
+                    for i in range(vgs_ser.shape[0]):
+
+                        nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
+
+                        if self._interp_flag_est_vars:
+                            nc_hdl[f'EST_VARS_{interp_label}'][
+                                nc_idx,
+                                fld_beg_row:fld_end_row,:] = est_vars_flds[i]
+
+                    if self._interp_flag_est_vars: est_vars_flds_dict[
+                        f'EST_VARS_{interp_label}'] = None
+
+                    nc_hdl.sync()
+
             interp_flds = None
+            est_vars_flds = None
+
             nc_hdl.close()
 
             interp_end_time = timeit.default_timer()

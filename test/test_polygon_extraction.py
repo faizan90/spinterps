@@ -12,41 +12,41 @@ from spinterps import Extract
 
 def main():
 
-    main_dir = Path(r'P:\cmip6\ec-earth3-cc\bw')
+    main_dir = Path(r'T:\TUM\sri')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_dem_2km\watersheds_cumm.shp'
-    label_field = r'DN'
+    path_to_shp = r'P:\Synchronize\TUM\Colleagues_Students\Srivatsa\furiflood\Shapefile\Export_Output_utm30n.shp'
+    label_field = r'GRIDCODE'
 
 #     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_6MainBasins_sh\MainBasins_Iran__utm39n3.shp'
 #     label_field = r'HOZEH6'
 
     # path_to_rass = [Path(f'{year}.nc') for year in range(2006, 2021)]
-    # path_to_rass = main_dir.glob('pr_*bw.nc')
-    path_to_rass = [Path(r'pr_1950_2014_bw.nc')]
+    path_to_rass = main_dir.glob('./ba_gleam_ghana/E_*.nc')
+    # path_to_rass = [Path(r'kriging.nc')]
     input_ras_type = 'nc'
 
     # path_to_ras = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\fil.tif'
     # input_ras_type = 'gtiff'
 
-    nc_x_crds_label = 'x_utm32n'
-    nc_y_crds_label = 'y_utm32n'
-    nc_variable_labels = ['pr']
+    nc_x_crds_label = 'x_utm30n'
+    nc_y_crds_label = 'y_utm30n'
+    nc_variable_labels = ['E']
     nc_time_label = 'time'
 
     # nc_x_crds_label = 'lon'
     # nc_y_crds_label = 'lat'
-    # nc_variable_labels = ['pr']
+    # nc_variable_labels = ['E']
     # nc_time_label = 'time'
 
     out_ext = 'h5'  # h5 means time series of pts in h5, nc snips it.
 
-    out_suff = 'neckar'
+    out_suff = 'poly'
 
     src_epsg = None
     dst_epsg = None
 
-    simplify_tol_ratio = 0.001
+    simplify_tol_ratio = 0.25
     minimum_cell_area_intersection_percentage = 1e-3
     n_cpus = 1  # 'auto'
 
@@ -68,6 +68,11 @@ def main():
 #     nc_variable_labels = ['pr']
 #     nc_time_label = 'time'
 
+    out_dir = Path(r'ca_poly_extract')
+    #==========================================================================
+
+    out_dir.mkdir(exist_ok=True)
+
     Ext = Extract(True)
 
     res = None
@@ -76,7 +81,8 @@ def main():
 
         for path_to_ras in path_to_rass:
 
-            path_to_output = Path(rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+            path_to_output = out_dir / Path(
+                rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
 
             res = Ext.extract_from_geotiff(
                 path_to_shp,
@@ -92,7 +98,8 @@ def main():
     elif input_ras_type == 'nc':
         for path_to_ras in path_to_rass:
 
-            path_to_output = Path(rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+            path_to_output = out_dir / Path(
+                rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
 
             res = Ext.extract_from_netCDF(
                 path_to_shp,

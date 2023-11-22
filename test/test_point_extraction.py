@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 '''
 @author: Faizan-Uni-Stuttgart
 
@@ -7,7 +9,7 @@ import timeit
 import time
 from pathlib import Path
 
-import numpy as np
+# import numpy as np
 import pandas as pd
 
 from spinterps import (
@@ -21,22 +23,22 @@ from spinterps import (
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Colleagues_Students\Jochen\plettenberg')
+    main_dir = Path(r'U:\phd_thesis_spinterps_example\ca_spinterps\tem_tg_1D_1km_02')
     os.chdir(main_dir)
 
-    path_to_shp = 'crds_wgs84.shp'
-    label_field = 'stn'
+    path_to_shp = 'daily_tg_epsg32632.shp'
+    label_field = 'DWD'
 
-    path_to_ras = r'U:\fradnc\2023.nc'
+    path_to_ras = r'kriging.nc'
     input_ras_type = 'nc'
 
 #     path_to_ras = (
 #         r'lower_de_gauss_z3_2km_atkis_19_extended_hydmod_lulc_ratios.tif')
 #     input_ras_type = 'gtiff'
 
-    nc_x_crds_label = 'lon'
-    nc_y_crds_label = 'lat'
-    nc_variable_labels = ['RW']
+    nc_x_crds_label = 'X'
+    nc_y_crds_label = 'Y'
+    nc_variable_labels = ['IDW_000', 'NNB', 'OK', 'EDK']
     nc_time_label = 'time'
 
     src_epsg = None
@@ -49,10 +51,13 @@ def main():
 
     # For output as text.
     save_as_txt_flag = True
-    pref = 'ts_radolan_hourly_2023'
+    pref = 'tem_tg_1D_dwd_'
     sep = ';'
 
+    round_prec = 3
+
     verbose = True
+    #==========================================================================
 
     EP = ExtractPoints(verbose=verbose)
 
@@ -110,8 +115,7 @@ def main():
             pt_df = pd.concat(pt_sers, axis=1)
             pt_ser = None
 
-            out_df_path = (
-                path_to_output / f'{pref}.csv')
+            out_df_path = path_to_output / f'{pref}.csv'
 
             pt_df.to_csv(out_df_path, sep=sep)
 
@@ -152,12 +156,14 @@ def main():
 
                 pt_sers = []
                 for key, value in extd_vals.items():
-                    pt_ser = pd.Series(
-                        index=value.keys(),
-                        data=np.concatenate(list(value.values()), axis=0),
-                        name=key)
+                    # pt_ser = pd.Series(
+                    #     index=value.keys(),
+                    #     data=np.concatenate(list(value.values), axis=0),
+                    #     name=key)
+                    #
+                    # pt_sers.append(pt_ser)
 
-                    pt_sers.append(pt_ser)
+                    pt_sers.append(value.round(round_prec))
 
                 pt_df = pd.concat(pt_sers, axis=1)
 
