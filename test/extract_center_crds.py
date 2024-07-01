@@ -23,10 +23,10 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Projects\2016_DFG_SPATE\data\cp_classi_for_partners\ts')
+    main_dir = Path(r'U:\TUM\projects\altoetting\chmg3d\data\G8_100m_1H_kostra_00060_100_uniform')
     os.chdir(main_dir)
 
-    in_h5_file = Path(r'test_danube_cosmo2.h5')
+    in_h5_file = Path(r'ppt.h5')
 
     sep = ';'
 

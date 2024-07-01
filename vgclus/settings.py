@@ -693,8 +693,8 @@ class VGCSettings(VD):
                 f'Call set_theoretical_variogram_parameters first!')
 
         assert self._sett_clus_cevg_min_vlds <= self._data_df.shape[0], (
-            f'Minimum number of required valid vectors to compute the'
-            f'empirical variogram cloud cannot be greater than'
+            f'Minimum number of required valid vectors to compute the '
+            f'empirical variogram cloud cannot be greater than '
             f'the number of vectors in data_df!')
 
         self._sett_clus_verify_flag = True

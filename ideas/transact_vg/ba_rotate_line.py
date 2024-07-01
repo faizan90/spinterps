@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 '''
-@author: Faizan-Uni-Stuttgart
+@author: Faizan-TU Munich
 
-Feb 9, 2023
+Jan 12, 2024
 
-1:23:27 PM
+1:40:50 PM
 
 Keywords:
 
@@ -17,50 +17,48 @@ import timeit
 import traceback as tb
 from pathlib import Path
 
-from spinterps import CrdsReProjNC
+import numpy as np
+import matplotlib.pyplot as plt
 
 DEBUG_FLAG = False
 
 
 def main():
 
-    main_dir = Path(r'T:\ECAD')
+    main_dir = Path(os.getcwd())
     os.chdir(main_dir)
 
-    path_to_ncs = main_dir.glob('pet_ens_mean_0.1deg_reg_v29.0e.nc')
+    x0, y0 = 0, 0
+    x1, y1 = 1, 1
 
-    src_crs = 'EPSG:4326'
-    dst_crs = 'EPSG:32632'
-    src_x_lab = 'longitude'
-    src_y_lab = 'latitude'
-    dst_x_lab = 'x_utm32n'
-    dst_y_lab = 'y_utm32n'
-    dim_x_lab = 'longitude'  # 'dimx'
-    dim_y_lab = 'latitude'  # 'dimy'
-    data_var = 'pet'
-
-    verbose = True
+    ang = (180 - 45) * np.pi / 180
     #==========================================================================
 
-    for path_to_nc in path_to_ncs:
+    xr, yr = rotate_pt_2d(x0, x1, y0, y1, ang)
 
-        print(path_to_nc)
+    plt.plot([x0, x1], [y0, y1])
+    plt.plot([x0, xr], [y0, yr])
 
-        reproj_nc_cls = CrdsReProjNC(verbose)
+    plt.gca().set_aspect('equal')
 
-        reproj_nc_cls.append_crds(
-            path_to_nc,
-            src_crs,
-            dst_crs,
-            src_x_lab,
-            src_y_lab,
-            dst_x_lab,
-            dst_y_lab,
-            dim_x_lab,
-            dim_y_lab,
-            data_var)
-
+    plt.grid()
+    plt.show()
     return
+
+
+def rotate_pt_2d(x0, x1, y0, y1, ang):
+
+    dx = x1 - x0
+    dy = y1 - y0
+
+    xr = (dx * np.cos(ang)) - (dy * np.sin(ang)) + x0
+    yr = (dx * np.sin(ang)) + (dy * np.cos(ang)) + y0
+
+    # dist = ((dx ** 2) + (dy ** 2)) ** 0.5
+    # xr = (dist * np.cos(ang)) + x0
+    # yr = (dist * np.sin(ang)) + y0
+
+    return xr, yr
 
 
 if __name__ == '__main__':

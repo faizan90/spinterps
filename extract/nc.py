@@ -228,6 +228,8 @@ class ExtractNetCDFValues:
 
         self.raise_on_duplicate_row_col_flag = True
 
+        self._h5nc_comp_level = 1
+
         self._set_in_flag = False
         self._set_out_flag = False
         self._set_data_extrt_flag = False
@@ -376,10 +378,16 @@ class ExtractNetCDFValues:
             elif fmt in ('.nc',):
                 out_fmt = 'nc'
 
+            elif fmt in ('.csv',):
+                out_fmt = 'csv'
+
+            elif fmt in ('.pkl',):
+                out_fmt = 'pkl'
+
             else:
                 raise NotImplementedError(
                     'Only configured for output file extensions of '
-                    'h5, hdf5 and nc only!')
+                    'h5, hdf5, nc, csv and pkl only!')
 
         assert out_fmt is not None
 
@@ -621,9 +629,21 @@ class ExtractNetCDFValues:
             if hasattr(in_var, 'units'):
                 out_var_grp.attrs['units'] = in_var.units
 
-        elif self._out_fmt == 'raw':
+        elif self._out_fmt in ('raw',):
             extrtd_data = pd.DataFrame(
                 index=in_time_data,
+                columns=list(indices.keys()),
+                dtype=object)
+
+        elif self._out_fmt in ('csv',):
+            extrtd_data = pd.DataFrame(
+                index=in_time_data,
+                columns=list(indices.keys()),
+                dtype=np.float64)
+
+        elif self._out_fmt in ('pkl',):
+            extrtd_data = pd.DataFrame(
+                index=pd.to_datetime(in_time_data, format=self._time_strs_fmt),
                 columns=list(indices.keys()),
                 dtype=np.float64)
 
@@ -678,10 +698,10 @@ class ExtractNetCDFValues:
                 assert len(crds_set) == cols_idxs.size, (
                     'Repeating row and column index combinations not allowed!')
 
-            if self._out_fmt == 'raw':
+            if self._out_fmt in ('raw', 'csv', 'pkl'):
 
                 if n_mem_time_prds == 1:
-                    steps_data = in_var_data[:, rows_idxs, cols_idxs]
+                    steps_data = in_var_data[:, rows_idxs, cols_idxs].data
 
                 else:
                     if False:
@@ -691,17 +711,58 @@ class ExtractNetCDFValues:
 
                             steps_data.append(step_data)
 
-                            steps_data = np.array(steps_data)
+                        steps_data = np.array(steps_data)
 
                     else:
                         steps_data = in_var[
                             (np.arange(in_time.shape[0]),
                              rows_idxs,
-                             cols_idxs)].reshape(-1, 1)
+                             cols_idxs)].data.reshape(-1, 1)
 
                 assert steps_data.size, 'This should not have happend!'
 
-                extrtd_data.loc[:, [label]] = steps_data
+                if self._out_fmt == 'raw':
+                    extrtd_data.loc[:, [label]] = steps_data
+
+                elif self._out_fmt in ('csv', 'pkl'):
+
+                    # NOTE: In case of invalid numerical values, use raw
+                    #       output format and post process it outside.
+
+                    nan_idxs = np.isnan(steps_data)
+                    if nan_idxs.any():
+
+                        for i in range(nan_idxs.shape[0]):
+
+                            if nan_idxs[i].all(): continue
+
+                            if not nan_idxs[i].any():
+                                wtd_sum = (
+                                    steps_data *
+                                    crds_idxs['rel_itsctd_area']).sum()
+
+                            else:
+                                rel_ara = crds_idxs[
+                                    'rel_itsctd_area'][~nan_idxs[i]]
+
+                                wtd_prd = rel_ara * steps_data[i, ~nan_idxs[i]]
+
+                                rel_ara_sum = rel_ara.sum()
+
+                                wtd_sum = wtd_prd.sum() / rel_ara_sum
+
+                            assert np.isfinite(wtd_sum), wtd_sum
+
+                            extrtd_data.loc[extrtd_data.index[i], label] = (
+                                wtd_sum)
+
+                    else:
+                        extrtd_data.loc[:, label] = (
+                            steps_data * crds_idxs['rel_itsctd_area']
+                            ).sum(axis=1)
+
+                else:
+                    raise NotImplementedError
 
                 steps_data = None
 
@@ -771,7 +832,10 @@ class ExtractNetCDFValues:
                 out_lab_ds = out_var_grp.create_dataset(
                     label_str,
                     (in_var.shape[0], rows_idxs.size),
-                    in_var.dtype)
+                    in_var.dtype,
+                    compression='gzip',
+                    compression_opts=self._h5nc_comp_level,
+                    chunks=(1, rows_idxs.size))
 
                 if n_mem_time_prds == 1:
                     out_lab_ds[:] = in_var[:][:, rows_idxs, cols_idxs]
@@ -796,6 +860,16 @@ class ExtractNetCDFValues:
         elif self._out_fmt == 'raw':
             assert extrtd_data is not None, 'This should not have happend!'
             self._extrtd_data = extrtd_data
+
+        elif self._out_fmt == 'csv':
+            assert extrtd_data is not None, 'This should not have happend!'
+
+            extrtd_data.to_csv(self._out_path, sep=';')
+
+        elif self._out_fmt == 'pkl':
+            assert extrtd_data is not None, 'This should not have happend!'
+
+            extrtd_data.to_pickle(self._out_path)
 
         else:
             raise NotImplementedError
@@ -1177,8 +1251,13 @@ class ExtractNetCDFValues:
             if self._in_var_lab not in out_hdl.variables:
                 out_data = out_hdl.createVariable(
                     self._in_var_lab,
-                    in_var.dtype,
-                    (in_time_dim_lab, in_y_dim_lab, in_x_dim_lab))
+                    in_var[[0], [0], [0]].dtype,
+                    (in_time_dim_lab, in_y_dim_lab, in_x_dim_lab),
+                    compression='zlib',
+                    complevel=self._h5nc_comp_level,
+                    chunksizes=(1,
+                                out_hdl.dimensions[in_y_dim_lab].size,
+                                out_hdl.dimensions[in_x_dim_lab].size))
 
             else:
                 out_data = out_hdl[self._in_var_lab]

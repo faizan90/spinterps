@@ -233,7 +233,11 @@ def linearize_sub_polys(poly, polys, simplify_tol):
 
         assert gt in (2, 3, 6), 'Meant for polygons only!'
 
-        assert gct > 0, 'Are there holes in a geometry?'
+        # Polygons with holes do not get interpolated!
+        # Just accept them anyway.
+        if False:
+            assert gct > 0, (
+                'Are there holes in a geometry?')
 
         if gt == 2:
             lin_ring = poly
@@ -260,10 +264,15 @@ def linearize_sub_polys(poly, polys, simplify_tol):
                     poly.GetGeometryRef(i), polys, simplify_tol)
 
         elif gct == 0:
+            polys.put_nowait(poly)
+
             # raise ValueError(
-                # 'Encountered a geometry with a point count of 0!')
+            #     'Encountered a geometry with a point count of 0!')
             print(
                 'WARNING: Encountered a geometry with a point count of 0!')
+
+        else:
+            raise ValueError(gct)
 
     return
 

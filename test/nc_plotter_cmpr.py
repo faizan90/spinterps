@@ -26,26 +26,26 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'U:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_G3_edk')
+    main_dir = Path(r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8')
 
     os.chdir(main_dir)
 
-    in_nc_path_1 = Path(r'U:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_G3_edk\kriging.nc')
+    in_nc_path_1 = Path(r'kriging_regen_pet_1D.nc')
     var_label_1 = 'EDK'
     x_label_1 = 'X'
     y_label_1 = 'Y'
     time_label_1 = 'time'
     sclr_1 = None
 
-    in_nc_path_2 = Path(r'U:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_G2\kriging.nc')
-    var_label_2 = 'IDW_000'
-    x_label_2 = 'X'
-    y_label_2 = 'Y'
+    in_nc_path_2 = Path(r'ecad_pet_1D_ref_aln.nc')
+    var_label_2 = 'pet'
+    x_label_2 = 'x_utm32n'
+    y_label_2 = 'y_utm32n'
     time_label_2 = 'time'
     sclr_2 = None
 
-    cbar_label = 'Precipitation (mm)'
-    # cbar_label = 'PET (mm)'
+    # cbar_label = 'Precipitation (mm)'
+    cbar_label = 'PET (mm)'
     # cbar_label = 'Temperature (C)'
 
     cmap = 'viridis'  # 'Blues'  #
@@ -71,22 +71,22 @@ def main():
     #     ['2021-01-28 14:00:00', '2021-01-29 05:00:00'],
     #     format='%Y-%m-%d %H:%M:%S')
 
-    # beg_time, end_time = pd.to_datetime(
-    #     ['2009-05-26 14:00:00', '2009-05-27 04:00:00'],
-    #     format='%Y-%m-%d %H:%M:%S')
-
     beg_time, end_time = pd.to_datetime(
-        ['2010-05-18 00', '2010-06-07 23'],
-        format='%Y-%m-%d %H')
+        ['2009-05-26', '2009-06-27'],
+        format='%Y-%m-%d')
+
+    # beg_time, end_time = pd.to_datetime(
+    #     ['2013-05-18 00', '2013-05-20 23'],
+    #     format='%Y-%m-%d %H')
 
     # Catchments shapefile.
-    in_cat_file = Path(r'U:\TUM\projects\altoetting\hydmod\dem_ansys_1km_G3\watersheds.shp')
+    in_cat_file = Path(r'regen_catchment.shp')
 
     cat_col = 'DN'
 
     drop_stns = []  # [420, 3421, 427, 3465, 3470]
 
-    out_figs_dir = Path(r'cmpr_grids')
+    out_figs_dir = Path(r'cmpr_grids_ecad_obs__pet')
     #==========================================================================
 
     with nc.Dataset(in_nc_path_1, 'r') as nc_hdl:

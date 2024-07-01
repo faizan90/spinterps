@@ -38,6 +38,8 @@ class SpInterpPrepare(SIBD, KDT):
         self._bds_buff_ncells = 0
 
         self._prpd_flag = False
+
+        self._intrp_dtype = np.float32
         return
 
     def _cmpt_aligned_coordinates(self):
@@ -346,14 +348,20 @@ class SpInterpPrepare(SIBD, KDT):
             raise NotImplementedError(
                 f'Unknown index_type: {self._index_type}!')
 
+        comp_level = 1
         for interp_arg in self._interp_args:
             ivar_name = interp_arg[2]
 
             nc_var = nc_hdl.createVariable(
                 ivar_name,
-                'd',
+                self._intrp_dtype,
                 dimensions=(dim_t_lab, dim_y_lab, dim_x_lab),
-                fill_value=False)
+                fill_value=False,
+                compression='zlib',
+                complevel=comp_level,
+                chunksizes=(1,
+                            self._nc_y_crds.shape[0],
+                            self._nc_x_crds.shape[0]))
 
             nc_var.units = self._nc_vunits
 
@@ -367,9 +375,14 @@ class SpInterpPrepare(SIBD, KDT):
         if self._interp_flag_est_vars:
             nc_hdl.createVariable(
                 'EST_VARS_OK',
-                'd',
+                self._intrp_dtype,
                 dimensions=(dim_t_lab, dim_y_lab, dim_x_lab),
-                fill_value=False)
+                fill_value=False,
+                compression='zlib',
+                complevel=comp_level,
+                chunksizes=(1,
+                            self._nc_y_crds.shape[0],
+                            self._nc_x_crds.shape[0]))
 
         self._nc_file_path = nc_hdl.filepath()
 

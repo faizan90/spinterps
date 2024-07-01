@@ -23,18 +23,21 @@ from spinterps import (
 
 def main():
 
-    main_dir = Path(r'U:\phd_thesis_spinterps_example\ca_spinterps\tem_tg_1D_1km_02')
+    main_dir = Path(r'P:\Synchronize\IWS\Colleagues_Students\Fabian\ec_systems')
     os.chdir(main_dir)
 
-    path_to_shp = 'daily_tg_epsg32632.shp'
-    label_field = 'DWD'
+    path_to_shp = 'crds_modis.shp'
+    label_field = 'NAME'
 
-    path_to_ras = r'kriging.nc'
-    input_ras_type = 'nc'
+    # path_to_ras = r'kriging.nc'
+    # input_ras_type = 'nc'
 
-#     path_to_ras = (
-#         r'lower_de_gauss_z3_2km_atkis_19_extended_hydmod_lulc_ratios.tif')
-#     input_ras_type = 'gtiff'
+    path_to_rass = Path(
+        r'P:\Downloads\00_correct_tile\GLASS01D01').glob('./*.tif')
+
+    same_ras_extnts_flag = True
+
+    input_ras_type = 'gtiff'
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
@@ -51,7 +54,7 @@ def main():
 
     # For output as text.
     save_as_txt_flag = True
-    pref = 'tem_tg_1D_dwd_'
+    pref = ''
     sep = ';'
 
     round_prec = 3
@@ -59,65 +62,72 @@ def main():
     verbose = True
     #==========================================================================
 
+    path_to_output.mkdir(exist_ok=True)
+
     EP = ExtractPoints(verbose=verbose)
 
     EP.set_input(path_to_shp, label_field)
 
     EP.extract_points()
 
-#     print(EP.get_labels())
-#     print(EP.get_points())
-#     print(EP.get_x_coordinates())
-#     print(EP.get_y_coordinates())
-
     GCII = GeomAndCrdsItsctIdxs(verbose=verbose)
 
     if input_ras_type == 'gtiff':
-        gtiff_crds_cls = ExtractGTiffCoords(verbose=verbose)
 
-        gtiff_crds_cls.set_input(path_to_ras)
-        gtiff_crds_cls.extract_coordinates()
+        read_extnts_flag = False
+        for path_to_ras in path_to_rass:
 
-        GCII.set_geometries(EP.get_points(), EP._geom_type)
+            if not read_extnts_flag:
 
-        GCII.set_coordinates(
-            gtiff_crds_cls.get_x_coordinates(),
-            gtiff_crds_cls.get_y_coordinates(),
-            gtiff_crds_cls._raster_type_lab)
+                gtiff_crds_cls = ExtractGTiffCoords(verbose=verbose)
 
-        GCII.set_coordinate_system_transforms(src_epsg, dst_epsg)
+                gtiff_crds_cls.set_input(path_to_ras)
+                gtiff_crds_cls.extract_coordinates()
 
-        GCII.verify()
-        GCII.compute_intersect_indices()
+                GCII.set_geometries(EP.get_points(), EP._geom_type)
 
-        gtiff_vals_cls = ExtractGTiffValues(verbose=verbose)
+                GCII.set_coordinates(
+                    gtiff_crds_cls.get_x_coordinates(),
+                    gtiff_crds_cls.get_y_coordinates(),
+                    gtiff_crds_cls._raster_type_lab)
 
-        gtiff_vals_cls.set_input(path_to_ras)
+                GCII.set_coordinate_system_transforms(src_epsg, dst_epsg)
 
-        if save_as_txt_flag:
-            gtiff_vals_cls.set_output(None)
+                GCII.verify()
+                GCII.compute_intersect_indices()
 
-        else:
-            gtiff_vals_cls.set_output(path_to_output)
+            if same_ras_extnts_flag:
+                read_extnts_flag = True
 
-        gtiff_vals_cls.extract_values(GCII.get_intersect_indices())
+            gtiff_vals_cls = ExtractGTiffValues(verbose=verbose)
 
-        if save_as_txt_flag:
-            extd_vals = gtiff_vals_cls.get_values()
+            gtiff_vals_cls.set_input(path_to_ras)
 
-            pt_sers = []
-            for key, value in extd_vals.items():
-                pt_ser = pd.Series(
-                    index=value.keys(), data=value.values(), name=key)
+            if save_as_txt_flag:
+                gtiff_vals_cls.set_output(None)
 
-                pt_sers.append(pt_ser)
+            else:
+                gtiff_vals_cls.set_output(path_to_output)
 
-            pt_df = pd.concat(pt_sers, axis=1)
-            pt_ser = None
+            gtiff_vals_cls.extract_values(GCII.get_intersect_indices())
 
-            out_df_path = path_to_output / f'{pref}.csv'
+            if save_as_txt_flag:
+                extd_vals = gtiff_vals_cls.get_values()
 
-            pt_df.to_csv(out_df_path, sep=sep)
+                pt_sers = []
+                for key, value in extd_vals.items():
+                    pt_ser = pd.Series(
+                        index=value.keys(), data=value.values(), name=key)
+
+                    pt_sers.append(pt_ser)
+
+                pt_df = pd.concat(pt_sers, axis=1)
+                pt_ser = None
+
+                out_df_path = (
+                    path_to_output / path_to_ras.with_suffix('.txt').name)
+
+                pt_df.to_csv(out_df_path, sep=sep)
 
     elif input_ras_type == 'nc':
         nc_crds_cls = ExtractNetCDFCoords(verbose=verbose)

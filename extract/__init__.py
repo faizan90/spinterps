@@ -29,11 +29,11 @@ class Extract:
 
         return
 
-    def _get_poly_cls(self, path_to_shp, label_field):
+    def _get_poly_cls(self, path_to_shp, label_field, buffer_distance):
 
         poly_cls = ExtractPolygons(verbose=self._vb)
 
-        poly_cls.set_input(path_to_shp, label_field)
+        poly_cls.set_input(path_to_shp, label_field, buffer_distance)
 
         poly_cls.extract_polygons()
 
@@ -49,9 +49,11 @@ class Extract:
             n_cpus,
             src_epsg=None,
             dst_epsg=None,
-            simplify_tol_ratio=0.0):
+            simplify_tol_ratio=0.0,
+            buffer_distance=0.0):
 
-        poly_cls = self._get_poly_cls(path_to_shp, label_field)
+        poly_cls = self._get_poly_cls(
+            path_to_shp, label_field, buffer_distance)
 
         gtiff_crds_cls = ExtractGTiffCoords(verbose=self._vb)
 
@@ -108,7 +110,8 @@ class Extract:
             n_cpus,
             src_epsg=None,
             dst_epsg=None,
-            simplify_tol_ratio=0.0):
+            simplify_tol_ratio=0.0,
+            buffer_distance=0.0):
 
         assert isinstance(variable_labels, (list, tuple)), (
             'variable_labels can only be a list or tuple having strings!')
@@ -116,7 +119,8 @@ class Extract:
         assert all([isinstance(x, str) for x in variable_labels]), (
             'variable_labels can only be a list or tuple having strings!')
 
-        poly_cls = self._get_poly_cls(path_to_shp, label_field)
+        poly_cls = self._get_poly_cls(
+            path_to_shp, label_field, buffer_distance)
 
         nc_crds_cls = ExtractNetCDFCoords(verbose=self._vb)
 
@@ -151,15 +155,12 @@ class Extract:
             nc_vals_cls.set_input(path_to_nc, variable_label, time_label)
             nc_vals_cls.set_output(path_to_output)
 
-            if nc_vals_cls._out_fmt == 'h5':
+            if nc_vals_cls._out_fmt in ('h5', 'raw', 'csv', 'pkl'):
                 nc_vals_cls.extract_values(itsct_cls.get_intersect_indices())
 
             elif nc_vals_cls._out_fmt == 'nc':
                 nc_vals_cls.snip_values(
                     itsct_cls.get_intersect_indices(), nc_crds_cls)
-
-            elif nc_vals_cls._out_fmt == 'raw':
-                pass
 
             else:
                 raise ValueError(
@@ -167,7 +168,97 @@ class Extract:
 
             if path_to_output is None:
                 ress[variable_label] = nc_vals_cls.get_values()
+
             else:
                 ress = None
 
         return ress
+
+    def extract_from_netCDF_batch(
+            self,
+            path_to_shp,
+            label_field,
+            paths_to_ncs,
+            paths_to_outputs,
+            x_crds_label,
+            y_crds_label,
+            variable_labels,
+            time_label,
+            minimum_cell_area_intersection_percentage,
+            n_cpus,
+            src_epsg=None,
+            dst_epsg=None,
+            simplify_tol_ratio=0.0,
+            buffer_distance=0.0):
+
+        '''
+        It is assumed that the coordinates of the first NC are the same for
+        all ncs.
+        '''
+
+        assert isinstance(variable_labels, (list, tuple)), (
+            'variable_labels can only be a list or tuple having strings!')
+
+        assert all([isinstance(x, str) for x in variable_labels]), (
+            'variable_labels can only be a list or tuple having strings!')
+
+        poly_cls = self._get_poly_cls(
+            path_to_shp, label_field, buffer_distance)
+
+        nc_crds_cls = ExtractNetCDFCoords(verbose=self._vb)
+
+        nc_crds_cls.set_input(paths_to_ncs[0], x_crds_label, y_crds_label)
+
+        nc_crds_cls.extract_coordinates()
+
+        itsct_cls = GeomAndCrdsItsctIdxs(verbose=self._vb)
+
+        itsct_cls.set_geometries(
+            poly_cls.get_polygons(), poly_cls._geom_type, simplify_tol_ratio)
+
+        itsct_cls.set_coordinates(
+            nc_crds_cls.get_x_coordinates(),
+            nc_crds_cls.get_y_coordinates(),
+            nc_crds_cls._raster_type_lab)
+
+        itsct_cls.set_coordinate_system_transforms(src_epsg, dst_epsg)
+
+        itsct_cls.set_intersect_misc_settings(
+            minimum_cell_area_intersection_percentage,
+            n_cpus)
+
+        itsct_cls.verify()
+
+        itsct_cls.compute_intersect_indices()
+
+        resss = {}
+        for path_to_nc, path_to_output in zip(paths_to_ncs, paths_to_outputs):
+
+            ress = {}
+            for variable_label in variable_labels:
+                nc_vals_cls = ExtractNetCDFValues(verbose=self._vb)
+
+                nc_vals_cls.set_input(path_to_nc, variable_label, time_label)
+                nc_vals_cls.set_output(path_to_output)
+
+                if nc_vals_cls._out_fmt in ('h5', 'raw', 'csv', 'pkl'):
+                    nc_vals_cls.extract_values(
+                        itsct_cls.get_intersect_indices())
+
+                elif nc_vals_cls._out_fmt == 'nc':
+                    nc_vals_cls.snip_values(
+                        itsct_cls.get_intersect_indices(), nc_crds_cls)
+
+                else:
+                    raise ValueError(
+                        f'Unknown output format: {nc_vals_cls._out_fmt}!')
+
+                if path_to_output is None:
+                    ress[variable_label] = nc_vals_cls.get_values()
+
+                else:
+                    ress = None
+
+            resss[path_to_output] = ress
+
+        return resss

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pandas as pd
 from osgeo import gdal
 
 from ..misc import print_sl, print_el
@@ -317,12 +318,22 @@ class ExtractGTiffValues:
             fmt = path_to_output.suffix
 
             if fmt in ('.h5', '.hdf5'):
-                self._out_fmt = 'h5'
+                out_fmt = 'h5'
+
+            elif fmt in ('.csv',):
+                out_fmt = 'csv'
+
+            elif fmt in ('.pkl',):
+                out_fmt = 'pkl'
 
             else:
                 raise NotImplementedError(
                     'Only configured for file extensions ending in '
                     'h5 and hdf5 only!')
+
+            assert out_fmt is not None
+
+            self._out_fmt = out_fmt
 
         self._out_path = path_to_output
 
@@ -430,6 +441,9 @@ class ExtractGTiffValues:
 #             assert np.any(np.isfinite(data)), (
 #                 f'All values in band {i} are invalid!')
 
+            if data.size == 1:
+                data = data[0]
+
             gtiff_bnds[f'B{i:02d}'] = data
 
         data = None
@@ -470,7 +484,7 @@ class ExtractGTiffValues:
 
             out_var_grp = out_hdl.create_group(path_stem)
 
-        elif self._out_fmt == 'raw':
+        elif self._out_fmt in ('raw', 'csv', 'pkl'):
             pass
 
         else:
@@ -513,15 +527,24 @@ class ExtractGTiffValues:
 
                     bnd_data[np.isclose(bnd_data, bnd_ndvs[bnd])] = np.nan
 
+                if bnd_data.size == 1:
+                    bnd_data = bnd_data[0]
+
                 bnds_data[bnd] = bnd_data
 
             data = bnd_data = None
 
             assert bnds_data, 'This should not have happend!'
 
-            extrtd_data[label] = bnds_data
+            if self._out_fmt in ('csv', 'pkl'):
+                extrtd_data[label] = np.array([
+                    (bnds_data[key] * crds_idxs['rel_itsctd_area']).sum()
+                    for key in bnds_data])
 
-            if self._out_fmt == 'raw':
+            else:
+                extrtd_data[label] = bnds_data
+
+            if self._out_fmt in ('raw', 'csv', 'pkl'):
                 pass
 
             elif self._out_fmt == 'h5':
@@ -600,6 +623,29 @@ class ExtractGTiffValues:
             out_hdl.flush()
             out_hdl.close()
             out_hdl = None
+
+        elif self._out_fmt in ('csv', 'pkl'):
+
+            # Transposed to have the same form as a coordinates DataFrame.
+            extrtd_data = pd.DataFrame(extrtd_data).T
+
+            # Make Series if only one column.
+            # This is expected by some programs.
+            if extrtd_data.shape[1] == 1:
+                extrtd_data = extrtd_data.iloc[:, 0]
+
+            if self._out_fmt == 'csv':
+                assert extrtd_data is not None, 'This should not have happend!'
+
+                extrtd_data.to_csv(self._out_path, sep=';')
+
+            elif self._out_fmt == 'pkl':
+                assert extrtd_data is not None, 'This should not have happend!'
+
+                extrtd_data.to_pickle(self._out_path)
+
+            else:
+                raise NotImplementedError(self._out_fmt)
 
         elif self._out_fmt == 'raw':
             assert extrtd_data, 'This should not have happend!'

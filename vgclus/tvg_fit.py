@@ -221,8 +221,8 @@ class TVGFit(CEVG):
                     tuple(bounds),
                     args=(mix_vg_names, distances_fit, evg_vals_fit),
                     maxiter=self._sett_clus_tvg_max_iters,
-                    popsize=len(bounds) * 20,
-                    polish=True)
+                    popsize=len(bounds) * 5,
+                    polish=False)
 
                 assert opt.success, 'Optimization did not succeed!'
 
@@ -385,6 +385,10 @@ class TVGFit(CEVG):
         mp_args_gen = (args for args in self._cevgs_dict.items())
 
         n_cpus = min(self._sett_clus_misc_n_cpus, len(self._cevgs_dict))
+
+        # import pickle
+        # with open(self._tvgs_fit_txts_dir / 'pkl_self.pkl', 'wb') as pkl_hdl:
+        #     pickle.dump(self, pkl_hdl)
 
         if n_cpus == 1:
             ress = []

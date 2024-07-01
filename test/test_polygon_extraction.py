@@ -3,72 +3,72 @@
 
 '''
 import os
-import timeit
+import sys
 import time
+import timeit
+import traceback as tb
 from pathlib import Path
 
 from spinterps import Extract
 
+DEBUG_FLAG = True
+
 
 def main():
 
-    main_dir = Path(r'T:\TUM\sri')
+    main_dir = Path(r'P:\fradnc')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\TUM\Colleagues_Students\Srivatsa\furiflood\Shapefile\Export_Output_utm30n.shp'
-    label_field = r'GRIDCODE'
+    path_to_shp = r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8\regen_catchment.shp'
+    label_field = r'DN'  # 'Subbasin'  # 'PolygonId'  #
 
-#     path_to_shp = r'P:\Synchronize\IWS\Colleagues_Students\Ehsan\cp_classi\data\Border_6MainBasins_sh\MainBasins_Iran__utm39n3.shp'
-#     label_field = r'HOZEH6'
+    # RADOLAN.
+    # paths_to_rass = [Path(f'{year}.nc') for year in range(2006, 2022 + 1)]
 
-    # path_to_rass = [Path(f'{year}.nc') for year in range(2006, 2021)]
-    path_to_rass = main_dir.glob('./ba_gleam_ghana/E_*.nc')
-    # path_to_rass = [Path(r'kriging.nc')]
+    # paths_to_rass = main_dir.glob('chirps-*.nc')
+    paths_to_rass = [
+        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1H_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1H_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'kriging_regen_tem_1D_tg.nc'),
+        # Path(r'kriging_regen_ppt_1D.nc'),
+        Path(r'regen_radolan_ppt_2006_2022__RRd_RTsum.nc'),
+        ]
+
     input_ras_type = 'nc'
 
-    # path_to_ras = r'P:\Synchronize\IWS\QGIS_Neckar\raster\taudem_out_spate_rockenau\fil.tif'
+    # paths_to_rass = [Path(r'uebk25by20230116_utm32n.tif')]
     # input_ras_type = 'gtiff'
 
-    nc_x_crds_label = 'x_utm30n'
-    nc_y_crds_label = 'y_utm30n'
-    nc_variable_labels = ['E']
-    nc_time_label = 'time'
-
-    # nc_x_crds_label = 'lon'
-    # nc_y_crds_label = 'lat'
-    # nc_variable_labels = ['E']
+    # nc_x_crds_label = 'X'
+    # nc_y_crds_label = 'Y'
+    # nc_variable_labels = ['EDK']
     # nc_time_label = 'time'
 
-    out_ext = 'h5'  # h5 means time series of pts in h5, nc snips it.
+    nc_x_crds_label = 'x_utm32n'
+    nc_y_crds_label = 'y_utm32n'
+    nc_variable_labels = ['RW']
+    nc_time_label = 'time'
 
-    out_suff = 'poly'
+    # h5 means tss of pts in h5, nc snips it, csv/pkl lumps it in space.
+    # NOTE: In case of invalid numerical values, use raw
+    #       output format and post process it outside.
+    out_ext = 'csv'
+
+    out_suff = ''
 
     src_epsg = None
     dst_epsg = None
 
-    simplify_tol_ratio = 0.25
+    simplify_tol_ratio = 0.0  # 0.01
     minimum_cell_area_intersection_percentage = 1e-3
-    n_cpus = 1  # 'auto'
+    buffer_distance = 0.0
+    n_cpus = 'auto'
 
-#     src_epsg = 4326
-#     dst_epsg = 31467
-
-#     main_dir = Path(r'P:\Downloads\spinterp_2d_nc_crds_test')
-#     os.chdir(main_dir)
-#
-#     path_to_shp = r'01Small.shp'
-#
-#     label_field = r'Id'
-#
-#     path_to_ras = r'pr_SAM-44_ICHEC-EC-EARTH_historical_r12i1p1_SMHI-RCA4_v3_day_19810101-19851231.nc'
-#     input_ras_type = 'nc'
-#
-#     nc_x_crds_label = 'lon'
-#     nc_y_crds_label = 'lat'
-#     nc_variable_labels = ['pr']
-#     nc_time_label = 'time'
-
-    out_dir = Path(r'ca_poly_extract')
+    out_dir = main_dir  # / 'regen_ecad'
     #==========================================================================
 
     out_dir.mkdir(exist_ok=True)
@@ -77,12 +77,21 @@ def main():
 
     res = None
 
+    paths_to_rass = list(paths_to_rass)
+
+    assert len(paths_to_rass)
+
     if input_ras_type == 'gtiff':
 
-        for path_to_ras in path_to_rass:
+        for path_to_ras in paths_to_rass:
 
-            path_to_output = out_dir / Path(
-                rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+            if out_suff:
+                path_to_output = out_dir / Path(
+                    rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+
+            else:
+                path_to_output = out_dir / Path(
+                    rf'{path_to_ras.stem}.{out_ext}')
 
             res = Ext.extract_from_geotiff(
                 path_to_shp,
@@ -93,19 +102,63 @@ def main():
                 n_cpus,
                 src_epsg,
                 dst_epsg,
-                simplify_tol_ratio)
+                simplify_tol_ratio,
+                buffer_distance)
 
     elif input_ras_type == 'nc':
-        for path_to_ras in path_to_rass:
 
-            path_to_output = out_dir / Path(
-                rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+        if False:
+            for path_to_ras in paths_to_rass:
 
-            res = Ext.extract_from_netCDF(
+                # path_to_output = out_dir / Path(
+                #     rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+
+                if out_suff:
+                    path_to_output = out_dir / Path(
+                        rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+
+                else:
+                    path_to_output = out_dir / Path(
+                        rf'{path_to_ras.stem}.{out_ext}')
+
+                res = Ext.extract_from_netCDF(
+                    path_to_shp,
+                    label_field,
+                    path_to_ras,
+                    path_to_output,
+                    nc_x_crds_label,
+                    nc_y_crds_label,
+                    nc_variable_labels,
+                    nc_time_label,
+                    minimum_cell_area_intersection_percentage,
+                    n_cpus,
+                    src_epsg,
+                    dst_epsg,
+                    simplify_tol_ratio,
+                    buffer_distance)
+
+        else:
+            paths_to_outputs = []
+            for path_to_ras in paths_to_rass:
+
+                # path_to_output = path_to_ras.parents[0] / (
+                #     rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+
+                if out_suff:
+                    path_to_output = path_to_ras.parents[0] / Path(
+                        rf'{path_to_ras.stem}_{out_suff}.{out_ext}')
+
+                else:
+                    path_to_output = path_to_ras.parents[0] / Path(
+                        rf'{path_to_ras.stem}.{out_ext}')
+
+                paths_to_outputs.append(path_to_output)
+
+            res = Ext.extract_from_netCDF_batch(
                 path_to_shp,
                 label_field,
-                path_to_ras,
-                path_to_output,
+                paths_to_rass,
+                paths_to_outputs,
                 nc_x_crds_label,
                 nc_y_crds_label,
                 nc_variable_labels,
@@ -114,7 +167,8 @@ def main():
                 n_cpus,
                 src_epsg,
                 dst_epsg,
-                simplify_tol_ratio)
+                simplify_tol_ratio,
+                buffer_distance)
 
     else:
         raise NotImplementedError
@@ -126,28 +180,37 @@ def main():
 
 
 if __name__ == '__main__':
-
-    _save_log_ = False
-    if _save_log_:
-        from datetime import datetime
-        from std_logger import StdFileLoggerCtrl
-
-        # save all console activity to out_log_file
-        out_log_file = os.path.join(
-            r'P:\Synchronize\python_script_logs\\%s_log_%s.log' % (
-            os.path.basename(__file__),
-            datetime.now().strftime('%Y%m%d%H%M%S')))
-
-        log_link = StdFileLoggerCtrl(out_log_file)
-
     print('#### Started on %s ####\n' % time.asctime())
-    START = timeit.default_timer()  # to get the runtime of the program
+    START = timeit.default_timer()
 
-    main()
+    #==========================================================================
+    # When in post_mortem:
+    # 1. "where" to show the stack,
+    # 2. "up" move the stack up to an older frame,
+    # 3. "down" move the stack down to a newer frame, and
+    # 4. "interact" start an interactive interpreter.
+    #==========================================================================
 
-    STOP = timeit.default_timer()  # Ending time
+    if DEBUG_FLAG:
+        try:
+            main()
+
+        except:
+            pre_stack = tb.format_stack()[:-1]
+
+            err_tb = list(tb.TracebackException(*sys.exc_info()).format())
+
+            lines = [err_tb[0]] + pre_stack + err_tb[2:]
+
+            for line in lines:
+                print(line, file=sys.stderr, end='')
+
+            import pdb
+            pdb.post_mortem()
+    else:
+        main()
+
+    STOP = timeit.default_timer()
     print(('\n#### Done with everything on %s.\nTotal run time was'
            ' about %0.4f seconds ####' % (time.asctime(), STOP - START)))
 
-    if _save_log_:
-        log_link.stop()

@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 
 '''
-@author: Faizan-Uni-Stuttgart
+@author: Faizan-TU Munich
 
-Dec 22, 2022
+Nov 10, 2023
 
-10:59:46 AM
+9:21:16 PM
+
+Keywords:
 
 '''
 import os
@@ -25,29 +27,69 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\cmip6\ec-earth3-cc\bw')
+    main_dir = Path(r'P:\fradnc')
     os.chdir(main_dir)
 
-    # ncs_dir = Path(r'1960-2015_precip_g_rate_1h_snipped')
-    # out_nc_path = ('ppt_1960_2015.nc')
-    # var_labs = ['precip_g_rate']
+    ncs_dir = Path(r'regen_annual')  # All nc_ext files are used.
 
-    ncs_dir = main_dir  # All nc_ext files are used.
-    out_nc_path = ('pr_1950_2014_bw.nc')
-    var_labs = ['pr']
+    out_nc_name = r'regen_radolan_ppt_2006_2022.nc'
+    var_labs = ['RW']
 
     nc_ext = 'nc'
     time_lab = 'time'
-    x_coords_lab = 'x_utm32n'
-    y_coords_lab = 'y_utm32n'
+    x_coords_lab = 'x_utm32n'  # 'longitude'
+    y_coords_lab = 'y_utm32n'  # 'latitude'
+
+    time_freq = 'h'  # None  #
+    time_dlta = pd.Timedelta(10, unit='minutes')  # None  #
+    time_unts = 'hours since 2000-01-01 00:00:00'  # None  #
+
+    out_dir = main_dir  # Path(r'regen_merge')
     #==========================================================================
 
+    out_dir.mkdir(exist_ok=True)
+
+    out_nc_path = out_dir / out_nc_name
+
     path_to_ncs = list(ncs_dir.glob('*.%s' % nc_ext))
+
+    path_to_ncs.sort()
 
     ncs_beg_time = get_nc_time_str(path_to_ncs[+0], time_lab, +0)
     ncs_end_time = get_nc_time_str(path_to_ncs[-1], time_lab, -1)
 
+    merge_ncs_time(
+        out_nc_path,
+        path_to_ncs,
+        time_lab,
+        x_coords_lab,
+        y_coords_lab,
+        var_labs,
+        ncs_beg_time,
+        ncs_end_time,
+        time_freq,
+        time_dlta,
+        time_unts)
+
+    return
+
+
+def merge_ncs_time(
+        out_nc_path,
+        path_to_ncs,
+        time_lab,
+        x_coords_lab,
+        y_coords_lab,
+        var_labs,
+        ncs_beg_time,
+        ncs_end_time,
+        time_freq,
+        time_dlta,
+        time_unts):
+
     out_nc_init_flag = False
+
+    comp_level = 1
 
     x_dim_lab = 'dimx'
     y_dim_lab = 'dimy'
@@ -57,7 +99,11 @@ def main():
 
         out_nc_hdl.set_auto_mask(False)
 
+        fnd_files_flag = False
+
         for path_to_nc in path_to_ncs:
+
+            fnd_files_flag = True
 
             print(path_to_nc.stem)
 
@@ -67,23 +113,48 @@ def main():
 
                 if not out_nc_init_flag:
 
-                    out_nc_hdl.createDimension(
-                        x_dim_lab, nc_hdl[x_coords_lab].shape[1])
+                    if nc_hdl[x_coords_lab].ndim == 2:
 
-                    out_nc_hdl.createDimension(
-                        y_dim_lab, nc_hdl[y_coords_lab].shape[0])
+                        out_nc_hdl.createDimension(
+                            x_dim_lab, nc_hdl[x_coords_lab].shape[1])
 
-                    out_nc_hdl.createDimension(t_dim_lab, None)
+                        out_nc_hdl.createDimension(
+                            y_dim_lab, nc_hdl[y_coords_lab].shape[0])
 
-                    x_coords_nc = out_nc_hdl.createVariable(
-                        x_coords_lab,
-                        'd',
-                        dimensions=(y_dim_lab, x_dim_lab))
+                        out_nc_hdl.createDimension(t_dim_lab, None)
 
-                    y_coords_nc = out_nc_hdl.createVariable(
-                        y_coords_lab,
-                        'd',
-                        dimensions=(y_dim_lab, x_dim_lab))
+                        x_coords_nc = out_nc_hdl.createVariable(
+                            x_coords_lab,
+                            'd',
+                            dimensions=(y_dim_lab, x_dim_lab))
+
+                        y_coords_nc = out_nc_hdl.createVariable(
+                            y_coords_lab,
+                            'd',
+                            dimensions=(y_dim_lab, x_dim_lab))
+
+                    elif nc_hdl[x_coords_lab].ndim == 1:
+
+                        out_nc_hdl.createDimension(
+                            x_dim_lab, nc_hdl[x_coords_lab].shape[0])
+
+                        out_nc_hdl.createDimension(
+                            y_dim_lab, nc_hdl[y_coords_lab].shape[0])
+
+                        out_nc_hdl.createDimension(t_dim_lab, None)
+
+                        x_coords_nc = out_nc_hdl.createVariable(
+                            x_coords_lab,
+                            'd',
+                            dimensions=(x_dim_lab,))
+
+                        y_coords_nc = out_nc_hdl.createVariable(
+                            y_coords_lab,
+                            'd',
+                            dimensions=(y_dim_lab,))
+
+                    else:
+                        raise NotImplementedError(nc_hdl[x_coords_lab].ndim)
 
                     time_nc = out_nc_hdl.createVariable(
                         time_lab, 'i8', dimensions=t_dim_lab)
@@ -93,7 +164,12 @@ def main():
                         data_nc = out_nc_hdl.createVariable(
                             var_lab,
                             'd',
-                            dimensions=(t_dim_lab, y_dim_lab, x_dim_lab))
+                            dimensions=(t_dim_lab, y_dim_lab, x_dim_lab),
+                            compression='zlib',
+                            complevel=comp_level,
+                            chunksizes=(1,
+                                        nc_hdl[y_coords_lab].shape[0],
+                                        nc_hdl[x_coords_lab].shape[0]))
 
                         data_ncs_dict[var_lab] = data_nc
 
@@ -102,25 +178,38 @@ def main():
                     x_coords_nc[:] = nc_hdl[x_coords_lab][:]
                     y_coords_nc[:] = nc_hdl[y_coords_lab][:]
 
-                    out_nc_time_units = time_axis.units
+                    if time_unts is not None:
+                        out_nc_time_units = time_unts
+
+                    else:
+                        out_nc_time_units = time_axis.units
+
                     out_nc_time_calendar = time_axis.calendar
 
                     time_nc.units = out_nc_time_units
                     time_nc.calendar = out_nc_time_calendar
 
-                    if 'hours' in out_nc_time_units:
-                        time_freq = 'H'
+                    if time_freq is None:
+                        if 'hours' in out_nc_time_units:
+                            time_freq = 'h'
 
-                    elif 'days' in out_nc_time_units:
-                        time_freq = 'D'
+                        elif 'days' in out_nc_time_units:
+                            time_freq = 'D'
 
-                    else:
-                        raise NotImplementedError(
-                            f'Unknown time units in {out_nc_time_units}!')
+                        elif 'minutes' in out_nc_time_units:
+                            time_freq = 'min'
+
+                        else:
+                            raise NotImplementedError(
+                                f'Unknown time units in {out_nc_time_units}!')
 
                     nc_time_idx_pydatetime = pd.date_range(
-                        ncs_beg_time, ncs_end_time, freq=time_freq
-                        ).to_pydatetime()
+                        ncs_beg_time,
+                        ncs_end_time,
+                        freq=time_freq).to_pydatetime()
+
+                    if time_dlta is not None:
+                        nc_time_idx_pydatetime += time_dlta
 
                     out_nc_time_idx = nc.date2num(
                         nc_time_idx_pydatetime,
@@ -141,8 +230,40 @@ def main():
                     assert np.all(
                         np.isclose(y_coords_nc[:], nc_hdl[y_coords_lab][:]))
 
-                time_vals = time_axis[:].data.astype(out_nc_time_idx.dtype)
+                if time_dlta is not None:
 
+                    ot_time_idx_pydatetime = pd.DatetimeIndex(nc.num2date(
+                        time_axis[:].data,
+                        units=time_axis.units,
+                        calendar=time_axis.calendar,
+                        only_use_cftime_datetimes=False))
+
+                    if time_dlta is not None:
+                        ot_time_idx_pydatetime += time_dlta
+
+                    time_vals = nc.date2num(
+                        ot_time_idx_pydatetime.to_pydatetime(),
+                        units=out_nc_time_units,
+                        calendar=out_nc_time_calendar).astype(
+                            out_nc_time_idx.dtype)
+
+                else:
+                    if ((time_axis.units != out_nc_time_units) or
+                        (time_axis.calendar != out_nc_time_calendar)):
+
+                        time_vals = nc.num2date(
+                            time_vals,
+                            units=time_axis.units,
+                            calendar=time_axis.calendar)
+
+                        time_vals = nc.date2num(
+                            time_vals,
+                            units=out_nc_time_units,
+                            calendar=out_nc_time_calendar)
+
+                    time_vals = time_axis[:].data.astype(out_nc_time_idx.dtype)
+
+                # Error when calendars don't match normally.
                 assert np.in1d(time_vals, out_nc_time_idx).all()
 
                 nc_time_insert_idxs = (time_vals - out_nc_time_idx[0]).astype(
@@ -151,6 +272,8 @@ def main():
                 for var_lab in data_ncs_dict:
                     data_ncs_dict[var_lab][nc_time_insert_idxs,:,:] = (
                         nc_hdl[var_lab][:])
+
+        assert fnd_files_flag, 'No files found!'
 
     return
 

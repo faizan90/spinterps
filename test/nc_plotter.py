@@ -25,25 +25,26 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(
-        r'U:\hydmod\neckar\daily_1961_2020_spinterp_2km_ppt')
-
+    main_dir = Path(r'T:\ECAD')
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'kriging.nc')
+    in_nc_path = Path(r'pet_ens_mean_0.1deg_reg_v29.0e_regen_pet_1D.nc')
 
-    var_label = 'EDK'  # 'IDW_000'
-    x_label = 'X'
-    y_label = 'Y'
+    var_label = 'pet'  # 'EDK'  # 'IDW_000'
+    x_label = 'x_utm32n'  # 'longitude'  # 'lon'  # 'X'
+    y_label = 'y_utm32n'  # 'latitude'  # 'lat'  # 'Y'
     time_label = 'time'
 
-    cbar_label = 'Precipitation (mm)'
-    # cbar_label = 'PET (mm)'
-    # cbar_label = 'Temperature (C)'
+    # cbar_label = 'Precipitation [mm]'
+    # cbar_label = 'Snow depth [m]'
+    cbar_label = 'PET [mm]'
+    # cbar_label = 'Temperature [°C]'
 
     # cbar_label = 'Estimation variance'
 
-    cmap = 'Blues'  # 'viridis'
+    cmap = 'viridis'  # 'Blues'  #
+
+    dpi = 200
 
     var_min_val = None
     var_max_val = None
@@ -66,22 +67,37 @@ def main():
     show_title_flag = True
     # show_title_flag = False
 
-    plot_sum_flag = True
+    # plot_sum_flag = True
     plot_sum_flag = False
 
+    # nan_val = 9999
+    nan_val = None
+
     beg_time, end_time = pd.to_datetime(
-        ['1970-01-20 00:00:00', '1970-02-10 00:00:00'],
-        format='%Y-%m-%d %H:%M:%S')
+        ['2022-08-10', '2022-08-19'],
+        format='%Y-%m-%d')
+
+    # beg_time, end_time = pd.to_datetime(
+    #     ['1990-12-01 00:00:00', '1990-12-31 00:00:00'],
+    #     format='%Y-%m-%d %H:%M:%S')
 
     # beg_time, end_time = pd.to_datetime(
     #     ['20190520T070000', '20190521T070000'],
     #     format='%Y%m%dT%H%M%S')
 
-    in_cat_file = Path(r'P:\Synchronize\IWS\QGIS_Neckar\vector\427_2km.shp')
+    in_cat_file = Path(r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8\regen_catchment.shp')
     # in_cat_file = None
 
-    out_figs_dir = Path(r'interp_plots')
+    in_crds_file = None
+    # in_crds_file = Path(
+    #     r'../../tss_regen_1D\ppt_1D_gkd_dwd_crds.csv')
+
+    out_figs_dir = Path(r'plots_pet_1D_regen')
     #==========================================================================
+
+    if in_crds_file is not None:
+        crds_df = pd.read_csv(in_crds_file, sep=';', index_col=0)[['X', 'Y']]
+        crds_df.index = crds_df.index.astype(str)
 
     with nc.Dataset(in_nc_path, 'r') as nc_hdl:
         x_crds = nc_hdl[x_label][...].data
@@ -97,10 +113,13 @@ def main():
         times = pd.DatetimeIndex(times)
 
         take_idxs_beg = times.get_loc(beg_time)
-        take_idxs_end = times.get_loc(end_time)
+        take_idxs_end = times.get_loc(end_time) + 1
 
         times = times[take_idxs_beg:take_idxs_end]
         data = nc_hdl[var_label][take_idxs_beg:take_idxs_end].data
+
+        if nan_val is not None:
+            data[data == nan_val] = np.nan
 
     if x_crds.ndim == 1:
         x_crds_plt_msh, y_crds_plt_msh = np.meshgrid(x_crds, y_crds)
@@ -163,7 +182,7 @@ def main():
 
             ax.set_title(title)
 
-        plt.setp(ax.get_xmajorticklabels(), rotation=70)
+        plt.setp(ax.get_xmajorticklabels(), rotation=90)
         ax.set_aspect('equal', 'datalim')
         #======================================================================
 
@@ -196,6 +215,16 @@ def main():
                     ax.plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='k')
         #======================================================================
 
+        if in_crds_file is not None:
+            plt.scatter(
+                crds_df['X'].values,
+                crds_df['Y'].values,
+                c='k',
+                s=0.2,
+                alpha=0.75,
+                edgecolors='none')
+        #======================================================================
+
         ax.set_xlim(x_llim, x_ulim)
         ax.set_ylim(y_ulim, y_llim)
 
@@ -203,7 +232,8 @@ def main():
 
         out_fig_name = out_fig_name.replace(':', '_')
 
-        plt.savefig(str(out_var_figs_dir / out_fig_name), bbox_inches='tight')
+        plt.savefig(
+            out_var_figs_dir / out_fig_name, bbox_inches='tight', dpi=dpi)
 
         cb.remove()
 

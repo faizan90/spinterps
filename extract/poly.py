@@ -30,12 +30,13 @@ class ExtractPolygons:
         self._poly_geoms = None
         self._poly_areas = None
         self._poly_extents = None
+        self._poly_bdist = None
 
         self._set_in_flag = False
         self._set_poly_data_extrt_flag = False
         return
 
-    def set_input(self, path_to_shp, label_field):
+    def set_input(self, path_to_shp, label_field, buffer_distance=0):
 
         '''Set the path to input ESRI Shapefile and a field name.
 
@@ -46,6 +47,8 @@ class ExtractPolygons:
         label_field : str
             Name of the field whose values will serve as labels for the
             outputs.
+        buffer_distance : int, float
+            Buffer distance to select cells. Normally zero.
         '''
 
         if self._vb:
@@ -65,13 +68,21 @@ class ExtractPolygons:
         assert isinstance(label_field, str), 'label_field not a string!'
         assert label_field, 'label_field is an empty string!'
 
+        assert isinstance(buffer_distance, (int, float)), type(buffer_distance)
+
+        buffer_distance = float(buffer_distance)
+
+        assert 0 <= buffer_distance < float('inf'), buffer_distance
+
         self._poly_shp_path = path_to_shp
         self._poly_label_field = label_field
+        self._poly_bdist = buffer_distance
 
         if self._vb:
             print(f'INFO: Set the following polygon shapefile variables:')
             print(f'Path: {self._poly_shp_path}')
             print(f'Label field: {self._poly_label_field}')
+            print(f'Buffer distance: {self._poly_bdist}')
 
             print_el()
 
@@ -120,7 +131,7 @@ class ExtractPolygons:
             f'label_field: {self._poly_label_field} not in input shapefile!')
 
         while polygon:
-            geom = polygon.GetGeometryRef().Buffer(0)
+            geom = polygon.GetGeometryRef().Buffer(self._poly_bdist)
 
             geom = ogr.ForceToMultiPolygon(geom)
 

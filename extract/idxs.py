@@ -1408,7 +1408,12 @@ class GeomAndCrdsItsctIdxs:
             idxs = rows_cols.get_loc((row, col))
 
             if isinstance(idxs, slice):
-                cdupd_idxs = list(range(idxs.start, idxs.stop, idxs.step))
+
+                if idxs.step is None:
+                    cdupd_idxs = list(range(idxs.start, idxs.stop, 1))
+
+                else:
+                    cdupd_idxs = list(range(idxs.start, idxs.stop, idxs.step))
 
             elif isinstance(idxs, np.ndarray):
                 cdupd_idxs = np.where(idxs)[0].tolist()

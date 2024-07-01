@@ -48,6 +48,7 @@ class SpInterpSteps:
             '_n_pies',
             '_min_vg_val',
             '_interp_flag_est_vars',
+            '_intrp_dtype',
             ]
 
         for read_lab in read_labs:
@@ -482,7 +483,8 @@ class SpInterpSteps:
         edk_flag = 'EDK' in interp_types
 
         if krg_flag:
-            assert np.all(vgs_ser != 'nan'), 'NaN VGs not allowed!'
+            assert np.all(vgs_ser != 'nan'), (
+                'NaN VGs not allowed!')
 
         time_steps = data_df.index
         #======================================================================
@@ -619,7 +621,7 @@ class SpInterpSteps:
         interp_flds_dict = {interp_label:np.full(
             (time_steps.shape[0], np.prod(fld_grd_shape)),
             np.nan,
-            dtype=np.float64)
+            dtype=self._intrp_dtype)
             for interp_label in interp_labels}
 
         if self._interp_flag_est_vars:
@@ -779,7 +781,7 @@ class SpInterpSteps:
                         for j, time_idx in enumerate(interp_flds_time_idxs):
                             interp_flds[
                                 time_idx, cntn_idxs_whr[sub_pts_flags]] = (
-                                    interp_vals[j])
+                                    interp_vals[j].astype(self._intrp_dtype))
 
                             if self._interp_flag_est_vars: est_vars_flds[
                                 time_idx, cntn_idxs_whr[sub_pts_flags]] = (
@@ -788,7 +790,7 @@ class SpInterpSteps:
                     else:
                         for j, time_idx in enumerate(interp_flds_time_idxs):
                             interp_flds[time_idx, sub_pts_flags] = (
-                                interp_vals[j])
+                                interp_vals[j].astype(self._intrp_dtype))
 
                             if self._interp_flag_est_vars: est_vars_flds[
                                 time_idx, sub_pts_flags] = est_vars[j]
@@ -880,10 +882,11 @@ class SpInterpSteps:
                 for interp_label in interp_labels:
                     interp_flds = interp_flds_dict[interp_label]
 
+                    nc_ds = nc_hdl[interp_label]
+
                     for i in range(max_rng):
-                        nc_hdl[interp_label][
-                            nc_is[i]:nc_is[i + 1],
-                            fld_beg_row:fld_end_row,:] = (
+                        nc_ds[nc_is[i]:nc_is[i + 1],
+                              fld_beg_row:fld_end_row,:] = (
                                 interp_flds[ar_is[i]:ar_is[i + 1]])
 
                     interp_flds_dict[interp_label] = None
@@ -904,34 +907,31 @@ class SpInterpSteps:
                 for interp_label in interp_labels:
                     interp_flds = interp_flds_dict[interp_label]
 
+                    nc_ds = nc_hdl[interp_label]
+
                     for i in range(vgs_ser.shape[0]):
 
                         nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
 
-                        nc_hdl[interp_label][
-                            nc_idx, fld_beg_row:fld_end_row,:] = interp_flds[i]
+                        nc_ds[nc_idx,
+                              fld_beg_row:fld_end_row,:] = interp_flds[i]
 
                     interp_flds_dict[interp_label] = None
 
-                    if self._interp_flag_est_vars: est_vars_flds = est_vars_flds_dict[
-                        f'EST_VARS_{interp_label}']
-
-                    for i in range(vgs_ser.shape[0]):
-
-                        nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
-
-                        if self._interp_flag_est_vars:
-                            nc_hdl[f'EST_VARS_{interp_label}'][
-                                nc_idx,
-                                fld_beg_row:fld_end_row,:] = est_vars_flds[i]
-
-                    if self._interp_flag_est_vars: est_vars_flds_dict[
-                        f'EST_VARS_{interp_label}'] = None
+                    # if self._interp_flag_est_vars:
+                    #     est_vars_flds = est_vars_flds_dict[
+                    #         f'EST_VARS_{interp_label}']
+                    #
+                    #     nc_hdl[f'EST_VARS_{interp_label}'][
+                    #         nc_idxs,
+                    #         fld_beg_row:fld_end_row,:] = est_vars_flds
+                    #
+                    #     est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
 
                     nc_hdl.sync()
 
             interp_flds = None
-            est_vars_flds = None
+            # est_vars_flds = None
 
             nc_hdl.close()
 
