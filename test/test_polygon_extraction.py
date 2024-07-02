@@ -16,7 +16,7 @@ DEBUG_FLAG = True
 
 def main():
 
-    main_dir = Path(r'P:\fradnc')
+    main_dir = Path(r'E:\fradnc')
     os.chdir(main_dir)
 
     path_to_shp = r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8\regen_catchment.shp'
@@ -35,7 +35,8 @@ def main():
         # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1H_gkd_dwd_1km_bay/kriging.nc'),
         # Path(r'kriging_regen_tem_1D_tg.nc'),
         # Path(r'kriging_regen_ppt_1D.nc'),
-        Path(r'regen_radolan_ppt_2006_2022__RRd_RTsum.nc'),
+        # Path(r'regen_radolan_ppt_2006_2022__RRd_RTsum.nc'),
+        Path(r'2016.nc'),
         ]
 
     input_ras_type = 'nc'
@@ -55,10 +56,10 @@ def main():
 
     # h5 means tss of pts in h5, nc snips it, csv/pkl lumps it in space.
     # NOTE: In case of invalid numerical values, use raw
-    #       output format and post process it outside.
-    out_ext = 'csv'
+    #       output format and post-process it outside.
+    out_ext = 'nc'
 
-    out_suff = ''
+    out_suff = 'memtest'
 
     src_epsg = None
     dst_epsg = None

@@ -657,20 +657,33 @@ class ExtractNetCDFValues:
             print(f'Shape of time variable: {in_time.shape}')
 
         # Memory management.
+        # NOTE: A slice can be taken out first like that in nc.
+        #       Then from that slice relevant data can be extracted.
+        #       It is much more efficient in terms of reading the whole array.
         in_var_nbytes = in_var.dtype.itemsize * np.prod(
             in_var.shape, dtype=np.uint64)
 
-        tot_avail_mem = int(ps.virtual_memory().free * 0.75)
+        tot_avail_mem = int(ps.virtual_memory().free * 0.35)
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 
         assert n_mem_time_prds >= 1, n_mem_time_prds
 
-        if n_mem_time_prds == 1:
-            in_var_data = in_var[:]
-
-        else:
+        if n_mem_time_prds > 1:
             if self._vb: print('Memory not enough to read in one go!')
+
+            in_var_mem_idxs = np.linspace(
+                0,
+                in_var.shape[0],
+                n_mem_time_prds,
+                endpoint=True,
+                dtype=np.int64)
+
+            assert in_var_mem_idxs[+0] == 0, in_var_mem_idxs
+            assert in_var_mem_idxs[-1] == in_var.shape[0], in_var_mem_idxs
+
+            assert np.unique(in_var_mem_idxs).size == in_var_mem_idxs.size, (
+                np.unique(in_var_mem_idxs).size, in_var_mem_idxs.size)
 
         for label, crds_idxs in indices.items():
 
@@ -701,23 +714,26 @@ class ExtractNetCDFValues:
             if self._out_fmt in ('raw', 'csv', 'pkl'):
 
                 if n_mem_time_prds == 1:
-                    steps_data = in_var_data[:, rows_idxs, cols_idxs].data
+                    steps_data = in_var[:][:, rows_idxs, cols_idxs].data
 
                 else:
-                    if False:
-                        steps_data = []
-                        for i in range(in_time.shape[0]):
-                            step_data = in_var[i][(rows_idxs, cols_idxs)]
+                    steps_data = np.full(
+                        (in_time.shape[0], rows_idxs.size),
+                        np.nan,
+                        dtype=in_var.dtype)
 
-                            steps_data.append(step_data)
+                    # print('Reading...')
+                    for i, j in zip(
+                        in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
 
-                        steps_data = np.array(steps_data)
+                        # print(i, j)
 
-                    else:
-                        steps_data = in_var[
-                            (np.arange(in_time.shape[0]),
-                             rows_idxs,
-                             cols_idxs)].data.reshape(-1, 1)
+                        otp_var_slc = in_var[i:j]
+                        for k, l in enumerate(range(i, j)):
+                            steps_data[l] = (
+                                otp_var_slc[k][(rows_idxs, cols_idxs)])
+
+                        otp_var_slc = None
 
                 assert steps_data.size, 'This should not have happend!'
 
@@ -841,8 +857,21 @@ class ExtractNetCDFValues:
                     out_lab_ds[:] = in_var[:][:, rows_idxs, cols_idxs]
 
                 else:
-                    for i in range(in_var.shape[0]):
-                        out_lab_ds[i] = in_var[i][(rows_idxs, cols_idxs)]
+                    # NOTE: Reading writing slices like that in nc does not
+                    #       work!
+
+                    # print('Reading...')
+                    for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
+
+                        # print(i, j)
+
+                        otp_var_slc = in_var[i:j]
+                        for k, l in enumerate(range(i, j)):
+                            out_lab_ds[l] = (
+                                otp_var_slc[k][(rows_idxs, cols_idxs)])
+
+                        otp_var_slc = None
+                        out_hdl.flush()
 
                 out_hdl.flush()
 
@@ -1314,10 +1343,13 @@ class ExtractNetCDFValues:
             in_time_data = in_time[...]
 
         # Memory management.
+        # Actually, the entire array is not read when slicing.
+        # The limits with max mem can be higher. But I think, it does not
+        # matter.
         in_var_nbytes = in_var.dtype.itemsize * np.prod(
             in_var.shape, dtype=np.uint64)
 
-        tot_avail_mem = int(ps.virtual_memory().free * 0.75)
+        tot_avail_mem = int(ps.virtual_memory().free * 0.35)
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 
@@ -1326,13 +1358,46 @@ class ExtractNetCDFValues:
         if n_mem_time_prds > 1:
             if self._vb: print('Memory not enough to read in one go!')
 
+            in_var_mem_idxs = np.linspace(
+                0,
+                in_var.shape[0],
+                n_mem_time_prds,
+                endpoint=True,
+                dtype=np.int64)
+
+            assert in_var_mem_idxs[+0] == 0, in_var_mem_idxs
+            assert in_var_mem_idxs[-1] == in_var.shape[0], in_var_mem_idxs
+
+            assert np.unique(in_var_mem_idxs).size == in_var_mem_idxs.size, (
+                np.unique(in_var_mem_idxs).size, in_var_mem_idxs.size)
+
         if self._out_fmt == 'raw':
 
-            for i in range(in_time.shape[0]):
-                step = in_time_data[i]
-                step_data = in_var[i][snip_row_slice, snip_col_slice]
+            if n_mem_time_prds == 1:
+                steps_slc = in_var[:, snip_row_slice, snip_col_slice]
 
-                steps_data[step] = step_data
+                for i in range(in_time.shape[0]):
+                    step = in_time_data[i]
+                    step_data = steps_slc[i]
+
+                    steps_data[step] = step_data
+
+                steps_slc = step_data = step = None
+
+            else:
+                # print('Reading...')
+                for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
+
+                    # print(i, j)
+                    steps_slc = in_var[i:j, snip_row_slice, snip_col_slice]
+
+                    for k, l in enumerate(range(i, j)):
+                        step = in_time_data[l]
+                        step_data = steps_slc[k]
+
+                        steps_data[step] = step_data
+
+                    steps_slc = step_data = step = None
 
             assert steps_data, 'This should not have happend!'
 
@@ -1342,8 +1407,13 @@ class ExtractNetCDFValues:
                 out_data[:] = in_var[:, snip_row_slice, snip_col_slice]
 
             else:
-                for i in range(in_var.shape[0]):
-                    out_data[i] = in_var[i][snip_row_slice, snip_col_slice]
+                # print('Reading...')
+                for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
+
+                    # print(i, j)
+                    out_data[i:j] = in_var[i:j, snip_row_slice, snip_col_slice]
+
+                    out_hdl.sync()
 
             out_hdl.sync()
 
