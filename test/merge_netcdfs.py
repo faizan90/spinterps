@@ -27,22 +27,23 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\fradnc')
+    main_dir = Path(r'D:\fradnc')
     os.chdir(main_dir)
 
-    ncs_dir = Path(r'regen_annual')  # All nc_ext files are used.
+    ncs_dir = main_dir  # All nc_ext files are used.
 
     out_nc_name = r'regen_radolan_ppt_2006_2022.nc'
     var_labs = ['RW']
 
-    nc_ext = 'nc'
     time_lab = 'time'
     x_coords_lab = 'x_utm32n'  # 'longitude'
     y_coords_lab = 'y_utm32n'  # 'latitude'
 
-    time_freq = 'h'  # None  #
-    time_dlta = pd.Timedelta(10, unit='minutes')  # None  #
-    time_unts = 'hours since 2000-01-01 00:00:00'  # None  #
+    time_freq = None  # 'h'  #
+    time_dlta = None  # pd.Timedelta(10, unit='minutes')  #
+    time_unts = None  # 'hours since 2000-01-01 00:00:00'  #
+
+    glob_patt = './*_regen.nc'
 
     out_dir = main_dir  # Path(r'regen_merge')
     #==========================================================================
@@ -51,7 +52,7 @@ def main():
 
     out_nc_path = out_dir / out_nc_name
 
-    path_to_ncs = list(ncs_dir.glob('*.%s' % nc_ext))
+    path_to_ncs = list(ncs_dir.glob(glob_patt))
 
     path_to_ncs.sort()
 

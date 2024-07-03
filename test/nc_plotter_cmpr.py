@@ -30,22 +30,22 @@ def main():
 
     os.chdir(main_dir)
 
-    in_nc_path_1 = Path(r'kriging_regen_pet_1D.nc')
+    in_nc_path_1 = Path(r'kriging_regen_ppt_1D.nc')
     var_label_1 = 'EDK'
     x_label_1 = 'X'
     y_label_1 = 'Y'
     time_label_1 = 'time'
     sclr_1 = None
 
-    in_nc_path_2 = Path(r'ecad_pet_1D_ref_aln.nc')
-    var_label_2 = 'pet'
+    in_nc_path_2 = Path(r'D:\fradnc\regen_radolan_ppt_2006_2022_ltd_ifl__RRd_RTsum.nc')
+    var_label_2 = 'RW'
     x_label_2 = 'x_utm32n'
     y_label_2 = 'y_utm32n'
     time_label_2 = 'time'
     sclr_2 = None
 
-    # cbar_label = 'Precipitation (mm)'
-    cbar_label = 'PET (mm)'
+    cbar_label = 'Precipitation (mm)'
+    # cbar_label = 'PET (mm)'
     # cbar_label = 'Temperature (C)'
 
     cmap = 'viridis'  # 'Blues'  #
@@ -86,7 +86,7 @@ def main():
 
     drop_stns = []  # [420, 3421, 427, 3465, 3470]
 
-    out_figs_dir = Path(r'cmpr_grids_ecad_obs__pet')
+    out_figs_dir = Path(r'cmpr_grids_radolan_obs__ppt2')
     #==========================================================================
 
     with nc.Dataset(in_nc_path_1, 'r') as nc_hdl:

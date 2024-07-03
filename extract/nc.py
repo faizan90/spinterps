@@ -714,7 +714,7 @@ class ExtractNetCDFValues:
             if self._out_fmt in ('raw', 'csv', 'pkl'):
 
                 if n_mem_time_prds == 1:
-                    steps_data = in_var[:][:, rows_idxs, cols_idxs].data
+                    steps_data = in_var[:][:, rows_idxs, cols_idxs]
 
                 else:
                     steps_data = np.full(
@@ -754,7 +754,7 @@ class ExtractNetCDFValues:
 
                             if not nan_idxs[i].any():
                                 wtd_sum = (
-                                    steps_data *
+                                    steps_data[i] *
                                     crds_idxs['rel_itsctd_area']).sum()
 
                             else:

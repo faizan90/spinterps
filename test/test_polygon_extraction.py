@@ -16,28 +16,28 @@ DEBUG_FLAG = True
 
 def main():
 
-    main_dir = Path(r'E:\fradnc')
+    main_dir = Path(r'D:\fradnc')
     os.chdir(main_dir)
 
     path_to_shp = r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8\regen_catchment.shp'
     label_field = r'DN'  # 'Subbasin'  # 'PolygonId'  #
 
     # RADOLAN.
-    # paths_to_rass = [Path(f'{year}.nc') for year in range(2006, 2022 + 1)]
+    paths_to_rass = [Path(f'{year}.nc') for year in range(2006, 2022 + 1)]
 
     # paths_to_rass = main_dir.glob('chirps-*.nc')
-    paths_to_rass = [
-        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1H_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1H_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'kriging_regen_tem_1D_tg.nc'),
-        # Path(r'kriging_regen_ppt_1D.nc'),
-        # Path(r'regen_radolan_ppt_2006_2022__RRd_RTsum.nc'),
-        Path(r'2016.nc'),
-        ]
+    # paths_to_rass = [
+    #     # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
+    #     # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
+    #     # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
+    #     # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_bay/kriging.nc'),
+    #     # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1H_gkd_dwd_1km_bay/kriging.nc'),
+    #     # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1H_gkd_dwd_1km_bay/kriging.nc'),
+    #     # Path(r'kriging_regen_tem_1D_tg.nc'),
+    #     # Path(r'kriging_regen_ppt_1D.nc'),
+    #     # Path(r'regen_radolan_ppt_2006_2022_ltd_ifl__RRd_RTsum.nc'),
+    #     # Path(r'2016.nc'),
+    #     ]
 
     input_ras_type = 'nc'
 
@@ -57,16 +57,18 @@ def main():
     # h5 means tss of pts in h5, nc snips it, csv/pkl lumps it in space.
     # NOTE: In case of invalid numerical values, use raw
     #       output format and post-process it outside.
+    # In case of h5 or csv, if ncs are too big. Snip them as nc and
+    # then produce the h5 files.
     out_ext = 'nc'
 
-    out_suff = 'memtest'
+    out_suff = 'regen'
 
     src_epsg = None
     dst_epsg = None
 
     simplify_tol_ratio = 0.0  # 0.01
     minimum_cell_area_intersection_percentage = 1e-3
-    buffer_distance = 0.0
+    buffer_distance = 10e3
     n_cpus = 'auto'
 
     out_dir = main_dir  # / 'regen_ecad'
