@@ -25,19 +25,19 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'T:\ECAD')
+    main_dir = Path(r'U:\fradnc')
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'pet_ens_mean_0.1deg_reg_v29.0e_regen_pet_1D.nc')
+    in_nc_path = Path(r'2023.nc')
 
-    var_label = 'pet'  # 'EDK'  # 'IDW_000'
+    var_label = 'RW'  # 'EDK'  # 'IDW_000'
     x_label = 'x_utm32n'  # 'longitude'  # 'lon'  # 'X'
     y_label = 'y_utm32n'  # 'latitude'  # 'lat'  # 'Y'
     time_label = 'time'
 
-    # cbar_label = 'Precipitation [mm]'
+    cbar_label = 'Precipitation [mm]'
     # cbar_label = 'Snow depth [m]'
-    cbar_label = 'PET [mm]'
+    # cbar_label = 'PET [mm]'
     # cbar_label = 'Temperature [°C]'
 
     # cbar_label = 'Estimation variance'
@@ -74,7 +74,7 @@ def main():
     nan_val = None
 
     beg_time, end_time = pd.to_datetime(
-        ['2022-08-10', '2022-08-19'],
+        ['2023-08-10', '2023-08-13'],
         format='%Y-%m-%d')
 
     # beg_time, end_time = pd.to_datetime(
@@ -85,14 +85,14 @@ def main():
     #     ['20190520T070000', '20190521T070000'],
     #     format='%Y%m%dT%H%M%S')
 
-    in_cat_file = Path(r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8\regen_catchment.shp')
+    in_cat_file = Path(r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E7\deutschland_boundary.shp')
     # in_cat_file = None
 
     in_crds_file = None
     # in_crds_file = Path(
     #     r'../../tss_regen_1D\ppt_1D_gkd_dwd_crds.csv')
 
-    out_figs_dir = Path(r'plots_pet_1D_regen')
+    out_figs_dir = Path(r'plots_rw')
     #==========================================================================
 
     if in_crds_file is not None:

@@ -24,20 +24,20 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'T:\ECAD')
+    main_dir = Path(r'U:\fradnc')
     os.chdir(main_dir)
 
-    path_to_ncs = main_dir.glob('pet_ens_mean_0.1deg_reg_v29.0e.nc')
+    path_to_ncs = main_dir.glob('2023.nc')
 
     src_crs = 'EPSG:4326'
     dst_crs = 'EPSG:32632'
-    src_x_lab = 'longitude'
-    src_y_lab = 'latitude'
+    src_x_lab = 'lon'
+    src_y_lab = 'lat'
     dst_x_lab = 'x_utm32n'
     dst_y_lab = 'y_utm32n'
-    dim_x_lab = 'longitude'  # 'dimx'
-    dim_y_lab = 'latitude'  # 'dimy'
-    data_var = 'pet'
+    dim_x_lab = 'dim_lon'  # 'longitude'  # 'dimx'
+    dim_y_lab = 'dim_lat'  # 'latitude'  # 'dimy'
+    data_var = 'RW'
 
     verbose = True
     #==========================================================================
