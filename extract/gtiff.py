@@ -435,12 +435,6 @@ class ExtractGTiffValues:
             assert data.ndim == 2, 'Raster bands allowed to be 2D only!'
             assert data.size > 0, 'Raster band has zero values!'
 
-#             if not np.isnan(ndv):
-#                 data[np.isclose(data, ndv)] = np.nan
-#
-#             assert np.any(np.isfinite(data)), (
-#                 f'All values in band {i} are invalid!')
-
             if data.size == 1:
                 data = data[0]
 
@@ -747,29 +741,3 @@ class ExtractGTiffValues:
                         'Non-matching keys of values of values!')
 
         return add_var_labels_main
-
-#     def _save_csv(self,):
-#
-#         for label in itsct_idxs:
-#     #         x_crds_label = x_crds[itsct_idxs[label]['cols']]
-#     #         y_crds_label = y_crds[itsct_idxs[label]['rows']]
-#
-#             x_crds_label = x_crds[
-#                 itsct_idxs[label]['rows'], itsct_idxs[label]['cols']]
-#
-#             y_crds_label = y_crds[
-#                 itsct_idxs[label]['rows'], itsct_idxs[label]['cols']]
-#
-#             crds_df = DataFrame(data=
-#                 {'x': x_crds_label,
-#                  'y': y_crds_label,
-#                  'rows':itsct_idxs[label]['rows'],
-#                  'cols':itsct_idxs[label]['cols'],
-#                  'itsctd_area':itsct_idxs[label]['itsctd_area'],
-#                  'rel_itsctd_area':itsct_idxs[label]['rel_itsctd_area'],
-#                  'x_cen_crds':itsct_idxs[label]['x_cen_crds'],
-#                  'y_cen_crds':itsct_idxs[label]['y_cen_crds'],
-#                  **extracted_values[label]})
-#
-#             crds_df.to_csv(f'{label}.csv', sep=';', index=False)
-#         return

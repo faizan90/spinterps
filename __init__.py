@@ -43,4 +43,6 @@ from .vgclus import ClusteredVariograms
 
 from .crds import CrdsReProjNC
 
+from .rsmp import ResampleRasToRas
+
 from .misc import get_theo_vg_vals, show_formatted_elapsed_time, ret_mp_idxs

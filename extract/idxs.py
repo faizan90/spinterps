@@ -887,11 +887,11 @@ class GeomAndCrdsItsctIdxs:
 
         # The 2D distance version.
         # This requires too much memory and operations.
-#         x_crds = np.tile(self._x_crds[x_idxs], n_y_idxs)
-#         y_crds = np.repeat(self._y_crds[y_idxs], n_x_idxs)
-#
-#         assert x_crds.size == y_crds.size, (
-#             'x_crds and y_crds not having same length!')
+        # x_crds = np.tile(self._x_crds[x_idxs], n_y_idxs)
+        # y_crds = np.repeat(self._y_crds[y_idxs], n_x_idxs)
+        #
+        # assert x_crds.size == y_crds.size, (
+        #     'x_crds and y_crds not having same length!')
         #======================================================================
 
         # The 1D distance verions. Way more efficient than the 2D version.
@@ -917,16 +917,16 @@ class GeomAndCrdsItsctIdxs:
             #==================================================================
 
             # The 2D distance version.
-#             dists = (x_sq_diff + y_sq_diff) ** 0.5
-#
-#             min_dist_idx = np.argmin(dists)
-#
-#             min_x_crd_idx = x_idxs[(min_dist_idx % n_x_idxs)]
-#             min_y_crd_idx = y_idxs[(min_dist_idx // n_x_idxs)]
-#
-#             min_dist = (
-#                 ((pt_x - self._x_crds[min_x_crd_idx]) ** 2) +
-#                 ((pt_y - self._y_crds[min_y_crd_idx]) ** 2)) ** 0.5
+            # dists = (x_sq_diff + y_sq_diff) ** 0.5
+            #
+            # min_dist_idx = np.argmin(dists)
+            #
+            # min_x_crd_idx = x_idxs[(min_dist_idx % n_x_idxs)]
+            # min_y_crd_idx = y_idxs[(min_dist_idx // n_x_idxs)]
+            #
+            # min_dist = (
+            #     ((pt_x - self._x_crds[min_x_crd_idx]) ** 2) +
+            #     ((pt_y - self._y_crds[min_y_crd_idx]) ** 2)) ** 0.5
             #==================================================================
 
             # The 1D distance version.
