@@ -30,15 +30,17 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ras_to_ras')
     os.chdir(main_dir)
 
-    src_pth = Path(r'vils_rott_isen_fil_1km.tif')  # Path(r'vils_rott_isen_corine_2018_domain.tif')  # Path(r'U2018_CLC2018_V2020_20u1_utm32N__bayern_epsg32632.tif')  #
+    src_pth = Path(r'vils_rott_isen_corine_2018_domain.tif')  #  Path(r'U:\TUM\projects\altoetting\landuse\DATA\U2018_CLC2018_V2020_20u1.tif')  # Path(r'vils_rott_isen_fil_1km.tif')  # Path(r'U2018_CLC2018_V2020_20u1_utm32N__bayern_epsg32632.tif')  #
     dst_pth = Path(r'vils_rott_isen_fil_1km.tif')
 
-    out_pth = Path(r'ref_aln.tif')
+    out_pth = Path(r'ref_aln2.tif')
+
+    n_cpus = 'auto'
     #==========================================================================
 
     rsp_obj = ResampleRasToRas(True)
 
-    rsp_obj.set_inputs(src_pth, dst_pth)
+    rsp_obj.set_inputs(src_pth, dst_pth, n_cpus)
     rsp_obj.set_outputs(out_pth)
 
     rsp_obj.resample()

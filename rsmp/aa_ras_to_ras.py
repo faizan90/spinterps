@@ -7,13 +7,18 @@ Created on 08.07.2024
 '''
 
 from pathlib import Path
+from multiprocessing import Manager, Pool as MPPool
 
 import numpy as np
 from osgeo import ogr, gdal
 from pyproj import Transformer
 
 from ..extract import ExtractGTiffCoords
-from ..misc import print_sl, print_el
+
+from ..mpg import init_shm_arrs, fill_shm_arrs, get_shm_arr, free_shm_arrs
+from ..mpg import SHMARGS, DummyLock
+
+from ..misc import print_sl, print_el, ret_mp_idxs, get_n_cpus
 
 ogr.UseExceptions()
 gdal.UseExceptions()
@@ -31,26 +36,48 @@ class ResampleRasToRas:
         self._src_pth = None
         self._dst_pth = None
 
+        self._mpg_ncs = None  # Number of processes.
+        self._mpg_pol = None  # MP Pool.
+        self._mpg_mmr = None  # Manager.
+        self._mpg_lck = None  # Lock.
+        self._mpg_dct = None  # Dictionary.
+
         self._inp_set_flg = False
         self._otp_set_flg = False
         return
 
-    def set_inputs(self, path_to_src, path_to_dst):
+    def set_inputs(self, path_to_src, path_to_dst, n_cpus):
 
         if self._vb:
             print_sl()
 
             print('Setting resampling inputs...')
 
+        # Source.
         assert isinstance(path_to_src, Path), type(path_to_src)
         assert path_to_src.exists(), path_to_src
 
         self._src_pth = path_to_src.absolute()
 
+        # Desti.
         assert isinstance(path_to_dst, Path), type(path_to_dst)
         assert path_to_dst.exists(), path_to_dst
 
         self._dst_pth = path_to_dst.absolute()
+
+        # MPG.
+        if isinstance(n_cpus, str):
+            assert n_cpus == 'auto', 'Invalid n_cpus!'
+
+            n_cpus = get_n_cpus()
+
+        else:
+            assert isinstance(n_cpus, int), 'n_cpus is not an integer!'
+
+            assert n_cpus > 0, 'Invalid n_cpus!'
+
+        self._mpg_ncs = n_cpus
+        #======================================================================
 
         if self._vb:
             print(f'INFO: Set the following parameters for the inputs:')
@@ -86,8 +113,6 @@ class ResampleRasToRas:
 
     def resample(self):
 
-        # TODO: Test with a single column of single row raster.
-
         assert self._inp_set_flg
         assert self._otp_set_flg
 
@@ -107,6 +132,18 @@ class ResampleRasToRas:
 
         if self._vb:
             print_sl()
+
+        if self._mpg_ncs > 1:
+            if self._vb: print('Initiating multiprocessing pool...')
+
+            self._mpg_pol = MPPool(self._mpg_ncs)
+            self._mpg_mmr = Manager()
+            self._mpg_lck = self._mpg_mmr.Lock()
+            self._mpg_dct = self._mpg_mmr.dict()
+
+        else:
+            self._mpg_lck = DummyLock()
+        #======================================================================
 
         src_dst_tfm = Transformer.from_crs(
             self._get_ras_crs(self._src_pth),
@@ -167,6 +204,21 @@ class ResampleRasToRas:
             src_dst_arr,
             dst_xcs[dst_beg_row, dst_beg_col],
             dst_ycs[dst_beg_row, dst_beg_col])
+
+        if self._mpg_ncs > 1:
+            if self._vb: print('Terminating multiprocessing pool...')
+
+            self._mpg_pol.close()
+            self._mpg_pol.join()
+            self._mpg_pol = None
+
+            self._mpg_mmr = None
+            self._mpg_lck = None
+            self._mpg_dct = None
+
+        else:
+            self._mpg_lck = None
+        #======================================================================
 
         if self._vb:
             print_el()
@@ -537,25 +589,93 @@ class ResampleRasToRas:
         assert xcs.ndim == 2, xcs.ndim
         assert xcs.shape == ycs.shape, (xcs.shape, ycs.shape)
 
-        rows, cols = xcs.shape
-
         ply_dct = {}
-        for i in range(rows - 1):
-            for j in range(cols - 1):
-                rng = ogr.Geometry(ogr.wkbLinearRing)
 
-                rng.AddPoint(xcs[i, j], ycs[i, j])
-                rng.AddPoint(xcs[i, j + 1], ycs[i, j + 1])
-                rng.AddPoint(xcs[i + 1, j + 1], ycs[i + 1, j + 1])
-                rng.AddPoint(xcs[i + 1, j], ycs[i + 1, j])
-                rng.AddPoint(xcs[i, j], ycs[i, j])
+        args = RTRArgs()
 
-                ply = ogr.Geometry(ogr.wkbPolygon)
-                ply.AddGeometry(rng)
+        # MP does not work due to GDAL object being unpickleable.
+        if True:  # self._mpg_pol is None:
+            args.mpg_flg = False
 
-                ply_dct[(i, j)] = ply
+            args.xcs = xcs
+            args.ycs = ycs
+
+            args.ply_dct = ply_dct
+
+            get_ply_dct_frm_crd_sgl(
+                ((i for i in range(xcs.shape[0] - 1)), args))
+
+        else:
+            args.mpg_flg = True
+
+            args.ply_dct = self._mpg_dct
+
+            shm_args = SHMARGS()
+            shm_arr_dct = {}
+
+            shm_arr_dct['xcs'] = xcs
+            shm_arr_dct['ycs'] = ycs
+            #==================================================================
+
+            init_shm_arrs(args, shm_args, shm_arr_dct)
+
+            mpg_ixs = ret_mp_idxs(xcs.shape[0] - 1, self._mpg_pol._processes)
+
+            iis = np.arange(xcs.shape[0] - 1)
+
+            # No shuffling needed here.
+            mpg_args = (
+                (iis[i:j], args) for i, j in zip(mpg_ixs[:-1], mpg_ixs[+1:]))
+
+            list(self._mpg_pol.map(
+                get_ply_dct_frm_crd_sgl, mpg_args, chunksize=1))
+            #==================================================================
+
+            for key, val in shm_arr_dct.items():
+
+                if key not in ('xxx'): continue
+
+                if hasattr(args, key): continue
+
+                val[:] = get_shm_arr(args, key)
+
+            free_shm_arrs(shm_args)
+            #==================================================================
+
+            for key in self._mpg_dct:
+                ply_dct[key] = self._mpg_dct[key]
+
+                del self._mpg_dct[key]
+
+            self._mpg_dct.clear()
+            #==================================================================
 
         return ply_dct
+
+    # def _get_ply_dct_frm_crd(self, xcs, ycs):
+    #
+    #     assert xcs.ndim == 2, xcs.ndim
+    #     assert xcs.shape == ycs.shape, (xcs.shape, ycs.shape)
+    #
+    #     rows, cols = xcs.shape
+    #
+    #     ply_dct = {}
+    #     for i in range(rows - 1):
+    #         for j in range(cols - 1):
+    #             rng = ogr.Geometry(ogr.wkbLinearRing)
+    #
+    #             rng.AddPoint(xcs[i, j], ycs[i, j])
+    #             rng.AddPoint(xcs[i, j + 1], ycs[i, j + 1])
+    #             rng.AddPoint(xcs[i + 1, j + 1], ycs[i + 1, j + 1])
+    #             rng.AddPoint(xcs[i + 1, j], ycs[i + 1, j])
+    #             rng.AddPoint(xcs[i, j], ycs[i, j])
+    #
+    #             ply = ogr.Geometry(ogr.wkbPolygon)
+    #             ply.AddGeometry(rng)
+    #
+    #             ply_dct[(i, j)] = ply
+    #
+    #     return ply_dct
 
     def _get_ply_grd_ixs(self, ply, xcs, ycs):
 
@@ -682,13 +802,52 @@ class ResampleRasToRas:
         xcs_tfm, ycs_tfm = src_dst_tfm.transform(xcs[i, j], ycs[i, j])
 
         if np.isclose(xcs_tfm, xcs[i, j]) and np.isclose(ycs[i, j], ycs_tfm):
-
             return
 
-        for i in range(xcs.shape[0]):
-            for j in range(ycs.shape[0]):
-                xcs[i, j], ycs[i, j] = src_dst_tfm.transform(
-                    xcs[i, j], ycs[i, j])
+        args = RTRArgs()
+        args.src_dst_tfm = args.src_dst_tfm
+
+        if self._mpg_pol is None:
+            args.mpg_flg = False
+
+            args.xcs = xcs
+            args.ycs = ycs
+
+            tfm_msh_sgl(((i for i in range(xcs.shape[0])), args))
+
+        else:
+            args.mpg_flg = True
+
+            shm_args = SHMARGS()
+            shm_arr_dct = {}
+
+            shm_arr_dct['xcs'] = xcs
+            shm_arr_dct['ycs'] = ycs
+            #==================================================================
+
+            init_shm_arrs(args, shm_args, shm_arr_dct)
+
+            mpg_ixs = ret_mp_idxs(xcs.shape[0], self._mpg_pol._processes)
+
+            iis = np.arange(xcs.shape[0])
+
+            # No shuffling needed here.
+            mpg_args = (
+                (iis[i:j], args) for i, j in zip(mpg_ixs[:-1], mpg_ixs[+1:]))
+
+            list(self._mpg_pol.map(tfm_msh_sgl, mpg_args, chunksize=1))
+            #==================================================================
+
+            for key, val in shm_arr_dct.items():
+
+                if key not in ('xcs', 'ycs'): continue
+
+                if hasattr(args, key): continue
+
+                val[:] = get_shm_arr(args, key)
+
+            free_shm_arrs(shm_args)
+            #==================================================================
 
         return
 
@@ -726,3 +885,60 @@ class ResampleRasToRas:
         ras_crd_obj.extract_coordinates()
 
         return ras_crd_obj
+
+
+def get_ply_dct_frm_crd_sgl(args):
+
+    '''
+    GDAL object cannot be pickled somehow. For now no MP.
+    '''
+
+    iis, args = args
+
+    if args.mpg_flg:
+        fill_shm_arrs(args)
+
+    for i in iis:
+        for j in range(args.xcs.shape[1] - 1):
+            rng = ogr.Geometry(ogr.wkbLinearRing)
+
+            rng.AddPoint(args.xcs[i, j], args.ycs[i, j])
+            rng.AddPoint(args.xcs[i, j + 1], args.ycs[i, j + 1])
+            rng.AddPoint(args.xcs[i + 1, j + 1], args.ycs[i + 1, j + 1])
+            rng.AddPoint(args.xcs[i + 1, j], args.ycs[i + 1, j])
+            rng.AddPoint(args.xcs[i, j], args.ycs[i, j])
+
+            ply = ogr.Geometry(ogr.wkbPolygon)
+            ply.AddGeometry(rng)
+
+            args.ply_dct[(i, j)] = ply
+
+    return
+
+
+def tfm_msh_sgl(args):
+
+    '''
+    Inplace transform!
+    '''
+
+    if args.mpg_flg:
+        fill_shm_arrs(args)
+
+    ii, args = args
+
+    for i in ii:
+        for j in range(args.xcs.shape[1]):
+
+            (args.xcs[i, j],
+             args.ycs[i, j]) = args.src_dst_tfm.transform(
+                 args.xcs[i, j],
+                 args.ycs[i, j])
+
+    return
+
+
+class RTRArgs:
+
+    def __init__(self):
+        return
