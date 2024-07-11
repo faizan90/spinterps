@@ -20,27 +20,45 @@ import timeit
 import traceback as tb
 from pathlib import Path
 
-from spinterps import ResampleRasToRas
+import pyproj
 
-DEBUG_FLAG = False
+from spinterps import ResampleNCFToRas
+
+DEBUG_FLAG = True
 
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ras_to_ras')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ncf_to_ras')
     os.chdir(main_dir)
 
-    src_pth = Path(r'vils_rott_isen_corine_2018_domain.tif')  # Path(r'vils_rott_isen_fil_1km.tif')  # Path(r'U:\TUM\projects\altoetting\landuse\DATA\U2018_CLC2018_V2020_20u1.tif')  #  Path(r'U2018_CLC2018_V2020_20u1_utm32N__bayern_epsg32632.tif')  #
-    dst_pth = Path(r'vils_rott_isen_fil_1km.tif')
+    src_pth = Path(r'T:\ECAD\rr_ens_mean_0.1deg_reg_v29.0e.nc')
+    dst_pth = Path(r'vils_rott_isen_fil_1km.tif')  # Path(r'vils_rott_isen_corine_2018_wgs84.tif')  #
 
-    out_pth = Path(r'ref_aln2.tif')
+    out_pth = Path(r'ncf_to_ras6.nc')
+
+    src_vrs = ('rr',)
+    src_tlb = 'time'
+    src_crs = pyproj.crs.CRS.from_epsg('4326')
+
+    src_xlb = 'longitude'
+    src_ylb = 'latitude'
 
     n_cpus = 'auto'
     #==========================================================================
 
-    rsp_obj = ResampleRasToRas(True)
+    rsp_obj = ResampleNCFToRas(True)
 
-    rsp_obj.set_inputs(src_pth, dst_pth, n_cpus)
+    rsp_obj.set_inputs(
+        src_pth,
+        dst_pth,
+        n_cpus,
+        src_vrs,
+        src_xlb,
+        src_ylb,
+        src_tlb,
+        src_crs)
+
     rsp_obj.set_outputs(out_pth)
 
     rsp_obj.resample()

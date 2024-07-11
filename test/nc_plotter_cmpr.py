@@ -26,21 +26,21 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ncf_to_ras')
 
     os.chdir(main_dir)
 
-    in_nc_path_1 = Path(r'kriging_regen_ppt_1D.nc')
-    var_label_1 = 'EDK'
-    x_label_1 = 'X'
-    y_label_1 = 'Y'
+    in_nc_path_1 = Path(r'ncf_to_ras6.nc')
+    var_label_1 = 'rr'
+    x_label_1 = 'X2D'
+    y_label_1 = 'Y2D'
     time_label_1 = 'time'
     sclr_1 = None
 
-    in_nc_path_2 = Path(r'D:\fradnc\regen_radolan_ppt_2006_2022_ltd_ifl__RRd_RTsum.nc')
-    var_label_2 = 'RW'
-    x_label_2 = 'x_utm32n'
-    y_label_2 = 'y_utm32n'
+    in_nc_path_2 = Path(r'T:\ECAD\rr_ens_mean_0.1deg_reg_v29.0e.nc')
+    var_label_2 = 'rr'
+    x_label_2 = 'x_utm32n'  # 'longitude'  #
+    y_label_2 = 'y_utm32n'  # 'latitude'  #
     time_label_2 = 'time'
     sclr_2 = None
 
@@ -50,11 +50,29 @@ def main():
 
     cmap = 'viridis'  # 'Blues'  #
 
-    # var_min_val = 0
-    # var_max_val = 40
+    var_min_val = 0
+    var_max_val = 10
 
     # var_min_val = 0
     # var_max_val = 2
+
+    # x_llim = 11.75
+    # x_ulim = 13.50
+    #
+    # y_llim = 49.2
+    # y_ulim = 47.6
+
+    # x_llim = None
+    # x_ulim = None
+    #
+    # y_llim = None
+    # y_ulim = None
+
+    x_llim = 700000
+    x_ulim = 830000
+
+    y_llim = 5.42e6
+    y_ulim = 5.32e6
 
     show_title_flag = True
     # show_title_flag = False
@@ -72,7 +90,7 @@ def main():
     #     format='%Y-%m-%d %H:%M:%S')
 
     beg_time, end_time = pd.to_datetime(
-        ['2009-05-26', '2009-06-27'],
+        ['1950-01-01', '1950-01-10'],
         format='%Y-%m-%d')
 
     # beg_time, end_time = pd.to_datetime(
@@ -80,13 +98,13 @@ def main():
     #     format='%Y-%m-%d %H')
 
     # Catchments shapefile.
-    in_cat_file = Path(r'regen_catchment.shp')
+    in_cat_file = Path(r'vils_rott_isen_catchment.shp')  # None
 
     cat_col = 'DN'
 
     drop_stns = []  # [420, 3421, 427, 3465, 3470]
 
-    out_figs_dir = Path(r'cmpr_grids_radolan_obs__ppt2')
+    out_figs_dir = Path(r'cmpr_grids4')
     #==========================================================================
 
     with nc.Dataset(in_nc_path_1, 'r') as nc_hdl:
@@ -141,7 +159,8 @@ def main():
         x_crds_plt_msh_2, y_crds_plt_msh_2 = (x_crds_2, y_crds_2)
     #==========================================================================
 
-    cats_hdl = fiona.open(str(in_cat_file))
+    if in_cat_file is not None:
+        cats_hdl = fiona.open(str(in_cat_file))
     #==========================================================================
 
     out_var_figs_dir = out_figs_dir / f'{var_label_1}__{2}'
@@ -185,8 +204,8 @@ def main():
             grd_max_2 = np.nanmax(interp_fld_2)
         #======================================================================
 
-        var_min_val = np.nanmin([grd_min_1, grd_min_2])
-        var_max_val = np.nanmax([grd_max_1, grd_max_2])
+        # var_min_val = np.nanmin([grd_min_1, grd_min_2])
+        # var_max_val = np.nanmax([grd_max_1, grd_max_2])
         #======================================================================
 
         pclr = axs[0].pcolormesh(
@@ -195,7 +214,7 @@ def main():
             interp_fld_1,
             vmin=var_min_val,
             vmax=var_max_val,
-            shading='auto',
+            shading='auto',  # 'flat',
             cmap=cmap)
 
         axs[0].set_xlabel('Easting')
@@ -219,31 +238,32 @@ def main():
             interp_fld_2,
             vmin=var_min_val,
             vmax=var_max_val,
-            shading='auto',
+            shading='auto',  # 'flat',
             cmap=cmap)
 
-        for geom in cats_hdl:
+        if in_cat_file is not None:
+            for geom in cats_hdl:
 
-            cat_id = geom['properties'][cat_col]
+                cat_id = geom['properties'][cat_col]
 
-            if cat_id in drop_stns:
-                continue
+                if cat_id in drop_stns:
+                    continue
 
-            geom_type = geom['geometry']['type']
-            if geom_type == 'Polygon':
-                pts = [np.array(geom['geometry']['coordinates'][0]), ]
+                geom_type = geom['geometry']['type']
+                if geom_type == 'Polygon':
+                    pts = [np.array(geom['geometry']['coordinates'][0]), ]
 
-            elif geom_type == 'MultiPolygon':
-                pts = [
-                    np.array(sub_geom[0])
-                    for sub_geom in geom['geometry']['coordinates']]
+                elif geom_type == 'MultiPolygon':
+                    pts = [
+                        np.array(sub_geom[0])
+                        for sub_geom in geom['geometry']['coordinates']]
 
-            else:
-                raise ValueError(f'Unknown geometry type: {geom_type}!')
+                else:
+                    raise ValueError(f'Unknown geometry type: {geom_type}!')
 
-            for geom_i in range(len(pts)):
-                axs[0].plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='white')
-                axs[1].plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='white')
+                for geom_i in range(len(pts)):
+                    axs[0].plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='black')
+                    axs[1].plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='black')
         #======================================================================
 
         # cb = fig.colorbar(pclr)
@@ -278,9 +298,15 @@ def main():
             orientation='vertical')
         #======================================================================
 
+        axs[0].set_xlim(x_llim, x_ulim)
+        axs[0].set_ylim(y_ulim, y_llim)
+
+        axs[1].set_xlim(x_llim, x_ulim)
+        axs[1].set_ylim(y_ulim, y_llim)
+
         out_fig_name = f'{var_label_1.lower()}_{time_str_1}.png'
 
-        plt.savefig(str(out_var_figs_dir / out_fig_name), bbox_inches='tight')
+        plt.savefig(str(out_var_figs_dir / out_fig_name), bbox_inches='tight', dpi=600)
 
         # cb.remove()
 

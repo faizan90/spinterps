@@ -7,18 +7,20 @@ Created on 08.07.2024
 '''
 
 from pathlib import Path
+from timeit import default_timer
 from multiprocessing import Manager, Pool as MPPool
 
 import numpy as np
 from osgeo import ogr, gdal
 from pyproj import Transformer
+# from shapely import Polygon
 
 from ..extract import ExtractGTiffCoords
 
 from ..mpg import init_shm_arrs, fill_shm_arrs, get_shm_arr, free_shm_arrs
 from ..mpg import SHMARGS, DummyLock
 
-from ..misc import print_sl, print_el, ret_mp_idxs, get_n_cpus
+from ..misc import print_sl, print_el, ret_mp_idxs  # , get_n_cpus
 
 ogr.UseExceptions()
 gdal.UseExceptions()
@@ -69,12 +71,15 @@ class ResampleRasToRas:
         if isinstance(n_cpus, str):
             assert n_cpus == 'auto', 'Invalid n_cpus!'
 
-            n_cpus = get_n_cpus()
+            # No need advantage by using MP.
+            n_cpus = 1  # get_n_cpus()
 
         else:
             assert isinstance(n_cpus, int), 'n_cpus is not an integer!'
 
             assert n_cpus > 0, 'Invalid n_cpus!'
+
+        n_cpus = 1
 
         self._mpg_ncs = n_cpus
         #======================================================================
@@ -84,6 +89,7 @@ class ResampleRasToRas:
 
             print(f'Source path: {self._src_pth}')
             print(f'Desti. path: {self._dst_pth}')
+            print(f'No. of Procs: {self._mpg_ncs}')
 
             print_el()
 
@@ -99,7 +105,11 @@ class ResampleRasToRas:
 
         assert isinstance(path_to_out, Path), type(path_to_out)
 
-        self._out_pth = path_to_out.absolute()
+        path_to_out = path_to_out.absolute()
+
+        assert path_to_out.parents[0].exists(), path_to_out.parents[0]
+
+        self._out_pth = path_to_out
 
         if self._vb:
             print(f'INFO: Set the following parameters for the outputs:')
@@ -116,8 +126,8 @@ class ResampleRasToRas:
         assert self._inp_set_flg
         assert self._otp_set_flg
 
-        src_crd_obj = self._get_crd_obj(self._src_pth)
-        dst_crd_obj = self._get_crd_obj(self._dst_pth)
+        src_crd_obj = self._get_crd_obj_ras(self._src_pth)
+        dst_crd_obj = self._get_crd_obj_ras(self._dst_pth)
 
         src_xcs = src_crd_obj.get_x_coordinates()
         src_ycs = src_crd_obj.get_y_coordinates()
@@ -158,7 +168,9 @@ class ResampleRasToRas:
         if self._vb: print(f'Desti. original mesh shape: {dst_xcs.shape}...')
         #======================================================================
 
-        (src_wts_dct,
+        (src_xcs,
+         src_ycs,
+         src_wts_dct,
          (src_beg_row,
           src_end_row,
           src_beg_col,
@@ -190,7 +202,7 @@ class ResampleRasToRas:
 
         if self._vb: print('Computing resampled array...')
 
-        src_dst_arr = self._get_wtd_arr(src_arr, dst_arr, dst_xcs, src_wts_dct)
+        src_dst_arr = self._get_wtd_arr_ras(src_arr, dst_arr, dst_xcs, src_wts_dct)
 
         if self._vb: print(
             f'Source transformed array shape: {src_dst_arr.shape}...')
@@ -268,7 +280,7 @@ class ResampleRasToRas:
         out_ras = ref_ras = None
         return
 
-    def _get_wtd_arr(self, src_arr, dst_arr, dst_xcs, src_wts_dct):
+    def _get_wtd_arr_ras(self, src_arr, dst_arr, dst_xcs, src_wts_dct):
 
         src_dst_arr = np.full(
             (src_arr.shape[0], dst_xcs.shape[0] - 1, dst_xcs.shape[1] - 1),
@@ -278,16 +290,30 @@ class ResampleRasToRas:
         assert dst_arr.shape[1:] == src_dst_arr.shape[1:], (
                 dst_arr.shape, src_dst_arr.shape)
 
-        for m in range(src_arr.shape[0]):
+        if False:
+            for m in range(src_arr.shape[0]):
+                for (i, j), wts_dct in src_wts_dct.items():
+
+                    if np.isnan(dst_arr[0, i, j]): continue
+
+                    src_dst_val = 0.0
+                    for (k, l), wht in wts_dct.items():
+                        src_dst_val += wht * src_arr[m, k, l]
+
+                    src_dst_arr[m, i, j] = src_dst_val
+
+        else:
             for (i, j), wts_dct in src_wts_dct.items():
 
                 if np.isnan(dst_arr[0, i, j]): continue
 
-                src_dst_val = 0.0
-                for (k, l), wt in wts_dct.items():
-                    src_dst_val += wt * src_arr[m, k, l]
+                src_dst_vls = np.zeros(
+                    src_dst_arr.shape[0], dtype=src_dst_arr.dtype.type)
 
-                src_dst_arr[m, i, j] = src_dst_val
+                for (k, l), wht in wts_dct.items():
+                    src_dst_vls += wht * src_arr[:, k, l]
+
+                src_dst_arr[:, i, j] = src_dst_vls
 
         return src_dst_arr
 
@@ -399,6 +425,8 @@ class ResampleRasToRas:
             src_xcs, src_ycs, dst_xcs, dst_ycs, src_ply_dct)
 
         return (
+            src_xcs,
+            src_ycs,
             src_wts_dct,
             (src_beg_row,
              src_end_row,
@@ -415,9 +443,6 @@ class ResampleRasToRas:
         assert src_xcs.ndim == 2, src_xcs.ndim
         assert src_xcs.size >= 2, src_xcs.shape
         assert src_xcs.shape == src_ycs.shape, (src_xcs.shape, src_ycs.shape)
-
-        # assert src_xcs.shape == dst_xcs.shape, (src_xcs.shape, dst_xcs.shape)
-        # assert dst_xcs.shape == dst_ycs.shape, (dst_xcs.shape, dst_ycs.shape)
 
         assert dst_xcs.ndim == 2, dst_xcs.ndim
         assert dst_xcs.size >= 2, dst_xcs.shape
@@ -471,7 +496,6 @@ class ResampleRasToRas:
                     cnd_xmx_ymn and
                     cnd_xmx_ymx): continue
 
-                # min is max and max is min!
                 xmn_ymn_row = np.where(xmn_ymn_bls.sum(axis=1))[0][+0]
                 xmn_ymn_col = np.where(xmn_ymn_bls.sum(axis=0))[0][-1]
 
@@ -486,18 +510,18 @@ class ResampleRasToRas:
 
                 min_row = min(
                     [
-                     # xmn_ymn_row,
+                    xmn_ymn_row,
                     xmn_ymx_row,
-                     # xmx_ymn_row,
+                    xmx_ymn_row,
                     xmx_ymx_row,
                     ])
 
                 max_row = max(
                     [
                      xmn_ymn_row,
-                     # xmn_ymx_row,
+                    xmn_ymx_row,
                      xmx_ymn_row,
-                     # xmx_ymx_row,
+                    xmx_ymx_row,
                     ])
 
                 min_col = min(
@@ -543,27 +567,26 @@ class ResampleRasToRas:
                 dst_ply_ara = ply.Area()
                 src_ply_ara = 0.0
 
-                # +1 is required to account for the extent of cell.
-                src_xmn = src_xcs[
-                    min_row:max_row + 1, min_col:max_col + 1].min()
+                if False:
+                    # +1 is required to account for the extent of cell.
+                    src_xmn = src_xcs[
+                        min_row:max_row + 1, min_col:max_col + 1].min()
 
-                src_xmx = src_xcs[
-                    min_row:max_row + 1, min_col:max_col + 1].max()
+                    src_xmx = src_xcs[
+                        min_row:max_row + 1, min_col:max_col + 1].max()
 
-                src_ymn = src_ycs[
-                    min_row:max_row + 1, min_col:max_col + 1].min()
+                    src_ymn = src_ycs[
+                        min_row:max_row + 1, min_col:max_col + 1].min()
 
-                src_ymx = src_ycs[
-                    min_row:max_row + 1, min_col:max_col + 1].max()
+                    src_ymx = src_ycs[
+                        min_row:max_row + 1, min_col:max_col + 1].max()
 
-                # How to account for the area of
-                assert dst_xmn >= src_xmn, (dst_xmn, src_xmn)
-                assert dst_xmx <= src_xmx, (dst_xmx, src_xmx)
+                    assert dst_xmn >= src_xmn, (dst_xmn, src_xmn)
+                    assert dst_xmx <= src_xmx, (dst_xmx, src_xmx)
 
-                assert dst_ymn >= src_ymn, (
-                    dst_ymn, src_ymn)
+                    assert dst_ymn >= src_ymn, (dst_ymn, src_ymn)
 
-                assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
+                    assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
 
                 wts_dct = {}
                 for k in range(min_row, max_row):
@@ -602,13 +625,19 @@ class ResampleRasToRas:
 
             args.ply_dct = ply_dct
 
+            _dtb = default_timer()
+
             get_ply_dct_frm_crd_sgl(
                 ((i for i in range(xcs.shape[0] - 1)), args))
 
+            _dte = default_timer()
+
         else:
+            # Not worth it, for now!
             args.mpg_flg = True
 
             args.ply_dct = self._mpg_dct
+            args.mpg_lck = self._mpg_lck
 
             shm_args = SHMARGS()
             shm_arr_dct = {}
@@ -627,8 +656,23 @@ class ResampleRasToRas:
             mpg_args = (
                 (iis[i:j], args) for i, j in zip(mpg_ixs[:-1], mpg_ixs[+1:]))
 
+            _dtb = default_timer()
+
             list(self._mpg_pol.map(
                 get_ply_dct_frm_crd_sgl, mpg_args, chunksize=1))
+
+            print('Re-reading...')
+            # This is too slow. I think the objects are recreated.
+            # Total waste of time. GDAL is faster but doies not allow pickling.
+            for key in self._mpg_dct: ply_dct.update(self._mpg_dct[key])
+
+                # del self._mpg_dct[key]
+
+            self._mpg_dct.clear()
+
+            _dte = default_timer()
+
+            print(f'get_ply_dct_frm_crd_sgl: {_dte - _dtb:0.2f} secs!')
             #==================================================================
 
             for key, val in shm_arr_dct.items():
@@ -642,13 +686,7 @@ class ResampleRasToRas:
             free_shm_arrs(shm_args)
             #==================================================================
 
-            for key in self._mpg_dct:
-                ply_dct[key] = self._mpg_dct[key]
-
-                del self._mpg_dct[key]
-
-            self._mpg_dct.clear()
-            #==================================================================
+            raise Exception
 
         return ply_dct
 
@@ -679,92 +717,182 @@ class ResampleRasToRas:
 
     def _get_ply_grd_ixs(self, ply, xcs, ycs):
 
+        assert xcs[0, +0] < xcs[0, -1], (xcs[0, +0], xcs[0, -1])
+        assert ycs[+0, 0] > ycs[-1, 0], (ycs[+0, 0] > ycs[-1, 0])
+
         xcs_min, xcs_max, ycs_min, ycs_max = ply.GetEnvelope()
-
-        xcs_min_ixs = xcs <= xcs_min
-        xcs_max_ixs = xcs >= xcs_max
-
-        ycs_min_ixs = ycs <= ycs_min
-        ycs_max_ixs = ycs >= ycs_max
         #======================================================================
+
+        # Cells not in ROI should be True.
+        xcs_min_ixs = (xcs < xcs_min) | np.isclose(xcs, xcs_min)
+        xcs_max_ixs = (xcs > xcs_max) | np.isclose(xcs, xcs_max)
+
+        ycs_min_ixs = (ycs < ycs_min) | np.isclose(ycs, ycs_min)
+        ycs_max_ixs = (ycs > ycs_max) | np.isclose(ycs, ycs_max)
+
+        row_col_ixs = (
+            (~(xcs_min_ixs | xcs_max_ixs)) & (~(ycs_max_ixs | ycs_min_ixs)))
+
+        # # Upper-left corner.
+        # xmn_ymx_row = np.where(
+        #     (xcs_min_ixs & ycs_max_ixs).any(axis=1))[0].max()
+        #
+        # xmn_ymx_col = np.where(
+        #     (xcs_min_ixs & ycs_max_ixs).any(axis=0))[0].max()
+        #
+        # # Lower-left corner.
+        # xmn_ymn_row = np.where(
+        #     (xcs_min_ixs & ycs_min_ixs).any(axis=1))[0].min()
+        #
+        # xmn_ymn_col = np.where(
+        #     (xcs_min_ixs & ycs_min_ixs).any(axis=0))[0].max()
+        #
+        # # Upper-right corner.
+        # xmx_ymx_row = np.where(
+        #     (xcs_max_ixs & ycs_max_ixs).any(axis=1))[0].max()
+        #
+        # xmx_ymx_col = np.where(
+        #     (xcs_max_ixs & ycs_max_ixs).any(axis=0))[0].min()
+        #
+        # # Lower-right corner.
+        # xmx_ymn_row = np.where(
+        #     (xcs_max_ixs & ycs_min_ixs).any(axis=1))[0].min()
+        #
+        # xmx_ymn_col = np.where(
+        #     (xcs_max_ixs & ycs_min_ixs).any(axis=0))[0].min()
 
         # Upper-left corner.
-        xmn_ymx_row = np.where(
-            (xcs_min_ixs & ycs_max_ixs).any(axis=1))[0].max()
-
-        xmn_ymx_col = np.where(
-            (xcs_min_ixs & ycs_max_ixs).any(axis=0))[0].max()
+        xmn_ymx_row = np.where(row_col_ixs.any(axis=1))[0].min()
+        xmn_ymx_col = np.where(row_col_ixs.any(axis=0))[0].min()
 
         # Lower-left corner.
-        xmn_ymn_row = np.where(
-            (xcs_min_ixs & ycs_min_ixs).any(axis=1))[0].min()
-
-        xmn_ymn_col = np.where(
-            (xcs_min_ixs & ycs_min_ixs).any(axis=0))[0].max()
+        xmn_ymn_row = np.where(row_col_ixs.any(axis=1))[0].max()
+        xmn_ymn_col = np.where(row_col_ixs.any(axis=0))[0].min()
 
         # Upper-right corner.
-        xmx_ymx_row = np.where(
-            (xcs_max_ixs & ycs_max_ixs).any(axis=1))[0].max()
-
-        xmx_ymx_col = np.where(
-            (xcs_max_ixs & ycs_max_ixs).any(axis=0))[0].min()
+        xmx_ymx_row = np.where(row_col_ixs.any(axis=1))[0].min()
+        xmx_ymx_col = np.where(row_col_ixs.any(axis=0))[0].max()
 
         # Lower-right corner.
-        xmx_ymn_row = np.where(
-            (xcs_max_ixs & ycs_min_ixs).any(axis=1))[0].min()
-
-        xmx_ymn_col = np.where(
-            (xcs_max_ixs & ycs_min_ixs).any(axis=0))[0].min()
+        xmx_ymn_row = np.where(row_col_ixs.any(axis=1))[0].max()
+        xmx_ymn_col = np.where(row_col_ixs.any(axis=0))[0].max()
         #======================================================================
 
-        # X bounds checks.
-        assert xcs[xmn_ymx_row, xmn_ymx_col] <= xcs_min, (
-            xcs[xmn_ymx_row, xmn_ymx_col], xcs_min)
+        beg_row = min(
+            [xmn_ymn_row,
+             xmn_ymx_row,
+             xmx_ymn_row,
+             xmx_ymx_row])  # - 1
 
-        assert xcs[xmn_ymn_row, xmn_ymn_col] <= xcs_min, (
-            xcs[xmn_ymn_row, xmn_ymn_col], xcs_min)
+        beg_row = max(0, beg_row)
 
-        assert xcs[xmx_ymx_row, xmx_ymx_col] >= xcs_max, (
-            xcs[xmx_ymx_row, xmx_ymx_col], xcs_max)
+        end_row = max(
+            [xmn_ymn_row,
+             xmn_ymx_row,
+             xmx_ymn_row,
+             xmx_ymx_row]) + 1
 
-        assert xcs[xmx_ymn_row, xmx_ymn_col] >= xcs_max, (
-            xcs[xmx_ymn_row, xmx_ymn_col], xcs_max)
+        beg_col = min(
+            [xmn_ymn_col,
+             xmn_ymx_col,
+             xmx_ymn_col,
+             xmx_ymx_col])  # - 1
 
-        # Y bounds checks.
-        assert ycs[xmn_ymn_row, xmn_ymn_col] <= ycs_min, (
-            ycs[xmn_ymx_row, xmn_ymx_col], ycs_min)
+        beg_col = max(0, beg_col)
 
-        assert ycs[xmx_ymn_row, xmx_ymn_col] <= ycs_min, (
-            ycs[xmx_ymn_row, xmx_ymn_col], ycs_min)
-
-        assert ycs[xmn_ymx_row, xmn_ymx_col] >= ycs_max, (
-            ycs[xmn_ymx_row, xmn_ymx_col], ycs_max)
-
-        assert ycs[xmx_ymx_row, xmx_ymx_col] >= ycs_max, (
-            ycs[xmx_ymx_row, xmx_ymx_col], ycs_max)
+        end_col = max(
+            [xmn_ymn_col,
+             xmn_ymx_col,
+             xmx_ymn_col,
+             xmx_ymx_col]) + 1
         #======================================================================
 
-        # Row bounds checks.
-        assert xmn_ymx_row <= xmn_ymn_row, (xmn_ymx_row, xmn_ymn_row)
-        assert xmx_ymx_row <= xmx_ymn_row, (xmx_ymx_row, xmx_ymn_row)
-        assert xmn_ymx_row <= xmx_ymn_row, (xmn_ymx_row, xmx_ymn_row)
+        if False:
+            import matplotlib.pyplot as plt
+            plt.gca().set_aspect('equal')
 
-        # Column bounds checks.
-        assert xmn_ymx_col <= xmx_ymx_col, (xmn_ymx_col, xmx_ymx_col)
-        assert xmn_ymn_col <= xmx_ymn_col, (xmn_ymn_col, xmx_ymn_col)
-        assert xmn_ymx_col <= xmn_ymn_col, (xmn_ymx_col, xmn_ymn_col)
-        #======================================================================
+            xcs_ply = [xcs_min, xcs_min, xcs_max, xcs_max, xcs_min]
+            ycs_ply = [ycs_min, ycs_max, ycs_max, ycs_min, ycs_min]
 
-        # Final row indices.
-        beg_row = min(xmn_ymx_row, xmx_ymx_row)
-        end_row = max(xmx_ymn_row, xmx_ymn_row) + 1
+            plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+            plt.pcolormesh(
+                xcs[beg_row:end_row, beg_col:end_col],
+                ycs[beg_row:end_row, beg_col:end_col],
+                row_col_ixs[beg_row:end_row - 1, beg_col:end_col - 1],)
+            plt.pcolormesh(xcs, ycs, row_col_ixs[:-1,:-1],)
 
-        # Final column indices.
-        beg_col = min(xmn_ymn_col, xmn_ymx_col)
-        end_col = min(xmx_ymn_col, xmx_ymn_col) + 1
+            plt.close()
+
+        # Take care of rotation and small adjustments.
+        while xcs[beg_row:end_row, beg_col:end_col].min() > xcs_min:
+
+            beg_col -= 1
+
+            if beg_col <= 0: break
+
+        beg_col = max(0, beg_col)
+
+        while xcs[beg_row:end_row, beg_col:end_col].max() <= xcs_max:
+
+            end_col += 1
+
+            if end_col >= xcs.shape[1]: break
+
+        end_col = min(xcs.shape[1], end_col)
+
+        while ycs[beg_row:end_row, beg_col:end_col].min() >= ycs_min:
+
+            end_row += 1
+
+            if end_row >= xcs.shape[0]: break
+
+        end_row = min(xcs.shape[0], end_row)
+
+        while ycs[beg_row:end_row, beg_col:end_col].max() < ycs_max:
+
+            beg_row -= 1
+
+            if beg_row <= 0: break
+
+        beg_row = max(0, beg_row)
 
         # Sanity check. Should always pass.
         assert xcs[beg_row:end_row, beg_col:end_col].size >= 2
+
+        # X bounds checks.
+        assert xcs[beg_row:end_row, beg_col:end_col].min() <= xcs_min, (
+            xcs[beg_row:end_row, beg_col:end_col].min(), xcs_min)
+
+        assert xcs[beg_row:end_row, beg_col:end_col].max() >= xcs_max, (
+            xcs[beg_row:end_row, beg_col:end_col].max(), xcs_max)
+
+        # Y bounds checks.
+        assert ycs[beg_row:end_row, beg_col:end_col].min() <= ycs_min, (
+            ycs[beg_row:end_row, beg_col:end_col].min(), ycs_min)
+
+        assert ycs[beg_row:end_row, beg_col:end_col].max() >= ycs_max, (
+            ycs[beg_row:end_row, beg_col:end_col].max(), ycs_max)
+
+        # This works only if y goes low when rows go high.
+        if True:
+            # X limit bounds checks.
+            assert not (xcs[beg_row:end_row, beg_col + 1:end_col].min() <=
+                        xcs_min), (
+                xcs[beg_row:end_row, beg_col:end_col].min(), xcs_min)
+
+            assert not (xcs[beg_row:end_row, beg_col:end_col - 1].max() >=
+                        xcs_max), (
+                xcs[beg_row:end_row, beg_col:end_col].max(), xcs_max)
+
+            # Y limit bounds checks.
+            assert not (ycs[beg_row:end_row - 1, beg_col:end_col].min() <=
+                        ycs_min), (
+                ycs[beg_row:end_row, beg_col:end_col].min(), ycs_min)
+
+            assert not (ycs[beg_row + 1:end_row, beg_col:end_col].max() >=
+                        ycs_max), (
+                ycs[beg_row:end_row, beg_col:end_col].max(), ycs_max)
+        #======================================================================
 
         return beg_row, end_row, beg_col, end_col
 
@@ -805,7 +933,7 @@ class ResampleRasToRas:
             return
 
         args = RTRArgs()
-        args.src_dst_tfm = args.src_dst_tfm
+        args.src_dst_tfm = src_dst_tfm
 
         if self._mpg_pol is None:
             args.mpg_flg = False
@@ -853,6 +981,10 @@ class ResampleRasToRas:
 
     def _get_crd_msh(self, xcs, ycs):
 
+        if xcs.ndim == 2:
+            assert xcs.ndim == ycs.ndim, (xcs.ndim, ycs.ndim)
+            return
+
         assert xcs.ndim == 1, xcs.ndim
         assert ycs.ndim == 1, ycs.ndim
 
@@ -877,7 +1009,7 @@ class ResampleRasToRas:
 
         return ras_crs
 
-    def _get_crd_obj(self, inp_pth):
+    def _get_crd_obj_ras(self, inp_pth):
 
         ras_crd_obj = ExtractGTiffCoords(verbose=self._vb)
 
@@ -898,20 +1030,44 @@ def get_ply_dct_frm_crd_sgl(args):
     if args.mpg_flg:
         fill_shm_arrs(args)
 
-    for i in iis:
-        for j in range(args.xcs.shape[1] - 1):
-            rng = ogr.Geometry(ogr.wkbLinearRing)
+    if not args.mpg_flg:
+        for i in iis:
+            for j in range(args.xcs.shape[1] - 1):
+                rng = ogr.Geometry(ogr.wkbLinearRing)
 
-            rng.AddPoint(args.xcs[i, j], args.ycs[i, j])
-            rng.AddPoint(args.xcs[i, j + 1], args.ycs[i, j + 1])
-            rng.AddPoint(args.xcs[i + 1, j + 1], args.ycs[i + 1, j + 1])
-            rng.AddPoint(args.xcs[i + 1, j], args.ycs[i + 1, j])
-            rng.AddPoint(args.xcs[i, j], args.ycs[i, j])
+                rng.AddPoint(args.xcs[i, j], args.ycs[i, j])
+                rng.AddPoint(args.xcs[i, j + 1], args.ycs[i, j + 1])
+                rng.AddPoint(args.xcs[i + 1, j + 1], args.ycs[i + 1, j + 1])
+                rng.AddPoint(args.xcs[i + 1, j], args.ycs[i + 1, j])
+                rng.AddPoint(args.xcs[i, j], args.ycs[i, j])
 
-            ply = ogr.Geometry(ogr.wkbPolygon)
-            ply.AddGeometry(rng)
+                ply = ogr.Geometry(ogr.wkbPolygon)
+                ply.AddGeometry(rng)
 
-            args.ply_dct[(i, j)] = ply
+                args.ply_dct[(i, j)] = ply
+
+    else:
+        raise Exception
+
+        # ply_dct = {}
+        # for i in iis:
+        #     for j in range(args.xcs.shape[1] - 1):
+        #
+        #         # GDAL is around two times faster in creation.
+        #         ply = Polygon(
+        #             ((args.xcs[i, j], args.ycs[i, j]),
+        #              (args.xcs[i, j + 1], args.ycs[i, j + 1]),
+        #              (args.xcs[i + 1, j + 1], args.ycs[i + 1, j + 1]),
+        #              (args.xcs[i + 1, j], args.ycs[i + 1, j]),
+        #              (args.xcs[i, j], args.ycs[i, j]),)
+        #             )
+        #
+        #         ply_dct[(i, j)] = ply
+        #
+        # # with args.mpg_lck:
+        # args.ply_dct[i] = ply_dct
+        #
+        # del ply_dct
 
     return
 
@@ -922,10 +1078,10 @@ def tfm_msh_sgl(args):
     Inplace transform!
     '''
 
+    ii, args = args
+
     if args.mpg_flg:
         fill_shm_arrs(args)
-
-    ii, args = args
 
     for i in ii:
         for j in range(args.xcs.shape[1]):

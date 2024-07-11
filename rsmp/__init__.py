@@ -7,3 +7,6 @@ Created on 08.07.2024
 '''
 
 from .aa_ras_to_ras import ResampleRasToRas
+from .ab_ras_to_ras_clss import ResampleRasToRasClss
+
+from .ba_ncf_to_ras import ResampleNCFToRas
