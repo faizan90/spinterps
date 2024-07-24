@@ -10,13 +10,16 @@ if ('P:\\Synchronize\\Python3Codes' not in sys.path):
     sys.path.append('P:\\Synchronize\\Python3Codes')
 
 import os
-import timeit
 import time
+import timeit
+import traceback as tb
 from pathlib import Path
 
 import pandas as pd
 
 from spinterps import SpInterpMain
+
+DEBUG_FLAG = False
 
 
 def main():
@@ -111,6 +114,7 @@ def main():
     sim_krige_flag = True
     edk_krige_flag = True
     idw_flag = True
+    nnb_flag = True
     plot_figs_flag = True
     verbose = True
     interp_around_polys_flag = True
@@ -119,6 +123,7 @@ def main():
     sim_krige_flag = False
     edk_krige_flag = False
     idw_flag = False
+    # nnb_flag = False
     plot_figs_flag = False
     # verbose = False
     # interp_around_polys_flag = False
@@ -181,7 +186,7 @@ def main():
     else:
         raise ValueError(f'Incorrect index_type: {index_type}!')
 
-    in_stns_coords_df = (in_stns_coords_df[['X', 'Y', 'Z']]).astype(float)
+    in_stns_coords_df = (in_stns_coords_df[['X', 'Y']]).astype(float)
 
     spinterp_cls = SpInterpMain(verbose)
 
@@ -238,6 +243,9 @@ def main():
     if idw_flag:
         spinterp_cls.turn_inverse_distance_weighting_on(idw_exps)
 
+    if nnb_flag:
+        spinterp_cls.turn_nearest_neighbor_on()
+
     spinterp_cls.verify()
 
     spinterp_cls.interpolate()
@@ -247,28 +255,36 @@ def main():
 
 
 if __name__ == '__main__':
-
-    _save_log_ = False
-    if _save_log_:
-        from datetime import datetime
-        from std_logger import StdFileLoggerCtrl
-
-        # save all console activity to out_log_file
-        out_log_file = os.path.join(
-            r'P:\Synchronize\python_script_logs\\%s_log_%s.log' % (
-            os.path.basename(__file__),
-            datetime.now().strftime('%Y%m%d%H%M%S')))
-
-        log_link = StdFileLoggerCtrl(out_log_file)
-
     print('#### Started on %s ####\n' % time.asctime())
-    START = timeit.default_timer()  # to get the runtime of the program
+    START = timeit.default_timer()
 
-    main()
+    #==========================================================================
+    # When in post_mortem:
+    # 1. "where" to show the stack
+    # 2. "up" move the stack up to an older frame
+    # 3. "down" move the stack down to a newer frame
+    # 4. "interact" start an interactive interpreter
+    #==========================================================================
 
-    STOP = timeit.default_timer()  # Ending time
+    if DEBUG_FLAG:
+        try:
+            main()
+
+        except:
+            pre_stack = tb.format_stack()[:-1]
+
+            err_tb = list(tb.TracebackException(*sys.exc_info()).format())
+
+            lines = [err_tb[0]] + pre_stack + err_tb[2:]
+
+            for line in lines:
+                print(line, file=sys.stderr, end='')
+
+            import pdb
+            pdb.post_mortem()
+    else:
+        main()
+
+    STOP = timeit.default_timer()
     print(('\n#### Done with everything on %s.\nTotal run time was'
            ' about %0.4f seconds ####' % (time.asctime(), STOP - START)))
-
-    if _save_log_:
-        log_link.stop()

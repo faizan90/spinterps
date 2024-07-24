@@ -360,15 +360,16 @@ class SpInterpSteps:
                             ref_2d_vars_inv = np.nan
 
                 if last_failed_flag:
-                    self._fill_idw_dst_data(
-                        n_dsts,
-                        dst_ref_2d_dists_arr_sub,
-                        wts,
-                        ref_data[j],
-                        dst_data,
-                        j,
-                        2.0)
+                    for i in range(n_dsts):
+                        # self._fill_nnb_dst_data(
+                        #     dst_ref_2d_dists_arr_sub,
+                        #     ref_data[j],
+                        #     dst_data,
+                        #     j,
+                        #     i)
 
+                        dst_data[j , i] = ref_data[
+                            j, np.argmin(dst_ref_2d_dists_arr_sub[i])]
                 else:
                     self._fill_krig_idw_dst_data(
                         n_refs,
@@ -376,7 +377,6 @@ class SpInterpSteps:
                         ref_2d_vars_inv,
                         dst_ref_2d_vars_arr_sub,
                         dst_ref_2d_dists_arr_sub,
-                        wts,
                         ref_data,
                         j,
                         dst_data,
@@ -394,7 +394,6 @@ class SpInterpSteps:
             ref_2d_vars_inv,
             dst_ref_2d_vars_arr_sub,
             dst_ref_2d_dists_arr_sub,
-            wts,
             ref_data,
             j,
             dst_data,
@@ -405,17 +404,10 @@ class SpInterpSteps:
 
             if not np.isclose(lmds[:n_refs].sum(), 1.0):
 
-                # IDW used when kriging fails.
-                # TODO: have a flag for this.
+                # NNB used when kriging fails.
 
-                self._fill_idw_dst_data(
-                    n_dsts,
-                    dst_ref_2d_dists_arr_sub,
-                    wts,
-                    ref_data[j],
-                    dst_data,
-                    j,
-                    2.0)
+                dst_data[j , i] = ref_data[
+                    j, np.argmin(dst_ref_2d_dists_arr_sub[i])]
 
             else:
                 dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
@@ -426,23 +418,34 @@ class SpInterpSteps:
                     lmds[n_refs])
         return
 
-    def _fill_idw_dst_data(
-            self,
-            n_dsts,
-            dst_ref_2d_dists_arr_sub,
-            wts,
-            ref_data_j,
-            dst_data,
-            j,
-            idw_exp):
+    # def _fill_nnb_dst_data(
+    #         self,
+    #         dst_ref_2d_dists_arr_sub,
+    #         ref_data_j,
+    #         dst_data,
+    #         j,
+    #         i):
+    #
+    #     dst_data[j, i] = ref_data_j[np.argmin(dst_ref_2d_dists_arr_sub[i])]
+    #     return
 
-        for i in range(n_dsts):
-            wts_sum = fill_wts_and_sum(dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
-
-            mults_sum = get_mults_sum(wts, ref_data_j)
-
-            dst_data[j, i] = mults_sum / wts_sum
-        return
+    # def _fill_idw_dst_data(
+    #         self,
+    #         n_dsts,
+    #         dst_ref_2d_dists_arr_sub,
+    #         wts,
+    #         ref_data_j,
+    #         dst_data,
+    #         j,
+    #         idw_exp):
+    #
+    #     for i in range(n_dsts):
+    #         wts_sum = fill_wts_and_sum(dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
+    #
+    #         mults_sum = get_mults_sum(wts, ref_data_j)
+    #
+    #         dst_data[j, i] = mults_sum / wts_sum
+    #     return
 
     @np.errstate(invalid='ignore')
     def _mod_min_max(self, interp_fld):
@@ -484,7 +487,8 @@ class SpInterpSteps:
 
         if krg_flag:
             assert np.all(vgs_ser != 'nan'), (
-                'NaN VGs not allowed!')
+                'NaN VGs not allowed! '
+                'Use Nugget or any other appropriate one!')
 
         time_steps = data_df.index
         #======================================================================
@@ -571,11 +575,11 @@ class SpInterpSteps:
 
         grps_in_time = grp_cls.get_grps_in_time(data_df)
 
-        # TODO: min_nebor_dist_thresh should be related to time and not just
+        # TODOO: min_nebor_dist_thresh should be related to time and not just
         # proximity. Because, if a very close nebor is active at a time
         # when others are inactive than there is no need to drop one.
 
-        # TODO: Have a threshold of min and max stations for which the
+        # TODOO: Have a threshold of min and max stations for which the
         # neighbors are considered the same.
         #======================================================================
 
@@ -859,6 +863,8 @@ class SpInterpSteps:
          time_steps,
          interp_beg_time,
          est_vars_flds_dict) = args
+
+        _ = est_vars_flds_dict
 
         with lock:
             if self._vb:

@@ -16,52 +16,52 @@ DEBUG_FLAG = True
 
 def main():
 
-    main_dir = Path(r'D:\fradnc')
+    main_dir = Path(r'P:\spinterps\DEBY')
     os.chdir(main_dir)
 
-    path_to_shp = r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E8\regen_catchment.shp'
+    path_to_shp = r'watersheds.shp'
     label_field = r'DN'  # 'Subbasin'  # 'PolygonId'  #
 
     # RADOLAN.
-    paths_to_rass = [Path(f'{year}.nc') for year in range(2006, 2022 + 1)]
+    # paths_to_rass = [Path(f'{year}.nc') for year in range(2006, 2022 + 1)]
 
     # paths_to_rass = main_dir.glob('chirps-*.nc')
-    # paths_to_rass = [
-    #     # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
-    #     # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
-    #     # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
-    #     # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_bay/kriging.nc'),
-    #     # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1H_gkd_dwd_1km_bay/kriging.nc'),
-    #     # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1H_gkd_dwd_1km_bay/kriging.nc'),
-    #     # Path(r'kriging_regen_tem_1D_tg.nc'),
-    #     # Path(r'kriging_regen_ppt_1D.nc'),
-    #     # Path(r'regen_radolan_ppt_2006_2022_ltd_ifl__RRd_RTsum.nc'),
-    #     # Path(r'2016.nc'),
-    #     ]
+    paths_to_rass = [
+        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1H_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1H_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'kriging_regen_tem_1D_tg.nc'),
+        # Path(r'ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
+        Path(r'ppt_1D_gkd_dwd_1km_bay_infilled/kriging.nc'),
+        # Path(r'2016.nc'),
+        ]
 
     input_ras_type = 'nc'
 
     # paths_to_rass = [Path(r'uebk25by20230116_utm32n.tif')]
     # input_ras_type = 'gtiff'
 
-    # nc_x_crds_label = 'X'
-    # nc_y_crds_label = 'Y'
-    # nc_variable_labels = ['EDK']
-    # nc_time_label = 'time'
-
-    nc_x_crds_label = 'x_utm32n'
-    nc_y_crds_label = 'y_utm32n'
-    nc_variable_labels = ['RW']
+    nc_x_crds_label = 'X'
+    nc_y_crds_label = 'Y'
+    nc_variable_labels = ['EDK', ]
     nc_time_label = 'time'
+
+    # nc_x_crds_label = 'x_utm32n'
+    # nc_y_crds_label = 'y_utm32n'
+    # nc_variable_labels = ['RW']
+    # nc_time_label = 'time'
 
     # h5 means tss of pts in h5, nc snips it, csv/pkl lumps it in space.
     # NOTE: In case of invalid numerical values, use raw
     #       output format and post-process it outside.
     # In case of h5 or csv, if ncs are too big. Snip them as nc and
     # then produce the h5 files.
-    out_ext = 'nc'
+    out_ext = 'pkl'
 
-    out_suff = 'regen'
+    out_suff = 'deby2'
 
     src_epsg = None
     dst_epsg = None

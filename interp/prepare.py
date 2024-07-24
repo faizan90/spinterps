@@ -333,10 +333,19 @@ class SpInterpPrepare(SIBD, KDT):
             self._nc_tlab, 'i8', dimensions=dim_t_lab)
 
         if self._index_type == 'date':
-            time_nc[:] = nc.date2num(
+
+            dat_tim_nms = nc.date2num(
                 self._time_rng.to_pydatetime(),
                 units=self._nc_tunits,
                 calendar=self._nc_tcldr)
+
+            # Using frequencies like 10min or 2days needs this.
+            aht_idx = self._tfreq.find(next(filter(str.isalpha, self._tfreq)))
+
+            if aht_idx > 0:
+                dat_tim_nms //= int(self._tfreq[:aht_idx])
+
+            time_nc[:] = dat_tim_nms
 
             time_nc.units = self._nc_tunits
             time_nc.calendar = self._nc_tcldr
@@ -385,6 +394,52 @@ class SpInterpPrepare(SIBD, KDT):
                             self._nc_x_crds.shape[0]))
 
         self._nc_file_path = nc_hdl.filepath()
+        #======================================================================
+
+        # All attributes here.
+        nc_hdl.sett_index_type = str(self._index_type)
+        nc_hdl.sett_stns_min_dist_thrsh = str(
+            self._stns_min_dist_thrsh)
+
+        nc_hdl.sett_drft_rass = str(self._drft_rass)
+        nc_hdl.sett_idw_exps = str(self._idw_exps)
+
+        nc_hdl.sett_ork_flag = str(self._ork_flag)
+        nc_hdl.sett_spk_flag = str(self._spk_flag)
+        nc_hdl.sett_edk_flag = str(self._edk_flag)
+        nc_hdl.sett_idw_flag = str(self._idw_flag)
+        nc_hdl.sett_nnb_flag = str(self._nnb_flag)
+
+        nc_hdl.sett_out_dir = str(self._out_dir)
+
+        nc_hdl.sett_cell_size = str(self._cell_size)
+
+        nc_hdl.sett_tbeg = str(self._tbeg)
+        nc_hdl.sett_tend = str(self._tend)
+        nc_hdl.sett_tfreq = str(self._tfreq)
+
+        nc_hdl.sett_algn_ras = str(self._algn_ras)
+
+        nc_hdl.sett_poly_shp = str(self._poly_shp)
+        nc_hdl.sett_ipoly_flag = str(self._ipoly_flag)
+        nc_hdl.sett_stn_bdist = str(self._stn_bdist)
+        nc_hdl.sett_cell_bdist = str(self._cell_bdist)
+        nc_hdl.sett_poly_simplify_tol_ratio = str(
+            self._poly_simplify_tol_ratio)
+
+        nc_hdl.sett_min_var_thr = str(self._min_var_thr)
+        nc_hdl.sett_min_var_cut = str(self._min_var_cut)
+        nc_hdl.sett_max_var_cut = str(self._max_var_cut)
+        nc_hdl.sett_max_steps_per_chunk = str(
+            self._max_steps_per_chunk)
+        nc_hdl.sett_min_vg_val = str(self._min_vg_val)
+
+        nc_hdl.sett_neb_sel_mthd = str(self._neb_sel_mthd)
+        nc_hdl.sett_n_nebs = str(self._n_nebs)
+        nc_hdl.sett_n_pies = str(self._n_pies)
+
+        nc_hdl.sett_interp_flag_est_vars = str(
+            self._interp_flag_est_vars)
 
         nc_hdl.Source = self._nc_file_path
         nc_hdl.close()

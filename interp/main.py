@@ -436,6 +436,10 @@ class SpInterpMain(SID, SIP):
             vgs_ser = self._vgs_ser.loc[data_df.index]
             vgs_rord_tidxs_ser = self._vgs_rord_tidxs_ser.loc[data_df.index]
 
+            assert np.all(vgs_ser.values != 'nan'), (
+                'NaN VGs not allowed! '
+                'Use Nugget or any other appropriate one!')
+
         else:
             vgs_ser = None
             vgs_rord_tidxs_ser = None
@@ -478,7 +482,7 @@ class SpInterpMain(SID, SIP):
         '''
         megabytes = 1024 ** 2
 
-        bytes_per_number = 8  # A 64-bit float.
+        bytes_per_number = self._intrp_dtype(1).itemsize
 
         # Actual interpreter size will probably be much smaller than this.
         interpreter_size = get_current_proc_size()
@@ -507,11 +511,11 @@ class SpInterpMain(SID, SIP):
             np.prod(self._interp_crds_orig_shape) *
             len(self._interp_args))
 
-        dst_ref_2d_dists_size = bytes_per_number * (
+        dst_ref_2d_dists_size = 8 * (
             self._interp_x_crds_msh.size * self._crds_df.shape[0])
 
         if self._vgs_ser is not None:
-            ref_ref_2d_dists_size = bytes_per_number * (
+            ref_ref_2d_dists_size = 8 * (
                 self._crds_df.shape[0] ** 2)
 
             ref_ref_2d_vars_size = ref_ref_2d_dists_size * 1

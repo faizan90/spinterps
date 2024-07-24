@@ -169,8 +169,8 @@ def merge_ncs_time(
                             compression='zlib',
                             complevel=comp_level,
                             chunksizes=(1,
-                                        nc_hdl[y_coords_lab].shape[0],
-                                        nc_hdl[x_coords_lab].shape[0]))
+                                        nc_hdl[var_lab].shape[1],
+                                        nc_hdl[var_lab].shape[2]))
 
                         data_ncs_dict[var_lab] = data_nc
 

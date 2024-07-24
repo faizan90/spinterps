@@ -685,6 +685,9 @@ class ExtractNetCDFValues:
             assert np.unique(in_var_mem_idxs).size == in_var_mem_idxs.size, (
                 np.unique(in_var_mem_idxs).size, in_var_mem_idxs.size)
 
+        if n_mem_time_prds == 1:
+            in_var_dta = in_var[:]
+
         for label, crds_idxs in indices.items():
 
             cols_idxs = crds_idxs['cols']
@@ -714,7 +717,7 @@ class ExtractNetCDFValues:
             if self._out_fmt in ('raw', 'csv', 'pkl'):
 
                 if n_mem_time_prds == 1:
-                    steps_data = in_var[:][:, rows_idxs, cols_idxs]
+                    steps_data = in_var_dta[:, rows_idxs, cols_idxs]
 
                 else:
                     steps_data = np.full(
@@ -854,7 +857,7 @@ class ExtractNetCDFValues:
                     chunks=(1, rows_idxs.size))
 
                 if n_mem_time_prds == 1:
-                    out_lab_ds[:] = in_var[:][:, rows_idxs, cols_idxs]
+                    out_lab_ds[:] = in_var_dta[:, rows_idxs, cols_idxs]
 
                 else:
                     # NOTE: Reading writing slices like that in nc does not
@@ -880,6 +883,8 @@ class ExtractNetCDFValues:
 
         in_hdl.close()
         in_hdl = None
+
+        in_var_dta = None
 
         if self._out_fmt == 'h5':
             out_hdl.flush()
