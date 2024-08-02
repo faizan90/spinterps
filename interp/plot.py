@@ -69,7 +69,7 @@ class SpInterpPlot:
                     model = vgs_ser.loc[time_steps[i]]
 
                 else:
-                    raise NotImplementedError
+                    raise NotImplementedError(interp_type)
 
                 interp_fld = nc_hdl[interp_label][nc_idx].data
 

@@ -11,7 +11,10 @@ from functools import partial
 from multiprocessing import Pool, Manager, Lock, Process
 
 import numpy as np
+import pandas as pd
 import psutil as ps
+import netCDF4 as nc
+import matplotlib.pyplot as plt
 
 from .data import SpInterpData as SID
 from .steps import SpInterpSteps as SIS
@@ -161,6 +164,17 @@ class SpInterpMain(SID, SIP):
                 f'{interp_time:0.1f} seconds.',)
 
             print_el()
+
+        if True:
+            bt = timeit.default_timer()
+
+            self._save_stats_sers()
+
+            et = timeit.default_timer()
+
+            if self._vb: print(
+                f'Computing final time series statistics took: '
+                f'{et - bt:0.3f} seconds!')
 
         if self._plot_figs_flag:
             if self._vb:
@@ -418,6 +432,132 @@ class SpInterpMain(SID, SIP):
         self._nnb_flag = False
         return
 
+    def _save_stats_sers(self):
+
+        data_df = self._data_df.sort_index()
+
+        interp_labels = [interp_arg[2] for interp_arg in self._interp_args]
+
+        time_steps = data_df.index
+
+        # Count is handeld separately.
+        stats = ['min', 'mean', 'max', 'std', 'count']
+
+        stats_df = pd.DataFrame(
+            index=time_steps,
+            columns=(
+                [f'data_{stat}' for stat in stats] +
+                [f'{ilab}_{stat}'
+                 for ilab in interp_labels for stat in stats]),
+            dtype=np.float32)
+
+        for stat in stats:
+            stats_df.loc[self._data_df.index, f'data_{stat}'] = getattr(
+                self._data_df, stat)(axis=1).astype(np.float32)
+
+        nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r')
+
+        for ilab in interp_labels:
+
+            for i in range(time_steps.shape[0]):
+
+                interp_fld = nc_hdl[ilab][i].data
+
+                for stat in stats:
+
+                    if stat == 'count':
+                        stat_val = np.isfinite(interp_fld).sum(dtype=np.uint64)
+
+                    else:
+                        stat_val = getattr(np, f'nan{stat}')(interp_fld)
+
+                    stats_df.loc[
+                        time_steps[i], f'{ilab}_{stat}'] = np.float32(stat_val)
+
+        stats_df.to_csv(
+            self._out_dir / 'stats.csv', sep=';', float_format='%0.6f')
+
+        nc_hdl.close()
+
+        self._plot_stats_sers(stats_df)
+        return
+
+    def _plot_stats_sers(self, stats_df):
+
+        interp_labels = [interp_arg[2] for interp_arg in self._interp_args]
+
+        stats = ['min', 'mean', 'max', 'std', 'count']
+
+        plt.figure(figsize=(8.0, 6.5))
+
+        for stat in stats:
+
+            max_val = -np.inf
+
+            obs_vls = stats_df[f'data_{stat}'].values
+
+            # Taking mean value wherever not finite.
+            obs_nft_ixs = ~np.isfinite(obs_vls)
+
+            obs_avg = obs_vls[~obs_nft_ixs].mean()
+
+            if obs_nft_ixs.sum():
+                obs_vls[obs_nft_ixs] = obs_avg
+
+            obs_cum_sum = obs_vls.cumsum()
+            ref_cum_sum = np.repeat(obs_avg, obs_vls.size).cumsum()
+
+            if stat == 'count':
+                obs_cum_sum /= obs_cum_sum[-1]
+                ref_cum_sum /= ref_cum_sum[-1]
+
+            max_val = max(max_val, obs_cum_sum[-1])
+            max_val = max(max_val, ref_cum_sum[-1])
+
+            plt.plot(ref_cum_sum, obs_cum_sum, label='DATA')
+
+            for ilab in interp_labels:
+
+                sim_vls = stats_df[f'{ilab}_{stat}'].values
+
+                sim_nft_ixs = ~np.isfinite(sim_vls)
+                if sim_nft_ixs.sum():
+                    sim_vls[sim_nft_ixs] = sim_vls[~sim_nft_ixs].mean()
+
+                sim_cum_sum = sim_vls.cumsum()
+
+                if stat == 'count':
+                    sim_cum_sum /= sim_cum_sum[-1]
+
+                max_val = max(max_val, sim_cum_sum[-1])
+
+                plt.plot(ref_cum_sum, sim_cum_sum, label=ilab)
+
+            plt.plot(
+                [0, max_val],
+                [0, max_val],
+                ls='--',
+                c='k',
+                lw=2.0,
+                alpha=0.75)
+
+            plt.xlabel('REF')
+            plt.ylabel('SIM')
+
+            plt.grid()
+            plt.gca().set_axisbelow(True)
+            plt.gca().set_aspect('equal')
+
+            plt.legend(loc='upper left')
+
+            plt.savefig(
+                self._out_dir / f'stats__{stat}.png', bbox_inches='tight')
+
+            plt.clf()
+
+        plt.close()
+        return
+
     def _get_interp_gen_data(
             self,
             beg_steps_idx,
@@ -550,7 +690,7 @@ class SpInterpMain(SID, SIP):
         grid_chunks = 1
         grid_idxs = ret_mp_idxs(self._interp_crds_orig_shape[0], grid_chunks)
 
-        # TODO: The case when the number of interpolated steps is less
+        # TODOO: The case when the number of interpolated steps is less
         # than the number of threads. It happens rarely. No big worries though.
         max_cpus_ctr = self._n_cpus
         max_chunks_ctr = step_idxs.size - 1

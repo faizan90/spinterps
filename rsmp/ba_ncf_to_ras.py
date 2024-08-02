@@ -19,12 +19,12 @@ from ..extract import ExtractNetCDFCoords
 
 from ..mpg import DummyLock
 
-from ..misc import print_sl, print_el
+from ..misc import print_sl, print_el, get_n_cpus
 
 ogr.UseExceptions()
 gdal.UseExceptions()
 
-from .aa_ras_to_ras import ResampleRasToRas
+from .aa_ras_to_ras import ResampleRasToRas, RTRARGS
 
 
 class ResampleNCFToRas(ResampleRasToRas):
@@ -90,14 +90,12 @@ class ResampleNCFToRas(ResampleRasToRas):
             assert n_cpus == 'auto', 'Invalid n_cpus!'
 
             # No need advantage by using MP.
-            n_cpus = 1  # get_n_cpus()
+            n_cpus = get_n_cpus()
 
         else:
             assert isinstance(n_cpus, int), 'n_cpus is not an integer!'
 
             assert n_cpus > 0, 'Invalid n_cpus!'
-
-        n_cpus = 1
 
         self._mpg_ncs = n_cpus
 
@@ -153,11 +151,10 @@ class ResampleNCFToRas(ResampleRasToRas):
         # NOTE: Assuming coordinates are center when 1D and corner when 2D!
         src_crd_obj = self._get_crd_obj_ncf(self._src_pth)
 
-        # GTiff are always corner.
-        dst_crd_obj = self._get_crd_obj_ras(self._dst_pth)
-
         src_xcs = src_crd_obj.get_x_coordinates()
         src_ycs = src_crd_obj.get_y_coordinates()
+
+        src_crd_obj = None
 
         if src_xcs.ndim == 1:
             assert src_xcs[0] < src_xcs[1], src_xcs
@@ -197,8 +194,13 @@ class ResampleNCFToRas(ResampleRasToRas):
 
         src_xcs, src_ycs = self._get_crd_msh(src_xcs, src_ycs)
 
+        # GTiff are always corners.
+        dst_crd_obj = self._get_crd_obj_ras(self._dst_pth)
+
         dst_xcs = dst_crd_obj.get_x_coordinates()
         dst_ycs = dst_crd_obj.get_y_coordinates()
+
+        dst_crd_obj = None
 
         dst_xcs, dst_ycs = self._get_crd_msh(dst_xcs, dst_ycs)
         #======================================================================
@@ -231,28 +233,80 @@ class ResampleNCFToRas(ResampleRasToRas):
         if self._vb: print(f'Desti. original mesh shape: {dst_xcs.shape}...')
         #======================================================================
 
-        (src_xcs,
-         src_ycs,
-         src_wts_dct,
-         (src_beg_row,
+        if self._vb:
+            print('Calculating intersection indices of both rasters...')
+
+        ((src_beg_row,
           src_end_row,
           src_beg_col,
           src_end_col),
          (dst_beg_row,
           dst_end_row,
           dst_beg_col,
-          dst_end_col)) = self._get_wts_vrs(src_xcs, src_ycs, dst_xcs, dst_ycs)
+          dst_end_col)) = self._get_itt_ixs(src_xcs, src_ycs, dst_xcs, dst_ycs)
         #======================================================================
 
-        if self._vb: print('Reading input array...')
+        if self._vb: print('Snipping coordinates\' mesh...')
 
-        dst_arr, = self._get_ras_vrs(
+        src_xcs, src_ycs = (
+            src_xcs[src_beg_row:src_end_row, src_beg_col:src_end_col],
+            src_ycs[src_beg_row:src_end_row, src_beg_col:src_end_col])
+
+        src_xmn = src_xcs.min()
+        src_xmx = src_xcs.max()
+
+        src_ymn = src_ycs.min()
+        src_ymx = src_ycs.max()
+
+        if self._vb: print(f'Source snipped mesh shape: {src_xcs.shape}...')
+        #======================================================================
+
+        if self._vb: print(f'Adjusting desti. bounds...')
+
+        (dst_beg_row,
+         dst_end_row,
+         dst_beg_col,
+         dst_end_col) = self._get_adj_dst_crd(
+            src_xmn,
+            src_xmx,
+            src_ymn,
+            src_ymx,
+            dst_xcs,
+            dst_ycs,
+            dst_beg_row,
+            dst_end_row,
+            dst_beg_col,
+            dst_end_col)
+        #======================================================================
+
+        dst_xcs, dst_ycs = (
+            dst_xcs[dst_beg_row:dst_end_row, dst_beg_col:dst_end_col],
+            dst_ycs[dst_beg_row:dst_end_row, dst_beg_col:dst_end_col])
+
+        dst_xmn = dst_xcs.min()
+        dst_xmx = dst_xcs.max()
+
+        dst_ymn = dst_ycs.min()
+        dst_ymx = dst_ycs.max()
+
+        if self._vb: print(f'Desti. snipped mesh shape: {dst_xcs.shape}...')
+
+        assert dst_xmn >= src_xmn, (dst_xmn, src_xmn)
+        assert dst_xmx <= src_xmx, (dst_xmx, src_xmx)
+
+        assert dst_ymn >= src_ymn, (dst_ymn, src_ymn)
+        assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
+        #======================================================================
+
+        if self._vb: print('Reading desti. array...')
+
+        dst_arr_shp = self._get_ras_vrs(
             self._dst_pth,
             dst_beg_row,
             dst_end_row,
             dst_beg_col,
             dst_end_col,
-            1)
+            1)[0].shape
 
         src_tcs, src_tcs_unt, src_tcs_cal = self._get_ncf_tvs(
             self._src_pth, self._src_tlb)
@@ -277,6 +331,9 @@ class ResampleNCFToRas(ResampleRasToRas):
             assert dst_ycs[-1, +0] < dst_ycs_1dn[-1] < dst_ycs[-2, +0]
             assert dst_ycs[+1, -1] < dst_ycs_1dn[+0] < dst_ycs[+0, -1]
             assert dst_ycs[-1, -1] < dst_ycs_1dn[-1] < dst_ycs[-2, -1]
+        #======================================================================
+
+        if self._vb: print('Initializing netCDF file...')
 
         self._int_ncf(
             dst_xcs_1dn,
@@ -302,41 +359,89 @@ class ResampleNCFToRas(ResampleRasToRas):
                 src_xcs,
                 src_ycs,
                 src_dst_tfm)
+        #======================================================================
 
+        if self._vb: print('Reading source array(s)...')
+
+        src_ays = {}
         for var in self._src_vrs:
 
-            if self._vb:
-                print('\n')
-                print(f'NCF Variable: {var}')
-
-            src_arr, = self._get_ncf_vrs(
+            src_ays[var] = self._get_ncf_vrs(
                 self._src_pth,
                 src_beg_row,
                 src_end_row,
                 src_beg_col,
                 src_end_col,
                 var,
-                self._src_flp_flg)
-            #==================================================================
+                self._src_flp_flg)[0]
 
-            if self._vb: print('Computing resampled array...')
+        if self._vb: print('Initiating resampled array(s)...')
 
-            src_dst_arr = self._get_wtd_arr_ncf(
-                src_arr, dst_arr, dst_xcs, src_wts_dct)
+        src_dst_ays = {}
+        for var in self._src_vrs:
 
-            src_arr = None
+            src_dst_ays[var] = np.full(
+                (src_ays[var].shape[0],
+                 dst_xcs.shape[0] - 1,
+                 dst_xcs.shape[1] - 1),
+                np.nan,
+                dtype=np.float32)
 
-            if self._vb:
-                print(
-                    f'Source ({var}) transformed array shape: '
-                    f'{src_dst_arr.shape}...')
-            #==================================================================
+            assert dst_arr_shp[1:] == src_dst_ays[var].shape[1:], (
+                    var, dst_arr_shp, src_dst_ays[var].shape)
 
-            if self._vb: print('Saving resampled netCDF...')
+        if self._vb: print(
+            f'Source transformed array(s) shape: {src_dst_ays[var].shape}...')
+        #======================================================================
 
-            self._cvt_ncf_fle(var, src_dst_arr)
+        if self._vb: print('Getting source adjustment variables...')
 
-            src_dst_arr = None
+        (src_bfr_rws,
+         src_bfr_cns,
+         src_xmn_min,
+         src_ymx_max,
+         src_cel_hgt,
+         src_cel_wdh) = self._get_src_adj_vrs(
+             src_xcs, src_ycs, dst_xcs, dst_ycs)
+        #======================================================================
+
+        if self._vb: print('Computing resampled array...')
+
+        ags = RTRARGS()
+
+        # Constants and other small objects go here. The rest in _cpt_wts_vrs.
+        ags.ncf_flg = True
+        ags.vbe_flg = self._vb
+        ags.src_bfr_rws = src_bfr_rws
+        ags.src_bfr_cns = src_bfr_cns
+        ags.src_xmn_min = src_xmn_min
+        ags.src_ymx_max = src_ymx_max
+        ags.src_cel_hgt = src_cel_hgt
+        ags.src_cel_wdh = src_cel_wdh
+        ags.src_wts_dct_sav_flg = self._src_wts_dct_sav_flg
+
+        self._cpt_wts_vrs(
+            ags,
+            src_xcs,
+            src_ycs,
+            dst_xcs,
+            dst_ycs,
+            src_ays,
+            src_dst_ays)
+
+        ags = None
+        src_ays = None
+        src_xcs = None
+        src_ycs = None
+        #======================================================================
+
+        if self._vb: print('Saving resampled raster...')
+
+        for var in self._src_vrs:
+            self._cvt_ncf_fle(var, src_dst_ays[var])
+
+            src_dst_ays[var] = None
+        #======================================================================
 
         if self._mpg_ncs > 1:
             if self._vb: print('Terminating multiprocessing pool...')
@@ -353,8 +458,7 @@ class ResampleNCFToRas(ResampleRasToRas):
             self._mpg_lck = None
         #======================================================================
 
-        if self._vb:
-            print_el()
+        if self._vb: print_el()
         return
 
     def _cvt_ncf_fle(self, var, arr):
@@ -380,13 +484,6 @@ class ResampleNCFToRas(ResampleRasToRas):
 
         ncf_hdl.close()
         return
-
-    def _get_wtd_arr_ncf(self, src_arr, dst_arr, dst_xcs, src_wts_dct):
-
-        src_dst_arr = self._get_wtd_arr_ras(
-            src_arr, dst_arr, dst_xcs, src_wts_dct)
-
-        return src_dst_arr
 
     def _int_ncf(
             self, xcs_1dn, ycs_1dn, xcs_2dn, ycs_2dn, tcs, tcs_unt, tcs_cal):
@@ -540,13 +637,12 @@ class ResampleNCFToRas(ResampleRasToRas):
             if flp_flg:
                 beg_row, end_row = -end_row - 1, -beg_row - 1
 
-            arr = ncf_hdl[var][:, beg_row:end_row, beg_col:end_col].data
+            ary = ncf_hdl[var][:, beg_row:end_row, beg_col:end_col].data
 
             if flp_flg:
-                for i in range(arr.shape[0]):
-                    arr[i,:,:] = arr[i,::-1,:]
+                for i in range(ary.shape[0]): ary[i,:,:] = ary[i,::-1,:]
 
-        return (arr,)
+        return (ary,)
 
     def _vrf_ncf(self, pth, vrs, tlb, xcs, ycs):
 
@@ -586,9 +682,20 @@ class ResampleNCFToRas(ResampleRasToRas):
 
     def _get_crd_obj_ncf(self, inp_pth):
 
-        ras_crd_obj = ExtractNetCDFCoords(verbose=self._vb)
+        ras_crd_obj = ExtractNetCDFCoords(verbose=False)  # self._vb
 
         ras_crd_obj.set_input(inp_pth, self._src_xlb, self._src_ylb)
         ras_crd_obj.extract_coordinates()
 
         return ras_crd_obj
+
+#==============================================================================
+# Dead code afterwards.
+#==============================================================================
+
+# def _get_wtd_arr_ncf(self, src_arr, dst_arr, dst_xcs, src_wts_dct):
+#
+#     src_dst_arr = self._get_wtd_arr_ras(
+#         src_arr, dst_arr, dst_xcs, src_wts_dct)
+#
+#     return src_dst_arr

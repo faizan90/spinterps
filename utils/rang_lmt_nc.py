@@ -29,17 +29,19 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'D:\fradnc')
+    main_dir = Path(r'U:\DEBY\spinterps\tem_1D_tg_gkd_dwd_1km_bay')
     os.chdir(main_dir)
 
-    inp_pth = Path(r'regen_radolan_ppt_2006_2022.nc')
+    inp_pth = Path(r'kriging.nc')
     otp_pth = Path(rf'{inp_pth.stem}_ltd{inp_pth.suffix}')  # Ovrwrt, if same.
 
-    var_nam = 'RW'
+    var_nam = 'EDK'
 
     # Beyond limits are set to NaN.
-    var_llm = 0.000
-    var_ulm = 500.0
+    var_llm = -30
+    var_ulm = +50
+
+    mke_nan_flg = False  # If False, then brought to range else set to NaN.
     #==========================================================================
 
     tst_flg = False
@@ -78,7 +80,11 @@ def main():
 
                 var_stp = var_vls[i,:,:]
 
-                var_stp[var_llm_ixs[i]] = np.nan
+                if mke_nan_flg:
+                    var_stp[var_llm_ixs[i]] = np.nan
+
+                else:
+                    var_stp[var_llm_ixs[i]] = var_llm
 
                 var_dts[i] = var_stp
 
@@ -109,7 +115,11 @@ def main():
 
                 var_stp = var_vls[i,:,:]
 
-                var_stp[var_ulm_ixs[i]] = np.nan
+                if mke_nan_flg:
+                    var_stp[var_ulm_ixs[i]] = np.nan
+
+                else:
+                    var_stp[var_ulm_ixs[i]] = var_ulm
 
                 var_dts[i] = var_stp
 

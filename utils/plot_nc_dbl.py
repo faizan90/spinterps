@@ -30,14 +30,14 @@ def main():
 
     os.chdir(main_dir)
 
-    in_nc_path_1 = Path(r'ncf_to_ras6.nc')
+    in_nc_path_1 = Path(r'ncf_to_ras1.nc')
     var_label_1 = 'rr'
     x_label_1 = 'X2D'
     y_label_1 = 'Y2D'
     time_label_1 = 'time'
     sclr_1 = None
 
-    in_nc_path_2 = Path(r'T:\ECAD\rr_ens_mean_0.1deg_reg_v29.0e.nc')
+    in_nc_path_2 = Path(r'rr_ens_mean_0.1deg_reg_v29.0e.nc')
     var_label_2 = 'rr'
     x_label_2 = 'x_utm32n'  # 'longitude'  #
     y_label_2 = 'y_utm32n'  # 'latitude'  #
@@ -98,13 +98,13 @@ def main():
     #     format='%Y-%m-%d %H')
 
     # Catchments shapefile.
-    in_cat_file = Path(r'vils_rott_isen_catchment.shp')  # None
+    in_cat_file = Path(r'vils_rott_isen_catchments.shp')  # None
 
     cat_col = 'DN'
 
     drop_stns = []  # [420, 3421, 427, 3465, 3470]
 
-    out_figs_dir = Path(r'cmpr_grids4')
+    out_figs_dir = Path(r'cmpr_grids1')
     #==========================================================================
 
     with nc.Dataset(in_nc_path_1, 'r') as nc_hdl:

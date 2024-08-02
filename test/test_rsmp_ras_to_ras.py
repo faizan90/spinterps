@@ -22,7 +22,7 @@ from pathlib import Path
 
 from spinterps import ResampleRasToRas
 
-DEBUG_FLAG = False
+DEBUG_FLAG = True
 
 
 def main():
@@ -30,10 +30,21 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ras_to_ras')
     os.chdir(main_dir)
 
-    src_pth = Path(r'vils_rott_isen_corine_2018_domain.tif')  # Path(r'vils_rott_isen_fil_1km.tif')  # Path(r'U:\TUM\projects\altoetting\landuse\DATA\U2018_CLC2018_V2020_20u1.tif')  #  Path(r'U2018_CLC2018_V2020_20u1_utm32N__bayern_epsg32632.tif')  #
-    dst_pth = Path(r'vils_rott_isen_fil_1km.tif')
+    # src_pth = Path(r'lower_de_gauss_z3.tif')
+    # dst_pth = Path(r'lower_de_gauss_z3_1km.tif')
+    # out_pth = Path(r'ref_aln1.tif')
 
+    src_pth = Path(r'AWC_eu23_utm32N.tif')
+    dst_pth = Path(r'dem_1km_raw.tif')
     out_pth = Path(r'ref_aln2.tif')
+
+    # src_pth = Path(r'srtm_de_mosaic_utm32N_25m_bayern.tif')
+    # dst_pth = Path(r'srtm_de_mosaic_utm32N_25m_bayern_to_1km_hydr.tif')
+    # out_pth = Path(r'ref_aln3.tif')
+
+    # src_pth = Path(r'dem_1km_raw.tif')
+    # dst_pth = Path(r'AWC_eu23_utm32N.tif')
+    # out_pth = Path(r'ref_aln4.tif')
 
     n_cpus = 'auto'
     #==========================================================================

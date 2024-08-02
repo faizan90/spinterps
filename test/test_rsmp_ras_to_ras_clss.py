@@ -22,18 +22,22 @@ from pathlib import Path
 
 from spinterps import ResampleRasToRasClss
 
-DEBUG_FLAG = False
+DEBUG_FLAG = True
 
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ras_to_ras')
+    '''
+    Clip the src (with a buffer) to the extents of dst, if possible.
+    '''
+
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ras_to_clss')
     os.chdir(main_dir)
 
-    src_pth = Path(r'vils_rott_isen_corine_2018_domain.tif')  #  Path(r'U:\TUM\projects\altoetting\landuse\DATA\U2018_CLC2018_V2020_20u1.tif')  # Path(r'vils_rott_isen_fil_1km.tif')  # Path(r'U2018_CLC2018_V2020_20u1_utm32N__bayern_epsg32632.tif')  #
-    dst_pth = Path(r'vils_rott_isen_fil_1km.tif')
+    src_pth = Path(r'U2018_CLC2018_V2020_20u1_utm32N_deby.tif')  #  Path(r'U:\TUM\projects\altoetting\landuse\DATA\U2018_CLC2018_V2020_20u1.tif')  # Path(r'vils_rott_isen_fil_1km.tif')  # Path(r'U2018_CLC2018_V2020_20u1_utm32N__bayern_epsg32632.tif')  #
+    dst_pth = Path(r'dem_1km_raw.tif')
 
-    out_pth = Path(r'ref_aln_clss.tif')
+    out_pth = Path(r'U2018_CLC2018_V2020_20u1_utm32N_deby_clss.tif')
 
     n_cpus = 'auto'
     #==========================================================================
