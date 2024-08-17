@@ -9,7 +9,7 @@ import numpy as np
 import netCDF4 as nc
 
 # from .vgclus import VariogramCluster as VC
-# from .grps import SpInterpNeighborGrouping as SIG
+from .grps import SpInterpNeighborGrouping as SIG
 from ..mpg import fill_shm_arrs
 from ..misc import traceback_wrapper  # , check_full_nuggetness  # , print_sl, print_el
 from .za_nnb import NNB
@@ -162,6 +162,16 @@ class SpInterpSteps:
             self._cntn_idxs.sum(dtype=np.uint64))
 
         dte_fnt_ixs = np.isfinite(data_df.values)
+
+        grp_cls = SIG(
+            self._neb_sel_mthd,
+            self._n_nebs,
+            self._n_pies,
+            sis_shm_ags.sim_xcs,
+            sis_shm_ags.sim_ycs,
+            verbose=self._vb)
+
+        grps_in_time = grp_cls.get_grps_in_time(data_df)
 
         print('Start...')
         for ipn_lab in interp_labels:
