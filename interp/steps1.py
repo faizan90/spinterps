@@ -10,7 +10,6 @@ import netCDF4 as nc
 
 from .vgclus import VariogramCluster as VC
 from .grps import SpInterpNeighborGrouping as SIG
-from ..mpg import fill_shm_arrs
 from ..misc import traceback_wrapper, check_full_nuggetness  # , print_sl, print_el
 from ..cyth import (
     fill_wts_and_sum,
@@ -26,73 +25,14 @@ def print_sl():
 
 print_el = print_sl
 
-'''
-What is supposed to happen...
-
-Needed New:
-    - A grouping object, that tell which cells at which time steps have same
-      config (data, vgs, etc.).
-    - vg_var arrays can be float32.
-    - Drop Simple Kriging!
-    - A dict like object can be used to fill the variogram array and hold the
-      results up to a given length like rsmp.
-    - It is more straight forward to interpolate a point in time.
-
-Case: NNB
----------
-
-    INPUTS
-    ------
-    - Array of interp crds as shm.
-    - Array of data   crds as shm.
-    - SIG with all the configs.
-    - Array of ref-to-ref distances as shm.
-    - Array of dst-to-dst distances as shm.
-    - Array of interp values as shm.
-    - Array with indices for nearest neigbors.
-
-    PROCESS
-    -------
-    - Assign nearest nebors.
-    - Fill interp values array.
-
-    OUTPUT
-    ------
-    - Nothing.
-    - Other procs write to the output netCDF file, plot, etc.
-
-Case: IDW
----------
-
-    INPUTS
-    ------
-    - Array of interp crds as shm.
-    - Array of data   crds as shm.
-    - SIG with all the configs.
-    - Array of ref-to-ref distances as shm.
-    - Array of dst-to-dst distances as shm.
-    - Array of interp values as shm.
-    - Based on max nebors, for each cell, indices of data at each time step.
-
-    PROCESS
-    -------
-    - For a given group of data values, normalize distance based on maximum.
-    - Then compute weights.
-    - Fill interp values array.
-
-    OUTPUT
-    ------
-    - Nothing.
-    - Other procs write to the output netCDF file, plot, etc.
-'''
-
 
 class SpInterpSteps:
 
-    def __init__(self, spinterp_main_cls, sis_shm_ags):
+    def __init__(self, spinterp_main_cls):
 
         read_labs = [
             '_vb',
+            '_n_cpus',
             '_mp_flag',
             '_crds_df',
             '_min_var_thr',
@@ -113,8 +53,6 @@ class SpInterpSteps:
 
         for read_lab in read_labs:
             setattr(self, read_lab, getattr(spinterp_main_cls, read_lab))
-
-        if self._mp_flag: fill_shm_arrs(sis_shm_ags)
 
         # self._n_dst_pts = self._interp_x_crds_msh.shape[0]
         return

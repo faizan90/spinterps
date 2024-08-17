@@ -19,11 +19,12 @@ class NNB:
     # Used as an index when all values at a time step are not finite.
     nan_int = (2 ** 64) - 1
 
-    def __init__(self, sim_ref_dts, ref_tss_dfe):
+    def __init__(self, sim_ref_dts, ref_tss_dfe, ref_fnt_ixs):
 
         '''
         sim_ref_dts: Distances between each point in ref to sim point.
         ref_tss_dfe: Dataframe of time series of reference points.
+        ref_fnt_ixs: isfinite of ref_tss_dfe.values
         '''
 
         assert sim_ref_dts.ndim == 1, sim_ref_dts.ndim
@@ -32,9 +33,31 @@ class NNB:
         assert ref_tss_dfe.shape[1] == sim_ref_dts.shape[0], (
             ref_tss_dfe.shape[1], sim_ref_dts.shape[0])
 
+        assert ref_fnt_ixs.shape == ref_tss_dfe.shape, (
+            ref_fnt_ixs.shape, ref_tss_dfe.shape)
+
         self._sim_ref_dts = sim_ref_dts
         self._ref_tss_dfe = ref_tss_dfe
+        self._ref_fnt_ixs = ref_fnt_ixs
         return
+
+    def get_ipn_vls_fst(self):
+
+        ipn_vls = np.full(
+            self._ref_tss_dfe.shape[0], np.nan, dtype=np.float32)
+
+        for i in range(ipn_vls.size):
+
+            vls_fnt_ixs = self._ref_fnt_ixs[i,:]
+
+            if not vls_fnt_ixs.any(): continue
+
+            nst_nbr_idx = np.argmin(self._sim_ref_dts[vls_fnt_ixs])
+            nst_nbr_idx = np.where(vls_fnt_ixs)[0][nst_nbr_idx]
+
+            ipn_vls[i] = self._ref_tss_dfe.iloc[i, nst_nbr_idx]
+
+        return ipn_vls
 
     def get_ipn_vls(self):
 
@@ -72,9 +95,7 @@ class NNB:
         Just for one time step.
         '''
 
-        vls_ser = self._ref_tss_dfe.iloc[i,:]
-
-        vls_fnt_ixs = np.isfinite(vls_ser.values)
+        vls_fnt_ixs = self._ref_fnt_ixs[i,:]
 
         if vls_fnt_ixs.any():
             nst_nbr_idx = np.argmin(self._sim_ref_dts[vls_fnt_ixs])

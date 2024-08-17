@@ -18,8 +18,11 @@ import matplotlib.pyplot as plt
 
 from .data import SpInterpData as SID
 from .steps import SpInterpSteps as SIS
+from .steps_shm import SpInterpsStepsSHM as SISS
 from .prepare import SpInterpPrepare as SIP
 from .plot import SpInterpPlot as SIPLT
+from ..mpg import attach_args_cls_vrs
+
 from ..misc import (
     print_sl,
     print_el,
@@ -108,6 +111,12 @@ class SpInterpMain(SID, SIP):
 
             mem_mon_proc.start()
 
+        shm_obj = SISS(self)
+
+        ipn_ags = IPNSHMAGS()
+
+        attach_args_cls_vrs(ipn_ags, shm_obj.shm_all)
+
         interp_steps_cls = SIS(self)
 
         if self._vb:
@@ -145,6 +154,7 @@ class SpInterpMain(SID, SIP):
                 interp_steps_idxs.size - 1,
                 grid_chunk_idxs[j],
                 grid_chunk_idxs[j + 1],
+                ipn_ags,
                 )
 
             for i in range(interp_steps_idxs.size - 1)
@@ -154,6 +164,9 @@ class SpInterpMain(SID, SIP):
 
         if not self._mp_flag:
             list(maped_obj)
+
+        [shm.shm.close() for shm in shm_obj.shm_all]
+        [shm.shm.unlink() for shm in shm_obj.shm_all]
 
         if self._vb:
             interp_time = timeit.default_timer() - interp_beg_time
@@ -572,31 +585,31 @@ class SpInterpMain(SID, SIP):
             max_steps_rng,
             beg_grid_idx,
             end_grid_idx,
-            ):
+            sis_shm_ags):
 
         data_df = self._data_df.iloc[beg_steps_idx:end_steps_idx]
 
-        if any(
-            [interp_arg[0] in ['OK', 'SK', 'EDK']
-             for interp_arg in self._interp_args]):
-
-            vgs_ser = self._vgs_ser.loc[data_df.index]
-            vgs_rord_tidxs_ser = self._vgs_rord_tidxs_ser.loc[data_df.index]
-
-            assert np.all(vgs_ser.values != 'nan'), (
-                'NaN VGs not allowed! '
-                'Use Nugget or any other appropriate one!')
-
-        else:
-            vgs_ser = None
-            vgs_rord_tidxs_ser = None
-
-        if 'EDK' in [interp_arg[0] for interp_arg in self._interp_args]:
-            drft_arrs = self._drft_arrs
-            stns_drft_df = self._stns_drft_df
-
-        else:
-            drft_arrs, stns_drft_df = 2 * [None]
+        # if any(
+        #     [interp_arg[0] in ['OK', 'SK', 'EDK']
+        #      for interp_arg in self._interp_args]):
+        #
+        #     vgs_ser = self._vgs_ser.loc[data_df.index]
+        #     vgs_rord_tidxs_ser = self._vgs_rord_tidxs_ser.loc[data_df.index]
+        #
+        #     assert np.all(vgs_ser.values != 'nan'), (
+        #         'NaN VGs not allowed! '
+        #         'Use Nugget or any other appropriate one!')
+        #
+        # else:
+        #     vgs_ser = None
+        #     vgs_rord_tidxs_ser = None
+        #
+        # if 'EDK' in [interp_arg[0] for interp_arg in self._interp_args]:
+        #     drft_arrs = self._drft_arrs
+        #     stns_drft_df = self._stns_drft_df
+        #
+        # else:
+        #     drft_arrs, stns_drft_df = 2 * [None]
 
         return (
             data_df,
@@ -605,13 +618,13 @@ class SpInterpMain(SID, SIP):
             max_steps_rng,
             self._interp_args,
             self._lock,
-            drft_arrs,
-            stns_drft_df,
-            vgs_ser,
-            vgs_rord_tidxs_ser,
+            # drft_arrs,
+            # stns_drft_df,
+            # vgs_ser,
+            # vgs_rord_tidxs_ser,
             beg_grid_idx,
             end_grid_idx,
-            )
+            sis_shm_ags)
 
     def _get_thread_steps_idxs(self):
 
@@ -637,7 +650,7 @@ class SpInterpMain(SID, SIP):
         assert 0 < self._max_mem_usage_ratio <= 1
 
         tot_avail_mem = int(
-            ps.virtual_memory().free * self._max_mem_usage_ratio)
+            ps.virtual_memory().free * self._max_mem_usage_ratio) * 100
 
 #         avail_threads_mem = tot_avail_mem - (self._n_cpus * interpreter_size)
         avail_threads_mem = tot_avail_mem  # - interpreter_size
@@ -821,3 +834,10 @@ class SpInterpMain(SID, SIP):
             print_el()
 
         return step_idxs, grid_idxs, max_cpus_ctr
+
+
+class IPNSHMAGS:
+
+    def __init__(self):
+
+        return

@@ -27,8 +27,11 @@ class SpInterpsStepsSHM:
 
         # This one needs to be taken care of in prepare.py.
         sim_shp = sim_obj._interp_x_crds_msh.shape  #  A ravel.
-        # sim_xcs_msh_shm = SHMARY(sim_shp, np.float64, 'c', 'sim_xcs')
-        # sim_ycs_msh_shm = SHMARY(sim_shp, np.float64, 'c', 'sim_ycs')
+        sim_xcs_msh_shm = SHMARY(sim_shp, np.float64, 'c', 'sim_xcs')
+        sim_ycs_msh_shm = SHMARY(sim_shp, np.float64, 'c', 'sim_ycs')
+
+        sim_xcs_msh_shm.shr[:] = sim_obj._interp_x_crds_msh
+        sim_ycs_msh_shm.shr[:] = sim_obj._interp_y_crds_msh
 
         ref_shp = (sim_obj._crds_df.shape[0],)
         # No need to shm ref cds. They are too small. Maybe later.
@@ -42,10 +45,10 @@ class SpInterpsStepsSHM:
         #         ref_ref_shp, np.float64, 'c', 'ref_ref_dts')
         #
         #     self._fill_dists_arr(
-        #         sim_obj._crds_df[:, 'X'].values,
-        #         sim_obj._crds_df[:, 'Y'].values,
-        #         sim_obj._crds_df[:, 'X'].values,
-        #         sim_obj._crds_df[:, 'Y'].values,
+        #         sim_obj._crds_df['X'].values,
+        #         sim_obj._crds_df['Y'].values,
+        #         sim_obj._crds_df['X'].values,
+        #         sim_obj._crds_df['Y'].values,
         #         ref_ref_dts_shm.shr,
         #         )
         #======================================================================
@@ -53,22 +56,24 @@ class SpInterpsStepsSHM:
         sim_ref_shp = (sim_shp[0], ref_shp[0])
         sim_ref_dts_shm = SHMARY(sim_ref_shp, np.float64, 'c', 'sim_ref_dts')
 
-        # _interp_x_crds_msh is not shm for now.
         # self._fill_dists_arr(
         #     sim_obj._sim_xcs_msh_shm.shr,
         #     sim_obj._sim_ycs_msh_shm.shr,
-        #     sim_obj._crds_df[:, 'X'].values,
-        #     sim_obj._crds_df[:, 'Y'].values,
+        #     sim_obj._crds_df['X'].values,
+        #     sim_obj._crds_df['Y'].values,
         #     sim_ref_dts_shm.shr,
         #     )
 
         self._fill_dists_arr(
-            sim_obj._interp_x_crds_msh,
-            sim_obj._interp_y_crds_msh,
-            sim_obj._crds_df[:, 'X'].values,
-            sim_obj._crds_df[:, 'Y'].values,
+            sim_xcs_msh_shm.shr,
+            sim_ycs_msh_shm.shr,
+            sim_obj._crds_df['X'].values,
+            sim_obj._crds_df['Y'].values,
             sim_ref_dts_shm.shr,
             )
+        #======================================================================
+
+        shm_all = []
         #======================================================================
 
         ipn_fld_shp = (
@@ -81,7 +86,20 @@ class SpInterpsStepsSHM:
                 ipn_fld_shp, sim_obj._intrp_dtype, 'c', ipn_lab)
 
             ipn_fds_shm_dct[ipn_lab] = ipn_fld_shm
+
+            shm_all.append(ipn_fld_shm)
         #======================================================================
+
+        self.sim_xcs_msh_shm = sim_xcs_msh_shm
+        self.sim_ycs_msh_shm = sim_ycs_msh_shm
+
+        self.sim_ref_dts_shm = sim_ref_dts_shm
+
+        self.ipn_fds_shm_dct = ipn_fds_shm_dct
+
+        # For unlinking and closing at the end.
+        self.shm_all = (
+            shm_all + [sim_xcs_msh_shm, sim_ycs_msh_shm, sim_ref_dts_shm])
         return
 
     def _fill_dists_arr(self, x1s, y1s, x2s, y2s, dists_arr):

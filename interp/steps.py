@@ -8,9 +8,11 @@ import timeit
 import numpy as np
 import netCDF4 as nc
 
-from .vgclus import VariogramCluster as VC
-from .grps import SpInterpNeighborGrouping as SIG
-from ..misc import traceback_wrapper, check_full_nuggetness  # , print_sl, print_el
+# from .vgclus import VariogramCluster as VC
+# from .grps import SpInterpNeighborGrouping as SIG
+from ..mpg import fill_shm_arrs
+from ..misc import traceback_wrapper  # , check_full_nuggetness  # , print_sl, print_el
+from .za_nnb import NNB
 from ..cyth import (
     fill_wts_and_sum,
     get_mults_sum,
@@ -25,6 +27,66 @@ def print_sl():
 
 print_el = print_sl
 
+'''
+What is supposed to happen...
+
+Needed New:
+    - A grouping object, that tell which cells at which time steps have same
+      config (data, vgs, etc.).
+    - vg_var arrays can be float32.
+    - Drop Simple Kriging!
+    - A dict like object can be used to fill the variogram array and hold the
+      results up to a given length like rsmp.
+    - It is more straight forward to interpolate a point in time.
+
+Case: NNB
+---------
+
+    INPUTS
+    ------
+    - Array of interp crds as shm.
+    - Array of data   crds as shm.
+    - SIG with all the configs.
+    - Array of ref-to-ref distances as shm.
+    - Array of dst-to-dst distances as shm.
+    - Array of interp values as shm.
+    - Array with indices for nearest neigbors.
+
+    PROCESS
+    -------
+    - Assign nearest nebors.
+    - Fill interp values array.
+
+    OUTPUT
+    ------
+    - Nothing.
+    - Other procs write to the output netCDF file, plot, etc.
+
+Case: IDW
+---------
+
+    INPUTS
+    ------
+    - Array of interp crds as shm.
+    - Array of data   crds as shm.
+    - SIG with all the configs.
+    - Array of ref-to-ref distances as shm.
+    - Array of dst-to-dst distances as shm.
+    - Array of interp values as shm.
+    - Based on max nebors, for each cell, indices of data at each time step.
+
+    PROCESS
+    -------
+    - For a given group of data values, normalize distance based on maximum.
+    - Then compute weights.
+    - Fill interp values array.
+
+    OUTPUT
+    ------
+    - Nothing.
+    - Other procs write to the output netCDF file, plot, etc.
+'''
+
 
 class SpInterpSteps:
 
@@ -32,7 +94,6 @@ class SpInterpSteps:
 
         read_labs = [
             '_vb',
-            '_n_cpus',
             '_mp_flag',
             '_crds_df',
             '_min_var_thr',
@@ -40,8 +101,8 @@ class SpInterpSteps:
             '_max_var_cut',
             '_cntn_idxs',
             '_interp_crds_orig_shape',
-            '_interp_x_crds_msh',
-            '_interp_y_crds_msh',
+            # '_interp_x_crds_msh',
+            # '_interp_y_crds_msh',
             '_nc_file_path',
             '_neb_sel_mthd',
             '_n_nebs',
@@ -67,6 +128,135 @@ class SpInterpSteps:
         args_for_disk = self._get_all_interp_outputs(args_for_interp)
 
         self._write_to_disk(args_for_disk)
+        return
+
+    def _get_all_interp_outputs(self, args):
+
+        (data_df,
+         beg_idx,
+         end_idx,
+         max_rng,
+         interp_args,
+         lock,
+         fld_beg_row,
+         fld_end_row,
+         sis_shm_ags,
+        ) = args
+
+        interp_beg_time = timeit.default_timer()
+
+        if self._mp_flag: fill_shm_arrs(sis_shm_ags)
+
+        interp_labels = [interp_arg[2] for interp_arg in interp_args]
+
+        assert data_df.shape[1] == self._crds_df.shape[0], (
+            data_df.shape, self._crds_df.shape)
+
+        assert self._cntn_idxs.size == np.prod(
+            self._interp_crds_orig_shape, dtype=np.uint64), (
+                self._cntn_idxs.size, self._interp_crds_orig_shape)
+
+        assert (sis_shm_ags.sim_ref_dts.shape[0] ==
+                self._cntn_idxs.sum(dtype=np.uint64)), (
+            sis_shm_ags.sim_ref_dts.shape,
+            self._cntn_idxs.sum(dtype=np.uint64))
+
+        dte_fnt_ixs = np.isfinite(data_df.values)
+
+        print('Start...')
+        for ipn_lab in interp_labels:
+
+            ipn_ary = getattr(sis_shm_ags, ipn_lab)
+
+            l = 0
+            for i in range(fld_beg_row, fld_end_row, 1):
+                for j in range(self._interp_crds_orig_shape[1]):
+
+                    k = (i * self._interp_crds_orig_shape[1]) + j
+
+                    if not self._cntn_idxs[k]: continue
+
+                    nnb_obj = NNB(
+                        sis_shm_ags.sim_ref_dts[l], data_df, dte_fnt_ixs)
+
+                    ipn_ary[beg_idx:end_idx, i, j] = nnb_obj.get_ipn_vls_fst()
+
+                    l += 1
+
+                print(i, beg_idx, end_idx)
+
+        print('Done.')
+
+        return (
+            lock,
+            beg_idx,
+            end_idx,
+            data_df,
+            max_rng,
+            interp_labels,
+            sis_shm_ags,
+            fld_beg_row,
+            fld_end_row,
+            interp_beg_time)
+
+    def _write_to_disk(self, args):
+
+        (lock,
+         beg_idx,
+         end_idx,
+         data_df,
+         max_rng,
+         interp_labels,
+         sis_shm_ags,
+         fld_beg_row,
+         fld_end_row,
+         interp_beg_time) = args
+
+        with lock:
+            if self._vb:
+                print_sl()
+
+                print(
+                    f'Writing data between {beg_idx} and {end_idx} indices '
+                    f'to disk...')
+
+                print(
+                    'Start and end step of this part:',
+                    data_df.index[0],
+                    data_df.index[-1])
+
+            nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r+')
+
+            nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
+            ar_is = nc_is - beg_idx
+
+            for interp_label in interp_labels:
+                interp_flds = getattr(sis_shm_ags, interp_label)
+
+                nc_ds = nc_hdl[interp_label]
+
+                for i in range(max_rng):
+                    nc_ds[nc_is[i]:nc_is[i + 1],
+                          fld_beg_row:fld_end_row,:] = (
+                            interp_flds[ar_is[i]:ar_is[i + 1]])
+
+                nc_hdl.sync()
+
+            nc_hdl.close()
+
+            interp_end_time = timeit.default_timer()
+
+            if self._vb:
+                print(
+                    f'Done writing data between time indices of '
+                    f'{beg_idx} and {end_idx} and grid row indices between '
+                    f'{fld_beg_row} and {fld_end_row} to disk...')
+
+                print(
+                    f'Took {interp_end_time - interp_beg_time:0.1f} '
+                    f'seconds to interpolate for this thread.')
+
+                print_el()
         return
 
     def _get_dists_arr(self, x1s, y1s, x2s, y2s):
@@ -468,503 +658,3 @@ class SpInterpSteps:
 
         return
 
-    def _get_all_interp_outputs(self, args):
-
-        (data_df,
-         beg_idx,
-         end_idx,
-         max_rng,
-         interp_args,
-         lock,
-         drft_arrs,
-         stns_drft_df,
-         vgs_ser,
-         vgs_rord_tidxs_ser,
-         fld_beg_row,
-         fld_end_row,
-        ) = args
-
-        interp_beg_time = timeit.default_timer()
-
-        interp_types = [interp_arg[0] for interp_arg in interp_args]
-        interp_labels = [interp_arg[2] for interp_arg in interp_args]
-
-        krg_flag = any(
-            [krg_type in interp_types for krg_type in ('OK', 'SK', 'EDK')])
-
-        edk_flag = 'EDK' in interp_types
-
-        if krg_flag:
-            assert np.all(vgs_ser != 'nan'), (
-                'NaN VGs not allowed! '
-                'Use Nugget or any other appropriate one!')
-
-        time_steps = data_df.index
-        #======================================================================
-
-        fld_n_cols = self._interp_crds_orig_shape[1]
-        fld_beg_idx = fld_beg_row * fld_n_cols
-        fld_end_idx = fld_end_row * fld_n_cols
-
-        fld_grd_shape = (
-            (fld_end_row - fld_beg_row), self._interp_crds_orig_shape[1])
-
-        if self._cntn_idxs is not None:
-            fld_idxs_range = np.arange(fld_beg_idx, fld_end_idx)
-
-            cntn_idxs_whr = np.where(self._cntn_idxs)[0]
-            cntn_idxs_wr_range = np.arange(cntn_idxs_whr.size)
-
-            assert cntn_idxs_whr.size
-
-            msh_idxs = cntn_idxs_wr_range[
-                (cntn_idxs_whr >= fld_beg_idx) &
-                (cntn_idxs_whr < fld_end_idx)]
-
-            cntn_idxs_whr = cntn_idxs_whr[
-                (cntn_idxs_whr >= fld_beg_idx) &
-                (cntn_idxs_whr < fld_end_idx)]
-
-            assert fld_idxs_range[0] <= cntn_idxs_whr[0], (
-                fld_idxs_range[0], cntn_idxs_whr[0])
-
-            # Shift cntn_idxs_whr values backwards to match the sub field
-            # indices.
-            cntn_idxs_whr = cntn_idxs_whr - fld_idxs_range[0]
-
-            self._n_dst_pts = msh_idxs.size
-
-            self._interp_x_crds_msh = self._interp_x_crds_msh[msh_idxs]
-            self._interp_y_crds_msh = self._interp_y_crds_msh[msh_idxs]
-
-            if drft_arrs is not None:
-                assert edk_flag
-
-                drft_arrs = drft_arrs[:, msh_idxs]
-
-            msh_idxs = None
-            fld_idxs_range = None
-            cntn_idxs_wr_range = None
-
-        else:
-            self._n_dst_pts = np.prod(fld_grd_shape)
-
-            self._interp_x_crds_msh = self._interp_x_crds_msh[
-                fld_beg_idx:fld_end_idx]
-
-            self._interp_y_crds_msh = self._interp_y_crds_msh[
-                fld_beg_idx:fld_end_idx]
-
-            if drft_arrs is not None:
-                assert edk_flag
-
-                drft_arrs = drft_arrs[:, fld_beg_idx:fld_end_idx]
-        #======================================================================
-
-        assert np.all(data_df.columns == self._crds_df.index)
-
-        # Check uniqueness elsewhere?
-        assert np.unique(data_df.columns.values).size == data_df.shape[1]
-
-        if vgs_ser is not None:
-            assert not data_df.index.difference(vgs_ser.index).shape[0], (
-                'Data and variogram series have non-intersecting indices!')
-
-            vc_cls = VC(vgs_ser)
-
-            vgs_clus_dict, vgs_ser = vc_cls.get_vgs_cluster()
-
-        grp_cls = SIG(
-            self._neb_sel_mthd,
-            self._n_nebs,
-            self._n_pies,
-            self._interp_x_crds_msh,
-            self._interp_y_crds_msh,
-            verbose=self._vb)
-
-        grps_in_time = grp_cls.get_grps_in_time(data_df)
-
-        # TODOO: min_nebor_dist_thresh should be related to time and not just
-        # proximity. Because, if a very close nebor is active at a time
-        # when others are inactive than there is no need to drop one.
-
-        # TODOO: Have a threshold of min and max stations for which the
-        # neighbors are considered the same.
-        #======================================================================
-
-        if vgs_ser is not None:
-            ref_ref_2d_dists_arr_all = self._get_dists_arr(
-                self._crds_df.loc[:, 'X'].values,
-                self._crds_df.loc[:, 'Y'].values,
-                self._crds_df.loc[:, 'X'].values,
-                self._crds_df.loc[:, 'Y'].values)
-
-            ref_ref_2d_vars_arr_all = self._get_svars_arr(
-                ref_ref_2d_dists_arr_all,
-                list(vgs_clus_dict.keys()),
-                interp_types,
-                1)
-
-        else:
-            ref_ref_2d_vars_arr_all = None
-
-        # Set to None, to save on space.
-        ref_ref_2d_dists_arr_all = None
-
-        dst_ref_2d_dists_arr_all = self._get_dists_arr(
-            self._interp_x_crds_msh,
-            self._interp_y_crds_msh,
-            self._crds_df.loc[:, 'X'].values,
-            self._crds_df.loc[:, 'Y'].values)
-
-        if vgs_ser is not None:
-            dst_ref_2d_vars_arr_all = self._get_svars_arr(
-                dst_ref_2d_dists_arr_all,
-                list(vgs_clus_dict.keys()),
-                interp_types,
-                0)
-
-        else:
-            dst_ref_2d_vars_arr_all = None
-
-        self._interp_x_crds_msh = None
-        self._interp_y_crds_msh = None
-        #======================================================================
-
-        interp_flds_dict = {interp_label:np.full(
-            (time_steps.shape[0], np.prod(fld_grd_shape)),
-            np.nan,
-            dtype=self._intrp_dtype)
-            for interp_label in interp_labels}
-
-        if self._interp_flag_est_vars:
-            est_vars_flds_dict = {'EST_VARS_OK':np.full(
-                (time_steps.shape[0], np.prod(fld_grd_shape)),
-                np.nan,
-                dtype=self._intrp_dtype)}
-
-        else:
-            est_vars_flds_dict = None
-        #======================================================================
-
-        prblm_time_steps = []
-
-        # time_stn_grp: The stations.
-        # cmn_time_stn_grp_idxs: Time steps at which time_stn_grp stations are
-        # active.
-
-        for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
-
-            sub_time_steps = time_steps[cmn_time_stn_grp_idxs]
-
-            if not time_stn_grp.size:
-                print(sub_time_steps.size, 'step(s) have no station(s)!')
-
-                # There are no stations for these time steps. Hence, no
-                # interpolation at all.
-                for sub_time_step in sub_time_steps:
-                    if sub_time_step in prblm_time_steps:
-                        continue
-
-                    prblm_time_steps.append(sub_time_step)
-
-                continue
-
-            assert time_stn_grp.size, 'No stations in time_stn_grp!'
-
-            assert time_stn_grp.size == np.unique(time_stn_grp).size, (
-                'Non-unique stations in step group!')
-
-            # These are used to take out a subset of values from the distances
-            # and variances arrays.
-            time_stn_grp_idxs = self._crds_df.index.get_indexer_for(
-                time_stn_grp)
-
-            # Coordinates of time_stn_grp stations.
-            # Remember, the order of station labels in data_df and crds_df
-            # should be the same.
-            time_stn_grp_ref_xs = self._crds_df.loc[time_stn_grp, 'X'].values
-            time_stn_grp_ref_ys = self._crds_df.loc[time_stn_grp, 'Y'].values
-
-            # Values of time_stn_grp stations at cmn_time_stn_grp_idxs time
-            # steps.
-            time_stn_grp_data_vals = data_df.loc[
-                cmn_time_stn_grp_idxs, time_stn_grp].values
-
-            if edk_flag:
-                # Drift of time_stn_grp stations.
-                time_stn_grp_drifts = stns_drft_df.loc[time_stn_grp].values
-
-            else:
-                time_stn_grp_drifts = None
-
-            if krg_flag:
-                vg_models = vgs_ser.loc[cmn_time_stn_grp_idxs].values
-                nuggetness_flags = np.zeros(vg_models.shape[0], dtype=bool)
-
-                for i, vg_model in enumerate(vg_models):
-                    nuggetness_flags[i] = check_full_nuggetness(
-                        vg_model, self._min_vg_val)
-
-            else:
-                vg_models = None
-                nuggetness_flags = None
-
-            # time_neb_idxs: time_stn_grp stations that are close to points
-            # at time_neb_idxs_grps indices of the interpolation grid.
-            time_neb_idxs, time_neb_idxs_grps = grp_cls.get_neb_idxs_and_grps(
-                time_stn_grp_ref_xs, time_stn_grp_ref_ys)
-
-            interp_flds_time_idxs = np.where(cmn_time_stn_grp_idxs)[0]
-
-            pts_done_flags = np.zeros(self._n_dst_pts, dtype=bool)
-            sub_pts_flags = np.zeros(self._n_dst_pts, dtype=bool)
-
-            for time_neb_idxs_grp in time_neb_idxs_grps:
-                # Any index from time_neb_idxs_grp will do as
-                # time_neb_idxs have same indices for each time step.
-                sub_ref_idxs = time_neb_idxs[time_neb_idxs_grp[0]]
-
-                sub_ref_data = time_stn_grp_data_vals[:, sub_ref_idxs].copy(
-                    'c')
-                #==============================================================
-
-                ref_ref_sub_idxs = time_stn_grp_idxs[sub_ref_idxs]
-
-                dst_ref_2d_dists_arr_sub = self._get_2d_arr_subset(
-                    dst_ref_2d_dists_arr_all,
-                    time_neb_idxs_grp,
-                    ref_ref_sub_idxs,
-                    0,
-                    0)
-                #==============================================================
-
-                # Take mean when all values are too low.
-                interp_steps_flags = np.ones(sub_ref_data.shape[0], dtype=bool)
-                for j in range(sub_ref_data.shape[0]):
-                    if np.any(sub_ref_data[j] >= self._min_var_thr):
-                        continue
-
-                    interp_steps_flags[j] = False
-
-                if edk_flag:
-                    sub_ref_drifts = time_stn_grp_drifts[sub_ref_idxs,:]
-                    sub_dst_drifts = drft_arrs[:, time_neb_idxs_grp]
-
-                else:
-                    sub_ref_drifts = None
-                    sub_dst_drifts = None
-
-                sub_pts_flags[:] = False
-                sub_pts_flags[time_neb_idxs_grp] = True
-
-                for i, interp_type in enumerate(interp_types):
-                    if interp_type == 'IDW':
-                        idw_exp = interp_args[i][3]
-
-                    else:
-                        idw_exp = 5  # In case inversion fails.
-
-                    interp_vals, est_vars = self._get_interp(
-                        sub_ref_data,
-                        interp_type,
-                        sub_ref_drifts,
-                        sub_dst_drifts,
-                        idw_exp,
-                        vg_models,
-                        interp_steps_flags,
-                        nuggetness_flags,
-                        sub_time_steps,
-                        prblm_time_steps,
-                        dst_ref_2d_dists_arr_sub,
-                        ref_ref_2d_vars_arr_all,
-                        dst_ref_2d_vars_arr_all,
-                        ref_ref_sub_idxs,
-                        time_neb_idxs_grp)
-
-                    self._mod_min_max(interp_vals)
-
-                    interp_flds = interp_flds_dict[interp_labels[i]]
-
-                    if self._interp_flag_est_vars:
-                        est_vars_flds = est_vars_flds_dict[
-                            f'EST_VARS_{interp_labels[i]}']
-
-                    if self._cntn_idxs is not None:
-                        for j, time_idx in enumerate(interp_flds_time_idxs):
-                            interp_flds[
-                                time_idx, cntn_idxs_whr[sub_pts_flags]] = (
-                                    interp_vals[j].astype(self._intrp_dtype))
-
-                            if self._interp_flag_est_vars: est_vars_flds[
-                                time_idx, cntn_idxs_whr[sub_pts_flags]] = (
-                                    est_vars[j])
-
-                    else:
-                        for j, time_idx in enumerate(interp_flds_time_idxs):
-                            interp_flds[time_idx, sub_pts_flags] = (
-                                interp_vals[j].astype(self._intrp_dtype))
-
-                            if self._interp_flag_est_vars: est_vars_flds[
-                                time_idx, sub_pts_flags] = est_vars[j]
-
-                pts_done_flags[time_neb_idxs_grp] = True
-
-            assert np.all(pts_done_flags), 'Some points not interpolated!'
-        #======================================================================
-
-        # Release memory.
-        ref_ref_2d_vars_arr_all = None
-        dst_ref_2d_dists_arr_all = None
-        dst_ref_2d_vars_arr_all = None
-
-        dst_ref_2d_dists_arr_sub = None
-
-        grp_cls = None
-        #======================================================================
-
-        if prblm_time_steps:
-            print_sl()
-
-            with lock:
-                print(
-                    'WARNING: There were problems while interpolating '
-                    'at the following steps:')
-
-                if len(prblm_time_steps) <= 10:
-                    for prblm_stp in prblm_time_steps:
-                        print(prblm_stp)
-
-                else:
-                    print(prblm_time_steps)
-
-            print_el()
-
-        return (
-            lock,
-            beg_idx,
-            end_idx,
-            data_df,
-            vgs_ser,
-            max_rng,
-            interp_labels,
-            interp_flds_dict,
-            fld_beg_row,
-            fld_end_row,
-            vgs_rord_tidxs_ser,
-            time_steps,
-            interp_beg_time,
-            est_vars_flds_dict)
-
-    def _write_to_disk(self, args):
-
-        (lock,
-         beg_idx,
-         end_idx,
-         data_df,
-         vgs_ser,
-         max_rng,
-         interp_labels,
-         interp_flds_dict,
-         fld_beg_row,
-         fld_end_row,
-         vgs_rord_tidxs_ser,
-         time_steps,
-         interp_beg_time,
-         est_vars_flds_dict) = args
-
-        _ = est_vars_flds_dict
-
-        with lock:
-            if self._vb:
-                print_sl()
-
-                print(
-                    f'Writing data between {beg_idx} and {end_idx} indices '
-                    f'to disk...')
-
-                print(
-                    'Start and end step of this part:',
-                    data_df.index[0],
-                    data_df.index[-1])
-
-            nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r+')
-
-            if vgs_ser is None:
-                nc_is = np.linspace(beg_idx, end_idx, max_rng + 1, dtype=int)
-                ar_is = nc_is - beg_idx
-
-                for interp_label in interp_labels:
-                    interp_flds = interp_flds_dict[interp_label]
-
-                    nc_ds = nc_hdl[interp_label]
-
-                    for i in range(max_rng):
-                        nc_ds[nc_is[i]:nc_is[i + 1],
-                              fld_beg_row:fld_end_row,:] = (
-                                interp_flds[ar_is[i]:ar_is[i + 1]])
-
-                    interp_flds_dict[interp_label] = None
-
-                    # est_var_flds = est_vars_flds_dict[f'EST_VARS_{interp_label}']
-                    #
-                    # for i in range(max_rng):
-                    #     nc_hdl[f'EST_VARS_{interp_label}'][
-                    #         nc_is[i]:nc_is[i + 1],
-                    #         fld_beg_row:fld_end_row,:] = (
-                    #             est_var_flds[ar_is[i]:ar_is[i + 1]])
-                    #
-                    # est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
-
-                    nc_hdl.sync()
-
-            else:
-                for interp_label in interp_labels:
-                    interp_flds = interp_flds_dict[interp_label]
-
-                    nc_ds = nc_hdl[interp_label]
-
-                    for i in range(vgs_ser.shape[0]):
-
-                        nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
-
-                        nc_ds[nc_idx,
-                              fld_beg_row:fld_end_row,:] = interp_flds[i]
-
-                    interp_flds_dict[interp_label] = None
-
-                    if self._interp_flag_est_vars:
-                        est_vars_flds = est_vars_flds_dict[
-                            f'EST_VARS_{interp_label}']
-
-                        for i in range(vgs_ser.shape[0]):
-
-                            nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
-
-                            nc_hdl[f'EST_VARS_{interp_label}'][
-                                nc_idx,
-                                fld_beg_row:fld_end_row,:] = est_vars_flds[i]
-
-                        est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
-
-                    nc_hdl.sync()
-
-            interp_flds = None
-            # est_vars_flds = None
-
-            nc_hdl.close()
-
-            interp_end_time = timeit.default_timer()
-
-            if self._vb:
-                print(
-                    f'Done writing data between time indices of '
-                    f'{beg_idx} and {end_idx} and grid row indices between '
-                    f'{fld_beg_row} and {fld_end_row} to disk...')
-
-                print(
-                    f'Took {interp_end_time - interp_beg_time:0.1f} '
-                    f'seconds to interpolate for this thread.')
-
-                print_el()
-        return
