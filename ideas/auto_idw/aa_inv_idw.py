@@ -61,6 +61,10 @@ def get_idw_vle(ref_cds, dst_cde, idw_exp, ref_vls):
 
 def get_idw_exp(exp_llm, exp_ulm, dst_vle, ref_cds, dst_cde, ref_vls):
 
+    '''
+    Bisection algorithm.
+    '''
+
     sgn = -np.sign(np.corrcoef(ref_cds, ref_vls))[0, 1]
 
     min_tol = 1e-15

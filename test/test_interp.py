@@ -25,25 +25,17 @@ DEBUG_FLAG = False
 def main():
 
     main_dir = Path(
-        r'P:\Synchronize\IWS\Testings\variograms\krig_sims')
+        r'D:\Testings\spinterps\krig_sclg')
 
     os.chdir(main_dir)
 
-    in_data_file = Path(
-        r'daily_neckar_ppt_50km_buff_Y1961_2022.pkl')
-
-    in_stns_coords_file = Path(
-        r'daily_ppt_epsg32632.csv')
-
-    in_vgs_file = Path(
-        r'ppt_cvgs_1961_2020_01\tvgs_fit_txts\M_final_tvgs_ts.csv')
-
-    # in_vgs_file = Path(
-    #     r'P:\Synchronize\IWS\DWD_meteo_hist_pres\full_neckar_precipitation_kriging_20190119\vg_strs.csv')
+    in_data_file = Path(r'ppt_1D_gkd_dwd_tss.pkl')
+    in_stns_coords_file = Path(r'ppt_1D_gkd_dwd_crds.csv')
+    in_vgs_file = Path(r'ppt_1D_gkd_dwd_cvgs_M.csv')
 
     index_type = 'date'
 
-    out_dir = Path(r'test_krig_sims_1961_2020_01')
+    out_dir = Path(r'spinterp_ppt5')
 
     # var_units = 'C'
     # var_name = 'temperature'
@@ -57,16 +49,16 @@ def main():
     # strt_date = '1998-09-10'
     # end_date = '1998-09-10'
 
-    strt_date = '1961-01-01'
-    end_date = '2020-12-31'
+    strt_date = '1990-01-01'
+    end_date = '1990-12-31'
 
     drop_stns = []
 
     in_drift_rasters_list = (
-        [Path(r'fil.tif')])
+        [Path(r'srtm_de_mosaic_utm32N_1km.tif')])
 
     in_bounds_shp_file = (
-        Path(r'watersheds.shp'))
+        Path(r'bayern_epsg32632.shp'))
     # in_bounds_shp_file = None
 
     align_ras_file = in_drift_rasters_list[0]
@@ -98,13 +90,13 @@ def main():
     min_nebor_dist_thresh = 1
 
     idw_exps = [5]
-    n_cpus = 4
-    buffer_dist = 55e3
-    sec_buffer_dist = 4e3  # Buffer around computed grid/polygons bounds.
+    n_cpus = 16
+    buffer_dist = 50e3
+    sec_buffer_dist = 10e3  # 2e3  # Buffer around computed grid/polygons bounds.
     simplify_tolerance_ratio = 0.25  # Units same as polygons.
 
     neighbor_selection_method = 'nrst'
-    n_neighbors = 5
+    n_neighbors = 50
     n_pies = 8
 
     in_sep = ';'
@@ -123,7 +115,7 @@ def main():
     sim_krige_flag = False
     edk_krige_flag = False
     idw_flag = False
-    # nnb_flag = False
+    nnb_flag = False
     plot_figs_flag = False
     # verbose = False
     # interp_around_polys_flag = False

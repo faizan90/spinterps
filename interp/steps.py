@@ -267,7 +267,7 @@ class SpInterpSteps:
 
         if self._interp_flag_est_vars:
             est_vars = np.full(
-                (n_time, n_dsts), np.nan, dtype=np.float64)
+                (n_time, n_dsts), np.nan, dtype=self._intrp_dtype)
 
         else:
             est_vars = None
@@ -318,6 +318,9 @@ class SpInterpSteps:
                 if (not interp_steps_flags[j]) or (nuggetness_flags[j]):
 
                     dst_data[j,:] = ref_means[j]
+
+                    if self._interp_flag_est_vars: est_vars[j,:] = 0.0
+
                     continue
 
                 if model == 'nan':
@@ -370,6 +373,9 @@ class SpInterpSteps:
 
                         dst_data[j , i] = ref_data[
                             j, np.argmin(dst_ref_2d_dists_arr_sub[i])]
+
+                    if self._interp_flag_est_vars: est_vars[j,:] = 0.0
+
                 else:
                     self._fill_krig_idw_dst_data(
                         n_refs,
@@ -406,16 +412,19 @@ class SpInterpSteps:
 
                 # NNB used when kriging fails.
 
-                dst_data[j , i] = ref_data[
+                dst_data[j, i] = ref_data[
                     j, np.argmin(dst_ref_2d_dists_arr_sub[i])]
+
+                if self._interp_flag_est_vars:
+                    est_vars[j, i] = 0.0
 
             else:
                 dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
 
-            if self._interp_flag_est_vars:
-                est_vars[j, i] = (
-                    (lmds * dst_ref_2d_vars_arr_sub[i]).sum() +
-                    lmds[n_refs])
+                if self._interp_flag_est_vars:
+                    est_vars[j, i] = (
+                        (lmds * dst_ref_2d_vars_arr_sub[i]).sum() +
+                        lmds[n_refs])
         return
 
     # def _fill_nnb_dst_data(
@@ -632,7 +641,7 @@ class SpInterpSteps:
             est_vars_flds_dict = {'EST_VARS_OK':np.full(
                 (time_steps.shape[0], np.prod(fld_grd_shape)),
                 np.nan,
-                dtype=np.float64)}
+                dtype=self._intrp_dtype)}
 
         else:
             est_vars_flds_dict = None
@@ -924,15 +933,19 @@ class SpInterpSteps:
 
                     interp_flds_dict[interp_label] = None
 
-                    # if self._interp_flag_est_vars:
-                    #     est_vars_flds = est_vars_flds_dict[
-                    #         f'EST_VARS_{interp_label}']
-                    #
-                    #     nc_hdl[f'EST_VARS_{interp_label}'][
-                    #         nc_idxs,
-                    #         fld_beg_row:fld_end_row,:] = est_vars_flds
-                    #
-                    #     est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
+                    if self._interp_flag_est_vars:
+                        est_vars_flds = est_vars_flds_dict[
+                            f'EST_VARS_{interp_label}']
+
+                        for i in range(vgs_ser.shape[0]):
+
+                            nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
+
+                            nc_hdl[f'EST_VARS_{interp_label}'][
+                                nc_idx,
+                                fld_beg_row:fld_end_row,:] = est_vars_flds[i]
+
+                        est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
 
                     nc_hdl.sync()
 

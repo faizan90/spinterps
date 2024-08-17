@@ -85,7 +85,6 @@ def main():
         xcs = ncf_hdl[ifl_xlb][:].data
         ycs = ncf_hdl[ifl_ylb][:].data
 
-        # TODO: Formalize later.
         assert xcs.ndim == 2, xcs.ndim
 
         # Centroid manual.

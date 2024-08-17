@@ -16,10 +16,10 @@ DEBUG_FLAG = True
 
 def main():
 
-    main_dir = Path(r'P:\spinterps\DEBY')
+    main_dir = Path(r'U:\DEBY')
     os.chdir(main_dir)
 
-    path_to_shp = r'watersheds.shp'
+    path_to_shp = r'dem_ansys_1km/watersheds_cumm.shp'
     label_field = r'DN'  # 'Subbasin'  # 'PolygonId'  #
 
     # RADOLAN.
@@ -30,12 +30,12 @@ def main():
         # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
         # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
         # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1H_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1H_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1H_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
+        # Path(r'spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
+        Path(r'spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
         # Path(r'kriging_regen_tem_1D_tg.nc'),
         # Path(r'ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
-        Path(r'ppt_1D_gkd_dwd_1km_bay_infilled/kriging.nc'),
+        # Path(r'ppt_1D_gkd_dwd_1km_bay_infilled/kriging.nc'),
         # Path(r'2016.nc'),
         ]
 
@@ -61,7 +61,7 @@ def main():
     # then produce the h5 files.
     out_ext = 'pkl'
 
-    out_suff = 'deby2'
+    out_suff = 'lump_cca_deby'
 
     src_epsg = None
     dst_epsg = None

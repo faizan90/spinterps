@@ -61,7 +61,7 @@ class SpInterpData(VD):
         self._n_nebs = None
         self._n_pies = None
 
-        self._interp_flag_est_vars = False
+        self._interp_flag_est_vars = True
 
         self._vg_ser_set_flag = False
         self._out_dir_set_flag = False

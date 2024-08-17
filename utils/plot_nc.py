@@ -25,14 +25,14 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'U:\fradnc')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\krig_sclg\spinterp_ppt5')
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'2023.nc')
+    in_nc_path = Path(r'kriging.nc')
 
-    var_label = 'RW'  # 'EDK'  # 'IDW_000'
-    x_label = 'x_utm32n'  # 'longitude'  # 'lon'  # 'X'
-    y_label = 'y_utm32n'  # 'latitude'  # 'lat'  # 'Y'
+    var_label = 'OK__RDF'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'EDK'  # 'IDW_000'
+    x_label = 'X'  # 'x_utm32n'  # 'longitude'  # 'lon'  #
+    y_label = 'Y'  # 'y_utm32n'  # 'latitude'  # 'lat'  #
     time_label = 'time'
 
     cbar_label = 'Precipitation [mm]'
@@ -44,7 +44,7 @@ def main():
 
     cmap = 'viridis'  # 'Blues'  #
 
-    dpi = 200
+    dpi = 300
 
     var_min_val = None
     var_max_val = None
@@ -74,7 +74,7 @@ def main():
     nan_val = None
 
     beg_time, end_time = pd.to_datetime(
-        ['2023-08-10', '2023-08-13'],
+        ['1990-01-01', '1990-12-31'],
         format='%Y-%m-%d')
 
     # beg_time, end_time = pd.to_datetime(
@@ -85,14 +85,13 @@ def main():
     #     ['20190520T070000', '20190521T070000'],
     #     format='%Y%m%dT%H%M%S')
 
-    in_cat_file = Path(r'P:\Synchronize\TUM\lehre\SS\2024\RSH\RSH_E7\deutschland_boundary.shp')
+    in_cat_file = Path(r'../bayern_epsg32632.shp')
     # in_cat_file = None
 
     in_crds_file = None
-    # in_crds_file = Path(
-    #     r'../../tss_regen_1D\ppt_1D_gkd_dwd_crds.csv')
+    # in_crds_file = Path(r'../ppt_1D_gkd_dwd_crds.csv')
 
-    out_figs_dir = Path(r'plots_rw')
+    out_figs_dir = Path(r'plots')
     #==========================================================================
 
     if in_crds_file is not None:
@@ -156,6 +155,7 @@ def main():
             grd_min = np.nanmin(interp_fld)
             grd_max = np.nanmax(interp_fld)
             grd_men = np.nanmean(interp_fld)
+            grd_std = np.nanstd(interp_fld)
         #======================================================================
 
         pclr = ax.pcolormesh(
@@ -164,7 +164,9 @@ def main():
             interp_fld,
             vmin=var_min_val,
             vmax=var_max_val,
-            shading='auto',
+            # shading='auto',  # 1D CRDS.
+            # shading='flat',  # 2D CRDS.
+            shading='nearest',  # 1D CRDS.
             cmap=cmap)
 
         cb = fig.colorbar(pclr)
@@ -177,8 +179,8 @@ def main():
         if show_title_flag:
             title = (
                 f'Time: {time_str}\n'
-                f'Min.: {grd_min:0.4f}, Mean: {grd_men:0.4f}, '
-                f'Max.: {grd_max:0.4f}')
+                f'Mean: {grd_men:0.4f}, Std.: {grd_std:0.4f}\n'
+                f'Min.: {grd_min:0.4f}, Max.: {grd_max:0.4f}')
 
             ax.set_title(title)
 
