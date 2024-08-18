@@ -132,7 +132,7 @@ class SpInterpSteps:
 
     def _get_all_interp_outputs(self, args):
 
-        (data_df,
+        (dta_dfe,
          beg_idx,
          end_idx,
          max_rng,
@@ -149,8 +149,8 @@ class SpInterpSteps:
 
         interp_labels = [interp_arg[2] for interp_arg in interp_args]
 
-        assert data_df.shape[1] == self._crds_df.shape[0], (
-            data_df.shape, self._crds_df.shape)
+        assert dta_dfe.shape[1] == self._crds_df.shape[0], (
+            dta_dfe.shape, self._crds_df.shape)
 
         assert self._cntn_idxs.size == np.prod(
             self._interp_crds_orig_shape, dtype=np.uint64), (
@@ -161,8 +161,10 @@ class SpInterpSteps:
             sis_shm_ags.sim_ref_dts.shape,
             self._cntn_idxs.sum(dtype=np.uint64))
 
-        dte_fnt_ixs = np.isfinite(data_df.values)
+        dte_fnt_ixs = np.isfinite(dta_dfe.values)
 
+        # This could also be shared somehow.
+        # The arrays in the background can be shared.
         grp_cls = SIG(
             self._neb_sel_mthd,
             self._n_nebs,
@@ -171,29 +173,92 @@ class SpInterpSteps:
             sis_shm_ags.sim_ycs,
             verbose=self._vb)
 
-        grps_in_time = grp_cls.get_grps_in_time(data_df)
+        tme_gps = grp_cls.get_grps_in_time(dta_dfe)
+
+        tme_ixd_rne = np.arange(beg_idx, end_idx)
+
+        dne_fgs = np.zeros(self._interp_crds_orig_shape, dtype=np.uint8)
 
         print('Start...')
-        for ipn_lab in interp_labels:
+        for tme_sts_grp, tme_grp_ixs in tme_gps:
 
-            ipn_ary = getattr(sis_shm_ags, ipn_lab)
+            if not tme_sts_grp.size: continue
 
-            l = 0
-            for i in range(fld_beg_row, fld_end_row, 1):
-                for j in range(self._interp_crds_orig_shape[1]):
+            tme_sts_grp_ixs = dta_dfe.columns.get_indexer_for(tme_sts_grp)
 
-                    k = (i * self._interp_crds_orig_shape[1]) + j
+            dta_dfe_sub = dta_dfe.loc[tme_grp_ixs, tme_sts_grp]
+            dte_fnt_ixs_sub = dte_fnt_ixs[tme_grp_ixs][:, tme_sts_grp_ixs]
+            tme_ixd_rne_sub = tme_ixd_rne[tme_grp_ixs]
+            sim_ref_dts_sub = sis_shm_ags.sim_ref_dts[:, tme_sts_grp_ixs]
 
-                    if not self._cntn_idxs[k]: continue
+            tme_sts_grp_ref_xcs = self._crds_df.loc[tme_sts_grp, 'X'].values
+            tme_sts_grp_ref_ycs = self._crds_df.loc[tme_sts_grp, 'Y'].values
 
-                    nnb_obj = NNB(
-                        sis_shm_ags.sim_ref_dts[l], data_df, dte_fnt_ixs)
+            tme_nbr_ixs, tme_nbr_ixs_gps = grp_cls.get_neb_idxs_and_grps(
+                tme_sts_grp_ref_xcs, tme_sts_grp_ref_ycs)
 
-                    ipn_ary[beg_idx:end_idx, i, j] = nnb_obj.get_ipn_vls_fst()
+            # for tme_nbr_ixs_grp in tme_nbr_ixs_gps:
+            #
+            #     tme_nbr_ixs_sub = tme_nbr_ixs[tme_nbr_ixs_grp[0]]
+            #
+            #     dta_dfe_sub_sub = dta_dfe_sub.iloc[:, tme_nbr_ixs_sub]
+            #     dte_fnt_ixs_sub_sub = dte_fnt_ixs_sub[:, tme_nbr_ixs_sub]
+            #     sim_ref_dts_sub_sub = sim_ref_dts_sub[:, tme_nbr_ixs_sub]
+            #
+            #     for ipn_lab in interp_labels:
+            #
+            #         ipn_ary = getattr(sis_shm_ags, ipn_lab)
+            #
+            #         l = 0
+            #         for m, k in enumerate(tme_nbr_ixs_grp):
+            #
+            #             if m == 0:
+            #                 nnb_obj = NNB(
+            #                     sim_ref_dts_sub_sub[l],
+            #                     dta_dfe_sub_sub,
+            #                     dte_fnt_ixs_sub_sub)
+            #
+            #                 ipn_tss = nnb_obj.get_ipn_vls_fst()
+            #
+            #                 l += 1
+            #
+            #             if not self._cntn_idxs[k]: continue
+            #
+            #             i = k // self._interp_crds_orig_shape[1]
+            #             j = k % self._interp_crds_orig_shape[1]
+            #
+            #             assert dne_fgs[i, j] == 0, dne_fgs[i, j]
+            #
+            #             ipn_ary[tme_ixd_rne_sub, i, j] = ipn_tss
+            #
+            #             dne_fgs[i, j] = 1
+                #==============================================================
 
-                    l += 1
+                # for ipn_lab in interp_labels:
+                #
+                #     ipn_ary = getattr(sis_shm_ags, ipn_lab)
+                #
+                #     l = 0
+                #     for i in range(fld_beg_row, fld_end_row, 1):
+                #         for j in range(self._interp_crds_orig_shape[1]):
+                #
+                #             k = (i * self._interp_crds_orig_shape[1]) + j
+                #
+                #             if not self._cntn_idxs[k]: continue
+                #
+                #             nnb_obj = NNB(
+                #                 sim_ref_dts_sub_sub[l],
+                #                 dta_dfe_sub_sub,
+                #                 dte_fnt_ixs_sub_sub)
+                #
+                #             ipn_tss = nnb_obj.get_ipn_vls_fst()
+                #
+                #             ipn_ary[tme_ixd_rne_sub, i, j] = ipn_tss
+                #
+                #             l += 1
+                #==============================================================
 
-                print(i, beg_idx, end_idx)
+                # print(i, beg_idx, end_idx)
 
         print('Done.')
 
@@ -201,7 +266,7 @@ class SpInterpSteps:
             lock,
             beg_idx,
             end_idx,
-            data_df,
+            dta_dfe,
             max_rng,
             interp_labels,
             sis_shm_ags,
@@ -214,7 +279,7 @@ class SpInterpSteps:
         (lock,
          beg_idx,
          end_idx,
-         data_df,
+         dta_dfe,
          max_rng,
          interp_labels,
          sis_shm_ags,
@@ -232,8 +297,8 @@ class SpInterpSteps:
 
                 print(
                     'Start and end step of this part:',
-                    data_df.index[0],
-                    data_df.index[-1])
+                    dta_dfe.index[0],
+                    dta_dfe.index[-1])
 
             nc_hdl = nc.Dataset(str(self._nc_file_path), mode='r+')
 
