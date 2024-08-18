@@ -51,6 +51,7 @@ class SpInterpMain(SID, SIP):
         self._edk_flag = False
         self._idw_flag = False
         self._nnb_flag = False
+        self._interp_flag_est_vars = False
 
         self._max_mem_usage_ratio = 1.0
 
@@ -166,17 +167,25 @@ class SpInterpMain(SID, SIP):
             print_el()
 
         if True:
-            bt = timeit.default_timer()
+            if self._vb:
+                print_sl()
+
+                bt = timeit.default_timer()
+
+                print('Computing final time series...')
 
             self._save_stats_sers()
 
             et = timeit.default_timer()
 
-            if self._vb: print(
-                f'Computing final time series statistics took: '
-                f'{et - bt:0.3f} seconds!')
+            if self._vb:
+
+                print(f'Took: {et - bt:0.3f} seconds!')
+
+                print_el()
 
         if self._plot_figs_flag:
+
             if self._vb:
                 plot_beg_time = timeit.default_timer()
 
@@ -252,6 +261,8 @@ class SpInterpMain(SID, SIP):
         return
 
     def turn_simple_kriging_on(self):
+
+        raise NotImplementedError('SK is deprecated!')
 
         if self._vb:
             print_sl()
@@ -432,11 +443,42 @@ class SpInterpMain(SID, SIP):
         self._nnb_flag = False
         return
 
+    def turn_ordinary_kriging_est_var_on(self):
+
+        assert self._ork_flag
+
+        if self._vb:
+            print_sl()
+
+            print('Set ordinary kriging estimation variance flag to True.')
+
+            print_el()
+
+        self._interp_flag_est_vars = True
+        return
+
+    def turn_ordinary_kriging_est_var_off(self):
+
+        assert self._interp_flag_est_vars
+
+        if self._vb:
+            print_sl()
+
+            print('Set ordinary kriging estimation variance flag to False.')
+
+            print_el()
+
+        self._interp_flag_est_vars = False
+        return
+
     def _save_stats_sers(self):
 
         data_df = self._data_df.sort_index()
 
-        interp_labels = [interp_arg[2] for interp_arg in self._interp_args]
+        interp_labels = [
+            interp_arg[2]
+            for interp_arg in self._interp_args
+            if interp_arg[2] != 'EST_VARS_OK']
 
         time_steps = data_df.index
 
@@ -479,14 +521,10 @@ class SpInterpMain(SID, SIP):
 
         nc_hdl.close()
 
-        self._plot_stats_sers(stats_df)
+        self._plot_stats_sers(stats, stats_df, interp_labels)
         return
 
-    def _plot_stats_sers(self, stats_df):
-
-        interp_labels = [interp_arg[2] for interp_arg in self._interp_args]
-
-        stats = ['min', 'mean', 'max', 'std', 'count']
+    def _plot_stats_sers(self, stats, stats_df, interp_labels):
 
         plt.figure(figsize=(8.0, 6.5))
 

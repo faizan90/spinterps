@@ -65,7 +65,7 @@ class SpInterpPlot:
                 if interp_type in ('IDW', 'NNB'):
                     model = None
 
-                elif interp_type in ('OK', 'SK', 'EDK'):
+                elif interp_type in ('OK', 'SK', 'EDK', 'EST_VARS_OK'):
                     model = vgs_ser.loc[time_steps[i]]
 
                 else:
@@ -134,7 +134,11 @@ class SpInterpPlot:
 
         cb = fig.colorbar(pclr)
 
-        cb.set_label(self._nc_vlab + ' (' + self._nc_vunits + ')')
+        if interp_type == 'EST_VARS_OK':
+            cb.set_label('EST_VARS_OK')
+
+        else:
+            cb.set_label(self._nc_vlab + ' (' + self._nc_vunits + ')')
 
         if False:
             ax.scatter(
@@ -159,11 +163,12 @@ class SpInterpPlot:
         if model is not None:
             title_str += f'(VG: {model})\n'
 
-        title_str += (
-            f'Data stats:: Mean: {data_mean:0.4f}, '
-            f'Var.: {data_var:0.4f}, '
-            f'Min.: {data_min:0.4f}, '
-            f'Max.: {data_max:0.4f}\n')
+        if interp_type != 'EST_VARS_OK':
+            title_str += (
+                f'Data stats:: Mean: {data_mean:0.4f}, '
+                f'Var.: {data_var:0.4f}, '
+                f'Min.: {data_min:0.4f}, '
+                f'Max.: {data_max:0.4f}\n')
 
         title_str += (
             f'Grid stats:: Mean: {grd_mean:0.4f}, '

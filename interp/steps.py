@@ -265,7 +265,7 @@ class SpInterpSteps:
 
         dst_data = np.full((n_time, n_dsts), np.nan)
 
-        if self._interp_flag_est_vars:
+        if self._interp_flag_est_vars and (interp_type == 'OK'):
             est_vars = np.full(
                 (n_time, n_dsts), np.nan, dtype=self._intrp_dtype)
 
@@ -292,8 +292,14 @@ class SpInterpSteps:
         elif interp_type == 'IDW':
 
             for i in range(n_dsts):
-                wts_sum = fill_wts_and_sum(
-                    dst_ref_2d_dists_arr_sub[i], wts, idw_exp)
+
+                dists = dst_ref_2d_dists_arr_sub[i]
+                dists_max = dst_ref_2d_dists_arr_sub[i].max()
+
+                # To avoid potential overflow.
+                if dists_max > 0: dists /= dists_max
+
+                wts_sum = fill_wts_and_sum(dists, wts, idw_exp)
 
                 assert (wts_sum >= 1e-14), wts_sum
 
@@ -319,7 +325,7 @@ class SpInterpSteps:
 
                     dst_data[j,:] = ref_means[j]
 
-                    if self._interp_flag_est_vars: est_vars[j,:] = 0.0
+                    if est_vars is not None: est_vars[j,:] = 0.0
 
                     continue
 
@@ -371,10 +377,10 @@ class SpInterpSteps:
                         #     j,
                         #     i)
 
-                        dst_data[j , i] = ref_data[
+                        dst_data[j, i] = ref_data[
                             j, np.argmin(dst_ref_2d_dists_arr_sub[i])]
 
-                    if self._interp_flag_est_vars: est_vars[j,:] = 0.0
+                    if est_vars is not None: est_vars[j,:] = 0.0
 
                 else:
                     self._fill_krig_idw_dst_data(
@@ -415,13 +421,13 @@ class SpInterpSteps:
                 dst_data[j, i] = ref_data[
                     j, np.argmin(dst_ref_2d_dists_arr_sub[i])]
 
-                if self._interp_flag_est_vars:
+                if est_vars is not None:
                     est_vars[j, i] = 0.0
 
             else:
                 dst_data[j, i] = (lmds[:n_refs] * ref_data[j]).sum()
 
-                if self._interp_flag_est_vars:
+                if est_vars is not None:
                     est_vars[j, i] = (
                         (lmds * dst_ref_2d_vars_arr_sub[i]).sum() +
                         lmds[n_refs])
@@ -582,6 +588,24 @@ class SpInterpSteps:
             self._interp_y_crds_msh,
             verbose=self._vb)
 
+        if True:
+            # Whether to drop stations that are never close enough.
+            # This, should, spare memory.
+            tke_stn_ixs = grp_cls.get_neb_idxs_and_grps(
+                self._crds_df.loc[:, 'X'].values,
+                self._crds_df.loc[:, 'Y'].values)[0]
+
+            tke_stn_ixs = np.unique(tke_stn_ixs)
+
+            if tke_stn_ixs.size != self._crds_df.shape[0]:
+                print(tke_stn_ixs.size, self._crds_df.shape[0])
+
+                self._crds_df = self._crds_df.iloc[tke_stn_ixs,:].copy()
+                data_df = data_df.iloc[:, tke_stn_ixs].copy()
+
+                if stns_drft_df is not None:
+                    stns_drft_df = stns_drft_df.iloc[tke_stn_ixs,:]
+
         grps_in_time = grp_cls.get_grps_in_time(data_df)
 
         # TODOO: min_nebor_dist_thresh should be related to time and not just
@@ -631,20 +655,11 @@ class SpInterpSteps:
         self._interp_y_crds_msh = None
         #======================================================================
 
-        interp_flds_dict = {interp_label:np.full(
+        interp_flds_dict = {interp_label: np.full(
             (time_steps.shape[0], np.prod(fld_grd_shape)),
             np.nan,
             dtype=self._intrp_dtype)
             for interp_label in interp_labels}
-
-        if self._interp_flag_est_vars:
-            est_vars_flds_dict = {'EST_VARS_OK':np.full(
-                (time_steps.shape[0], np.prod(fld_grd_shape)),
-                np.nan,
-                dtype=self._intrp_dtype)}
-
-        else:
-            est_vars_flds_dict = None
         #======================================================================
 
         prblm_time_steps = []
@@ -653,6 +668,7 @@ class SpInterpSteps:
         # cmn_time_stn_grp_idxs: Time steps at which time_stn_grp stations are
         # active.
 
+        print('Started interpolating...')
         for time_stn_grp, cmn_time_stn_grp_idxs in grps_in_time:
 
             sub_time_steps = time_steps[cmn_time_stn_grp_idxs]
@@ -759,6 +775,9 @@ class SpInterpSteps:
                 sub_pts_flags[time_neb_idxs_grp] = True
 
                 for i, interp_type in enumerate(interp_types):
+
+                    if interp_labels[i] == 'EST_VARS_OK': continue
+
                     if interp_type == 'IDW':
                         idw_exp = interp_args[i][3]
 
@@ -786,9 +805,11 @@ class SpInterpSteps:
 
                     interp_flds = interp_flds_dict[interp_labels[i]]
 
-                    if self._interp_flag_est_vars:
-                        est_vars_flds = est_vars_flds_dict[
-                            f'EST_VARS_{interp_labels[i]}']
+                    if self._interp_flag_est_vars and (interp_type == 'OK'):
+                        est_vars_flds = interp_flds_dict[f'EST_VARS_OK']
+
+                    else:
+                        est_vars_flds = None
 
                     if self._cntn_idxs is not None:
                         for j, time_idx in enumerate(interp_flds_time_idxs):
@@ -796,7 +817,7 @@ class SpInterpSteps:
                                 time_idx, cntn_idxs_whr[sub_pts_flags]] = (
                                     interp_vals[j].astype(self._intrp_dtype))
 
-                            if self._interp_flag_est_vars: est_vars_flds[
+                            if est_vars_flds is not None: est_vars_flds[
                                 time_idx, cntn_idxs_whr[sub_pts_flags]] = (
                                     est_vars[j])
 
@@ -805,7 +826,7 @@ class SpInterpSteps:
                             interp_flds[time_idx, sub_pts_flags] = (
                                 interp_vals[j].astype(self._intrp_dtype))
 
-                            if self._interp_flag_est_vars: est_vars_flds[
+                            if est_vars_flds is not None: est_vars_flds[
                                 time_idx, sub_pts_flags] = est_vars[j]
 
                 pts_done_flags[time_neb_idxs_grp] = True
@@ -817,7 +838,6 @@ class SpInterpSteps:
         ref_ref_2d_vars_arr_all = None
         dst_ref_2d_dists_arr_all = None
         dst_ref_2d_vars_arr_all = None
-
         dst_ref_2d_dists_arr_sub = None
 
         grp_cls = None
@@ -853,8 +873,7 @@ class SpInterpSteps:
             fld_end_row,
             vgs_rord_tidxs_ser,
             time_steps,
-            interp_beg_time,
-            est_vars_flds_dict)
+            interp_beg_time)
 
     def _write_to_disk(self, args):
 
@@ -870,10 +889,7 @@ class SpInterpSteps:
          fld_end_row,
          vgs_rord_tidxs_ser,
          time_steps,
-         interp_beg_time,
-         est_vars_flds_dict) = args
-
-        _ = est_vars_flds_dict
+         interp_beg_time) = args
 
         with lock:
             if self._vb:
@@ -906,16 +922,6 @@ class SpInterpSteps:
 
                     interp_flds_dict[interp_label] = None
 
-                    # est_var_flds = est_vars_flds_dict[f'EST_VARS_{interp_label}']
-                    #
-                    # for i in range(max_rng):
-                    #     nc_hdl[f'EST_VARS_{interp_label}'][
-                    #         nc_is[i]:nc_is[i + 1],
-                    #         fld_beg_row:fld_end_row,:] = (
-                    #             est_var_flds[ar_is[i]:ar_is[i + 1]])
-                    #
-                    # est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
-
                     nc_hdl.sync()
 
             else:
@@ -932,20 +938,6 @@ class SpInterpSteps:
                               fld_beg_row:fld_end_row,:] = interp_flds[i]
 
                     interp_flds_dict[interp_label] = None
-
-                    if self._interp_flag_est_vars:
-                        est_vars_flds = est_vars_flds_dict[
-                            f'EST_VARS_{interp_label}']
-
-                        for i in range(vgs_ser.shape[0]):
-
-                            nc_idx = vgs_rord_tidxs_ser.loc[time_steps[i]]
-
-                            nc_hdl[f'EST_VARS_{interp_label}'][
-                                nc_idx,
-                                fld_beg_row:fld_end_row,:] = est_vars_flds[i]
-
-                        est_vars_flds_dict[f'EST_VARS_{interp_label}'] = None
 
                     nc_hdl.sync()
 

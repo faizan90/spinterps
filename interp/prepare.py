@@ -381,18 +381,6 @@ class SpInterpPrepare(SIBD, KDT):
             else:
                 nc_var.standard_name = self._nc_vlab + f' ({ivar_name})'
 
-        if self._interp_flag_est_vars:
-            nc_hdl.createVariable(
-                'EST_VARS_OK',
-                self._intrp_dtype,
-                dimensions=(dim_t_lab, dim_y_lab, dim_x_lab),
-                fill_value=False,
-                compression='zlib',
-                complevel=comp_level,
-                chunksizes=(1,
-                            self._nc_y_crds.shape[0],
-                            self._nc_x_crds.shape[0]))
-
         self._nc_file_path = nc_hdl.filepath()
         #======================================================================
 
@@ -409,6 +397,8 @@ class SpInterpPrepare(SIBD, KDT):
         nc_hdl.sett_edk_flag = str(self._edk_flag)
         nc_hdl.sett_idw_flag = str(self._idw_flag)
         nc_hdl.sett_nnb_flag = str(self._nnb_flag)
+        nc_hdl.sett_interp_flag_est_vars = str(
+            self._interp_flag_est_vars)
 
         nc_hdl.sett_out_dir = str(self._out_dir)
 
@@ -437,9 +427,6 @@ class SpInterpPrepare(SIBD, KDT):
         nc_hdl.sett_neb_sel_mthd = str(self._neb_sel_mthd)
         nc_hdl.sett_n_nebs = str(self._n_nebs)
         nc_hdl.sett_n_pies = str(self._n_pies)
-
-        nc_hdl.sett_interp_flag_est_vars = str(
-            self._interp_flag_est_vars)
 
         nc_hdl.Source = self._nc_file_path
         nc_hdl.close()
@@ -630,11 +617,14 @@ class SpInterpPrepare(SIBD, KDT):
 
             if self._idw_flag:
                 for i, idw_exp in enumerate(self._idw_exps):
-                    exp_str = ('%0.3f' % idw_exp).replace('.', '').rstrip('0')
+                    exp_str = ('%0.3f' % idw_exp).rstrip('0').replace('.', '')
                     fig_dirs[f'IDW_{i:03d}'] = 'idw_exp_%s_figs' % exp_str
 
             if self._nnb_flag:
                 fig_dirs['NNB'] = 'nrst_nebr_figs'
+
+            if self._interp_flag_est_vars:
+                fig_dirs['EST_VARS_OK'] = 'est_vars_ord_krig_figs'
 
             interp_plot_dirs = {}
 
@@ -695,6 +685,15 @@ class SpInterpPrepare(SIBD, KDT):
                 fig_dir = None
 
             self._interp_args.append(('NNB', fig_dir, 'NNB'))
+
+        if self._interp_flag_est_vars:
+            if self._plot_figs_flag:
+                fig_dir = interp_plot_dirs['EST_VARS_OK']
+
+            else:
+                fig_dir = None
+
+            self._interp_args.append(('EST_VARS_OK', fig_dir, 'EST_VARS_OK'))
         #======================================================================
 
         self._initiate_nc()

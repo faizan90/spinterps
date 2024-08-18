@@ -34,6 +34,8 @@ DEBUG_FLAG = True
 
 def main():
 
+    raise NotImplementedError('Use ae_match_stat.py. It is the final one!')
+
     main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\krig_sclg\spinterp_ppt5')
     os.chdir(main_dir)
 
@@ -44,7 +46,7 @@ def main():
     tlb = 'time'
 
     beg_tme, end_tme = pd.to_datetime(
-        ['1990-01-01', '1990-12-31'], format='%Y-%m-%d')
+        ['1961-01-01', '1970-12-31'], format='%Y-%m-%d')
 
     ply_pth = Path(r'../bayern_epsg32632.shp')
     ply_fld = 'ID_0'
@@ -57,6 +59,8 @@ def main():
 
     non_neg_flg = True
     men_ccn_flg = False  # It is diffuclt to keep both mean and variance.
+
+    comp_level = 1
     #==========================================================================
 
     if cds_pth is not None:
@@ -82,7 +86,7 @@ def main():
         vbe_gds = nc_hdl[vlb][take_idxs_beg:take_idxs_end].data
         vbe_etn_std_gds = nc_hdl[elb][take_idxs_beg:take_idxs_end].data ** 0.5
 
-        vbe_gds_ctd = np.full(nc_hdl[vlb].shape, np.nan, dtype=vbe_gds.dtype)
+        vbe_gds_ctd = np.full(vbe_gds.shape, np.nan, dtype=vbe_gds.dtype)
 
         if nan_val is not None:
             vbe_gds[vbe_gds == nan_val] = np.nan
@@ -140,7 +144,15 @@ def main():
             vbe_dst = nc_hdl[vlb]
 
             vbe_ctd_dst = nc_hdl.createVariable(
-                vbe_ctd_lbl, vbe_gds_ctd.dtype, vbe_dst.dimensions)
+                vbe_ctd_lbl,
+                vbe_gds_ctd.dtype,
+                vbe_dst.dimensions,
+                fill_value=False,
+                compression='zlib',
+                complevel=comp_level,
+                chunksizes=(1,
+                            vbe_gds_ctd.shape[1],
+                            vbe_gds_ctd.shape[2]))
 
             vbe_dst = None
 
@@ -156,7 +168,15 @@ def main():
             vbe_dst = nc_hdl[vlb]
 
             vbe_ctd_dst = nc_hdl.createVariable(
-                vbe_ctd_lbl, vbe_gds_ctd.dtype, vbe_dst.dimensions)
+                vbe_ctd_lbl,
+                vbe_gds_ctd.dtype,
+                vbe_dst.dimensions,
+                fill_value=False,
+                compression='zlib',
+                complevel=comp_level,
+                chunksizes=(1,
+                            vbe_gds_ctd.shape[1],
+                            vbe_gds_ctd.shape[2]))
 
             vbe_dst = None
 
@@ -172,7 +192,15 @@ def main():
             vbe_dst = nc_hdl[vlb]
 
             vbe_ctd_dst = nc_hdl.createVariable(
-                vbe_ctd_lbl, vbe_gds_ctd.dtype, vbe_dst.dimensions)
+                vbe_ctd_lbl,
+                vbe_gds_ctd.dtype,
+                vbe_dst.dimensions,
+                fill_value=False,
+                compression='zlib',
+                complevel=comp_level,
+                chunksizes=(1,
+                            vbe_gds_ctd.shape[1],
+                            vbe_gds_ctd.shape[2]))
 
             vbe_dst = None
 

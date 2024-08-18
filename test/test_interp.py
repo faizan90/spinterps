@@ -107,15 +107,17 @@ def main():
     edk_krige_flag = True
     idw_flag = True
     nnb_flag = True
+    est_var_ok_flag = True
     plot_figs_flag = True
     verbose = True
     interp_around_polys_flag = True
 
-    # ord_krige_flag = False
+    ord_krige_flag = False
     sim_krige_flag = False
     edk_krige_flag = False
     idw_flag = False
-    nnb_flag = False
+    # nnb_flag = False
+    est_var_ok_flag = False
     plot_figs_flag = False
     # verbose = False
     # interp_around_polys_flag = False
@@ -237,6 +239,9 @@ def main():
 
     if nnb_flag:
         spinterp_cls.turn_nearest_neighbor_on()
+
+    if est_var_ok_flag:
+        spinterp_cls.turn_ordinary_kriging_est_var_on()
 
     spinterp_cls.verify()
 
