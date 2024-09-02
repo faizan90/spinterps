@@ -3,9 +3,9 @@
 '''
 @author: Faizan-TU Munich
 
-09.07.2024
+01.07.2024
 
-08:28:46
+11:50:38
 
 Description:
 
@@ -20,48 +20,65 @@ import timeit
 import traceback as tb
 from pathlib import Path
 
-import pyproj
+import pandas as pd
+import netCDF4 as nc
 
-from spinterps import ResampleNCFToRas
-
-DEBUG_FLAG = True
+DEBUG_FLAG = False
 
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ncf_to_ras')
+    main_dir = Path(r'P:\dwd_meteo\gridded\extract_radolan\a_snip_hourly')
     os.chdir(main_dir)
 
-    src_pth = Path(r'rr_ens_mean_0.1deg_reg_v29.0e.nc')
-    dst_pth = Path(r'vils_rott_isen_dem_1km.tif')
+    ncs_dir = main_dir
 
-    out_pth = Path(r'ncf_to_ras1.nc')
+    new_units = 'hours since 2006-01-01 00:00:00'
+    new_clndr = 'gregorian'
 
-    src_vrs = ('rr',)
-    src_tlb = 'time'
-    src_crs = pyproj.crs.CRS.from_epsg('4326')
+    time_labl = 'time'
+    time_strs_labl = 'time_strs'  # None
 
-    src_xlb = 'longitude'  # Should be with constant cell width.
-    src_ylb = 'latitude'  # Should be with constant cell height.
+    glob_patt = r'*.nc'
 
-    n_cpus = 'auto'
+    time_dlta = pd.Timedelta(-50, unit='minutes')
     #==========================================================================
 
-    rsp_obj = ResampleNCFToRas(True)
+    assert ncs_dir.exists(), ncs_dir
 
-    rsp_obj.set_inputs(
-        src_pth,
-        dst_pth,
-        n_cpus,
-        src_vrs,
-        src_xlb,
-        src_ylb,
-        src_tlb,
-        src_crs)
+    for ncf_pth in ncs_dir.glob(glob_patt):
 
-    rsp_obj.set_outputs(out_pth)
+        print(ncf_pth)
 
-    rsp_obj.resample()
+        with nc.Dataset(ncf_pth, 'r+') as ncf_hdl:
+
+            time_axis = ncf_hdl[time_labl]
+
+            time_nums = time_axis[:]
+
+            time_objs = nc.num2date(
+                time_nums,
+                units=time_axis.units,
+                calendar=time_axis.calendar,
+                only_use_cftime_datetimes=False) + time_dlta
+
+            new_time_nums = nc.date2num(
+                time_objs,
+                units=new_units,
+                calendar=new_clndr)
+
+            time_axis.units = new_units
+            time_axis.calendar = new_clndr
+
+            time_axis[:] = new_time_nums
+
+            if time_strs_labl is not None:
+                time_objs = pd.DatetimeIndex(time_objs)
+
+                time_strs_axis = ncf_hdl[time_strs_labl]
+                time_strs_axis[:] = (
+                    time_objs.strftime('%Y%m%dT%H%M%S').values)
+
     return
 
 

@@ -26,32 +26,34 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ncf_to_ras')
+    main_dir = Path(r'P:\dwd_meteo\gridded\extract_hyras')
 
     os.chdir(main_dir)
 
-    in_nc_path_1 = Path(r'ncf_to_ras1.nc')
-    var_label_1 = 'rr'
-    x_label_1 = 'X2D'
-    y_label_1 = 'Y2D'
+    in_nc_path_1 = Path(r'pr_hyras_1_1931_2020_v5-0_de.nc')
+    var_label_1 = 'pr'
+    x_label_1 = 'x_utm32n'
+    y_label_1 = 'y_utm32n'
     time_label_1 = 'time'
     sclr_1 = None
 
-    in_nc_path_2 = Path(r'rr_ens_mean_0.1deg_reg_v29.0e.nc')
-    var_label_2 = 'rr'
-    x_label_2 = 'x_utm32n'  # 'longitude'  #
-    y_label_2 = 'y_utm32n'  # 'latitude'  #
+    in_nc_path_2 = Path(r'dstr_deby/pr_hyras_1_1931_2020_v5-0_de.nc')
+    var_label_2 = 'pr'
+    x_label_2 = 'X2D'  # 'longitude'  #
+    y_label_2 = 'Y2D'  # 'latitude'  #
     time_label_2 = 'time'
     sclr_2 = None
 
     cbar_label = 'Precipitation (mm)'
     # cbar_label = 'PET (mm)'
     # cbar_label = 'Temperature (C)'
+    # cbar_label = 'Humidity (%)'
+    # cbar_label = 'Radiation'
 
     cmap = 'viridis'  # 'Blues'  #
 
     var_min_val = 0
-    var_max_val = 10
+    var_max_val = 3e1
 
     # var_min_val = 0
     # var_max_val = 2
@@ -68,11 +70,11 @@ def main():
     # y_llim = None
     # y_ulim = None
 
-    x_llim = 700000
-    x_ulim = 830000
+    x_llim = 500000
+    x_ulim = 860000
 
-    y_llim = 5.42e6
-    y_ulim = 5.32e6
+    y_llim = 56e5
+    y_ulim = 52e5
 
     show_title_flag = True
     # show_title_flag = False
@@ -90,7 +92,7 @@ def main():
     #     format='%Y-%m-%d %H:%M:%S')
 
     beg_time, end_time = pd.to_datetime(
-        ['1950-01-01', '1950-01-10'],
+        ['2010-01-01', '2010-01-10'],
         format='%Y-%m-%d')
 
     # beg_time, end_time = pd.to_datetime(
@@ -98,7 +100,7 @@ def main():
     #     format='%Y-%m-%d %H')
 
     # Catchments shapefile.
-    in_cat_file = Path(r'vils_rott_isen_catchments.shp')  # None
+    in_cat_file = Path(r'P:\DEBY\dem_ansys_1km\watersheds.shp')  # None
 
     cat_col = 'DN'
 

@@ -469,7 +469,6 @@ class ExtractNetCDFValues:
         assert self._in_var_lab in in_hdl.variables, (
             f'Extraction variable: {self._in_var_lab} not in the input!')
 
-        # memory manage?
         in_var = in_hdl[self._in_var_lab]
         in_var.set_always_mask(False)
 
@@ -663,13 +662,14 @@ class ExtractNetCDFValues:
         in_var_nbytes = in_var.dtype.itemsize * np.prod(
             in_var.shape, dtype=np.uint64)
 
-        tot_avail_mem = int(ps.virtual_memory().free * 0.35)
+        tot_avail_mem = int(ps.virtual_memory().available * 0.35)
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 
         assert n_mem_time_prds >= 1, n_mem_time_prds
 
         if n_mem_time_prds > 1:
+
             if self._vb: print('Memory not enough to read in one go!')
 
             in_var_mem_idxs = np.linspace(
@@ -685,201 +685,200 @@ class ExtractNetCDFValues:
             assert np.unique(in_var_mem_idxs).size == in_var_mem_idxs.size, (
                 np.unique(in_var_mem_idxs).size, in_var_mem_idxs.size)
 
-        if n_mem_time_prds == 1:
-            in_var_dta = in_var[:]
+        else:
+            in_var_mem_idxs = np.array([0, in_var.shape[0]])
 
-        for label, crds_idxs in indices.items():
+        for mmy_bgn_idx, mmy_end_idx in zip(
+            in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
 
-            cols_idxs = crds_idxs['cols']
-            cols_idxs_min = cols_idxs.min()
-            cols_idxs_max = cols_idxs.max()
-            assert (cols_idxs_max >= 0) & (cols_idxs_min >= 0), (
-                'Column indices are not allowed to be negative!')
+            if extrtd_data is not None:
+                mmy_bgn_tme_idx = extrtd_data.index[mmy_bgn_idx]
+                mmy_end_tme_idx = extrtd_data.index[mmy_end_idx - 1]
 
-            rows_idxs = crds_idxs['rows']
-            rows_idxs_min = rows_idxs.min()
-            rows_idxs_max = rows_idxs.max()
-            assert (rows_idxs_max >= 0) & (rows_idxs_min >= 0), (
-                'Row indices are not allowed to be negative!')
+            in_var_dta = in_var[mmy_bgn_idx:mmy_end_idx]
 
-            assert rows_idxs_max < in_var.shape[1], (
-                'One or more row indices are out of bounds!')
+            for label, crds_idxs in indices.items():
 
-            assert cols_idxs_max < in_var.shape[2], (
-                'One or more column indices are out of bounds!')
+                cols_idxs = crds_idxs['cols']
+                rows_idxs = crds_idxs['rows']
 
-            if self.raise_on_duplicate_row_col_flag:
-                crds_set = set([(x, y) for x, y in zip(cols_idxs, rows_idxs)])
+                if mmy_bgn_idx == 0:
 
-                assert len(crds_set) == cols_idxs.size, (
-                    'Repeating row and column index combinations not allowed!')
+                    cols_idxs_min = cols_idxs.min()
+                    cols_idxs_max = cols_idxs.max()
+                    assert (cols_idxs_max >= 0) & (cols_idxs_min >= 0), (
+                        'Column indices are not allowed to be negative!')
 
-            if self._out_fmt in ('raw', 'csv', 'pkl'):
+                    rows_idxs_min = rows_idxs.min()
+                    rows_idxs_max = rows_idxs.max()
+                    assert (rows_idxs_max >= 0) & (rows_idxs_min >= 0), (
+                        'Row indices are not allowed to be negative!')
 
-                if n_mem_time_prds == 1:
+                    assert rows_idxs_max < in_var.shape[1], (
+                        'One or more row indices are out of bounds!')
+
+                    assert cols_idxs_max < in_var.shape[2], (
+                        'One or more column indices are out of bounds!')
+
+                    if self.raise_on_duplicate_row_col_flag:
+                        crds_set = set(
+                            [(x, y) for x, y in zip(cols_idxs, rows_idxs)])
+
+                        assert len(crds_set) == cols_idxs.size, (
+                        'Repeating row and column index combinations '
+                        'not allowed!')
+
+                if self._out_fmt in ('raw', 'csv', 'pkl'):
+
                     steps_data = in_var_dta[:, rows_idxs, cols_idxs]
 
-                else:
-                    steps_data = np.full(
-                        (in_time.shape[0], rows_idxs.size),
-                        np.nan,
-                        dtype=in_var.dtype)
+                    assert steps_data.size, 'This should not have happend!'
 
-                    # print('Reading...')
-                    for i, j in zip(
-                        in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
+                    if self._out_fmt == 'raw':
+                        extrtd_data.loc[
+                            mmy_bgn_tme_idx:mmy_end_tme_idx,
+                            [label]] = steps_data
 
-                        # print(i, j)
+                    elif self._out_fmt in ('csv', 'pkl'):
 
-                        otp_var_slc = in_var[i:j]
-                        for k, l in enumerate(range(i, j)):
-                            steps_data[l] = (
-                                otp_var_slc[k][(rows_idxs, cols_idxs)])
+                        # NOTE: In case of invalid numerical values, use raw
+                        #       output format and post process it outside.
 
-                        otp_var_slc = None
+                        nan_idxs = np.isnan(steps_data)
 
-                assert steps_data.size, 'This should not have happend!'
+                        if nan_idxs.any():
 
-                if self._out_fmt == 'raw':
-                    extrtd_data.loc[:, [label]] = steps_data
+                            iis = extrtd_data.index[mmy_bgn_idx:mmy_end_idx]
 
-                elif self._out_fmt in ('csv', 'pkl'):
+                            for i in range(nan_idxs.shape[0]):
 
-                    # NOTE: In case of invalid numerical values, use raw
-                    #       output format and post process it outside.
+                                if nan_idxs[i].all(): continue
 
-                    nan_idxs = np.isnan(steps_data)
-                    if nan_idxs.any():
+                                if not nan_idxs[i].any():
+                                    wtd_sum = (
+                                        steps_data[i] *
+                                        crds_idxs['rel_itsctd_area']).sum()
 
-                        for i in range(nan_idxs.shape[0]):
+                                else:
+                                    rel_ara = crds_idxs[
+                                        'rel_itsctd_area'][~nan_idxs[i]]
 
-                            if nan_idxs[i].all(): continue
+                                    wtd_prd = (
+                                        rel_ara * steps_data[i, ~nan_idxs[i]])
 
-                            if not nan_idxs[i].any():
-                                wtd_sum = (
-                                    steps_data[i] *
-                                    crds_idxs['rel_itsctd_area']).sum()
+                                    rel_ara_sum = rel_ara.sum()
 
-                            else:
-                                rel_ara = crds_idxs[
-                                    'rel_itsctd_area'][~nan_idxs[i]]
+                                    wtd_sum = wtd_prd.sum() / rel_ara_sum
 
-                                wtd_prd = rel_ara * steps_data[i, ~nan_idxs[i]]
+                                assert np.isfinite(wtd_sum), wtd_sum
 
-                                rel_ara_sum = rel_ara.sum()
+                                extrtd_data.loc[iis[i], label] = wtd_sum
 
-                                wtd_sum = wtd_prd.sum() / rel_ara_sum
-
-                            assert np.isfinite(wtd_sum), wtd_sum
-
-                            extrtd_data.loc[extrtd_data.index[i], label] = (
-                                wtd_sum)
+                        else:
+                            extrtd_data.loc[
+                                mmy_bgn_tme_idx:mmy_end_tme_idx,
+                                label] = (
+                                    steps_data * crds_idxs['rel_itsctd_area']
+                                    ).sum(axis=1)
 
                     else:
-                        extrtd_data.loc[:, label] = (
-                            steps_data * crds_idxs['rel_itsctd_area']
-                            ).sum(axis=1)
+                        raise NotImplementedError
+
+                    steps_data = None
+
+                elif self._out_fmt == 'h5':
+                    label_str = str(label)
+
+                    if mmy_bgn_idx == 0:
+
+                        assert label_str not in out_var_grp, (
+                            f'Dataset {label_str} exists in the output file '
+                            f'already!')
+
+                        for add_var_lab in add_var_labels:
+                            grp_lnk = f'{add_var_lab}/{label_str}'
+
+                            assert isinstance(
+                                crds_idxs[add_var_lab], np.ndarray), (
+                                    'Additional variables can only be '
+                                    'numeric arrays!')
+
+                            assert np.issubdtype(
+                                crds_idxs[add_var_lab].dtype, np.number), (
+                                    'Only numeric datatypes allowed for the '
+                                    'additional variables!')
+
+                            if label_str in out_hdl[add_var_lab]:
+                                assert (out_hdl[grp_lnk].shape ==
+                                    crds_idxs[add_var_lab].shape), (
+                                        f'Shape of existing variable: '
+                                        f'{add_var_lab} inside the HDF5 and '
+                                        f'current ones is unequal!')
+
+                                assert np.all(np.isclose(
+                                    out_hdl[grp_lnk][...],
+                                    crds_idxs[add_var_lab])), (
+                                        f'Existing values at {grp_lnk} in '
+                                        f'the HDF5 and current ones are '
+                                        f'unequal!')
+
+                            else:
+                                out_hdl[grp_lnk] = crds_idxs[add_var_lab]
+                    #==========================================================
+
+                    if (label_str in out_hdl['rows']) and (mmy_bgn_idx == 0):
+
+                        assert label_str in out_hdl['cols'], (
+                            f'Dataset {label_str} supposed to exist in '
+                            f'the \'cols\' group!')
+
+                        assert (out_hdl[f'rows/{label_str}'].shape ==
+                            rows_idxs.shape), (
+                                'Shape of existing row indices inside the '
+                                'HDF5 and current ones is unequal!')
+
+                        assert (out_hdl[f'cols/{label_str}'].shape ==
+                            cols_idxs.shape), (
+                                'Shape of existing column indices inside the '
+                                'HDF5 and current ones is unequal!')
+
+                        if not ignore_rows_cols_equality:
+                            assert np.all(
+                                out_hdl[f'rows/{label_str}'][...] ==
+                                rows_idxs), (
+                                    f'Existing values of rows in the HDF5 '
+                                    f'and the current ones are unequal!')
+
+                            assert np.all(
+                                out_hdl[f'cols/{label_str}'][...] ==
+                                cols_idxs), (
+                                    f'Existing values of columns in the HDF5 '
+                                    f'and the current ones are unequal!')
+
+                    elif mmy_bgn_idx == 0:
+                        out_hdl[f'rows/{label_str}'] = rows_idxs
+                        out_hdl[f'cols/{label_str}'] = cols_idxs
+                    #==========================================================
+
+                    if mmy_bgn_idx == 0:
+                        out_lab_ds = out_var_grp.create_dataset(
+                            label_str,
+                            (in_var.shape[0], rows_idxs.size),
+                            in_var.dtype,
+                            compression='gzip',
+                            compression_opts=self._h5nc_comp_level,
+                            chunks=(1, rows_idxs.size))
+
+                    else:
+                        out_lab_ds = out_var_grp[label_str]
+
+                    out_lab_ds[mmy_bgn_idx:mmy_end_idx] = (
+                        in_var_dta[:, rows_idxs, cols_idxs])
+
+                    out_hdl.flush()
 
                 else:
                     raise NotImplementedError
-
-                steps_data = None
-
-            elif self._out_fmt == 'h5':
-                label_str = str(label)
-
-                assert label_str not in out_var_grp, (
-                    f'Dataset {label_str} exists in the output file already!')
-
-                for add_var_lab in add_var_labels:
-                    grp_lnk = f'{add_var_lab}/{label_str}'
-
-                    assert isinstance(crds_idxs[add_var_lab], np.ndarray), (
-                        'Additonal variables can only be numeric arrays!')
-
-                    assert np.issubdtype(
-                        crds_idxs[add_var_lab].dtype, np.number), (
-                            'Only numeric datatypes allowed for the '
-                            'additional variables!')
-
-                    if label_str in out_hdl[add_var_lab]:
-                        assert (out_hdl[grp_lnk].shape ==
-                            crds_idxs[add_var_lab].shape), (
-                                f'Shape of existing variable: {add_var_lab} '
-                                f'inside the HDF5 and current ones is '
-                                f'unequal!')
-
-                        assert np.all(np.isclose(
-                            out_hdl[grp_lnk][...],
-                            crds_idxs[add_var_lab])), (
-                                f'Existing values at {grp_lnk} in the HDF5 '
-                                f'and current ones are unequal!')
-
-                    else:
-                        out_hdl[grp_lnk] = crds_idxs[add_var_lab]
-
-                if label_str in out_hdl['rows']:
-                    assert label_str in out_hdl['cols'], (
-                        f'Dataset {label_str} supposed to exist in '
-                        f'the \'cols\' group!')
-
-                    assert (out_hdl[f'rows/{label_str}'].shape ==
-                        rows_idxs.shape), (
-                            'Shape of existing row indices inside the '
-                            'HDF5 and current ones is unequal!')
-
-                    assert (out_hdl[f'cols/{label_str}'].shape ==
-                        cols_idxs.shape), (
-                            'Shape of existing column indices inside the '
-                            'HDF5 and current ones is unequal!')
-
-                    if not ignore_rows_cols_equality:
-                        assert np.all(
-                            out_hdl[f'rows/{label_str}'][...] == rows_idxs), (
-                                f'Existing values of rows in the HDF5 '
-                                f'and the current ones are unequal!')
-
-                        assert np.all(
-                            out_hdl[f'cols/{label_str}'][...] == cols_idxs), (
-                                f'Existing values of columns in the HDF5 '
-                                f'and the current ones are unequal!')
-
-                else:
-                    out_hdl[f'rows/{label_str}'] = rows_idxs
-                    out_hdl[f'cols/{label_str}'] = cols_idxs
-
-                out_lab_ds = out_var_grp.create_dataset(
-                    label_str,
-                    (in_var.shape[0], rows_idxs.size),
-                    in_var.dtype,
-                    compression='gzip',
-                    compression_opts=self._h5nc_comp_level,
-                    chunks=(1, rows_idxs.size))
-
-                if n_mem_time_prds == 1:
-                    out_lab_ds[:] = in_var_dta[:, rows_idxs, cols_idxs]
-
-                else:
-                    # NOTE: Reading writing slices like that in nc does not
-                    #       work!
-
-                    # print('Reading...')
-                    for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
-
-                        # print(i, j)
-
-                        otp_var_slc = in_var[i:j]
-                        for k, l in enumerate(range(i, j)):
-                            out_lab_ds[l] = (
-                                otp_var_slc[k][(rows_idxs, cols_idxs)])
-
-                        otp_var_slc = None
-                        out_hdl.flush()
-
-                out_hdl.flush()
-
-            else:
-                raise NotImplementedError
 
         in_hdl.close()
         in_hdl = None
@@ -1354,7 +1353,7 @@ class ExtractNetCDFValues:
         in_var_nbytes = in_var.dtype.itemsize * np.prod(
             in_var.shape, dtype=np.uint64)
 
-        tot_avail_mem = int(ps.virtual_memory().free * 0.35)
+        tot_avail_mem = int(ps.virtual_memory().available * 0.35)
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 
@@ -1376,49 +1375,31 @@ class ExtractNetCDFValues:
             assert np.unique(in_var_mem_idxs).size == in_var_mem_idxs.size, (
                 np.unique(in_var_mem_idxs).size, in_var_mem_idxs.size)
 
+        else:
+            in_var_mem_idxs = np.array([0, in_var.shape[0]])
+
         if self._out_fmt == 'raw':
 
-            if n_mem_time_prds == 1:
-                steps_slc = in_var[:, snip_row_slice, snip_col_slice]
+            for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
 
-                for i in range(in_time.shape[0]):
-                    step = in_time_data[i]
-                    step_data = steps_slc[i]
+                steps_slc = in_var[i:j, snip_row_slice, snip_col_slice]
+
+                for k, l in enumerate(range(i, j)):
+                    step = in_time_data[l]
+                    step_data = steps_slc[k]
 
                     steps_data[step] = step_data
 
                 steps_slc = step_data = step = None
 
-            else:
-                # print('Reading...')
-                for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
-
-                    # print(i, j)
-                    steps_slc = in_var[i:j, snip_row_slice, snip_col_slice]
-
-                    for k, l in enumerate(range(i, j)):
-                        step = in_time_data[l]
-                        step_data = steps_slc[k]
-
-                        steps_data[step] = step_data
-
-                    steps_slc = step_data = step = None
-
             assert steps_data, 'This should not have happend!'
 
         elif self._out_fmt == 'nc':
+            for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
 
-            if n_mem_time_prds == 1:
-                out_data[:] = in_var[:, snip_row_slice, snip_col_slice]
+                out_data[i:j] = in_var[i:j, snip_row_slice, snip_col_slice]
 
-            else:
-                # print('Reading...')
-                for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
-
-                    # print(i, j)
-                    out_data[i:j] = in_var[i:j, snip_row_slice, snip_col_slice]
-
-                    out_hdl.sync()
+                out_hdl.sync()
 
             out_hdl.sync()
 

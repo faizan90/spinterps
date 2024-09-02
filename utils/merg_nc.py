@@ -10,6 +10,7 @@ Nov 10, 2023
 Keywords:
 
 '''
+
 import os
 import sys
 import time
@@ -27,25 +28,27 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'D:\fradnc')
+    main_dir = Path(r'P:\dwd_meteo\gridded\extract_radolan')
     os.chdir(main_dir)
 
-    ncs_dir = main_dir  # All nc_ext files are used.
+    ncs_dir = main_dir / Path(r'a_snip_hourly')
 
-    out_nc_name = r'regen_radolan_ppt_2006_2022.nc'
+    out_nc_name = r'2006-2023.nc'
     var_labs = ['RW']
 
     time_lab = 'time'
-    x_coords_lab = 'x_utm32n'  # 'longitude'
-    y_coords_lab = 'y_utm32n'  # 'latitude'
+    x_coords_lab = 'x_utm32n'
+    y_coords_lab = 'y_utm32n'
 
     time_freq = None  # 'h'  #
     time_dlta = None  # pd.Timedelta(10, unit='minutes')  #
-    time_unts = None  # 'hours since 2000-01-01 00:00:00'  #
+    time_unts = None  # 'days since 1951-01-01 00:00:00'  #
 
-    glob_patt = './*_regen.nc'
+    tsps_dvdr = None  # 24 #
 
-    out_dir = main_dir  # Path(r'regen_merge')
+    glob_patt = '*.nc'
+
+    out_dir = main_dir / 'b_merged_in_time'
     #==========================================================================
 
     out_dir.mkdir(exist_ok=True)
@@ -70,7 +73,8 @@ def main():
         ncs_end_time,
         time_freq,
         time_dlta,
-        time_unts)
+        time_unts,
+        tsps_dvdr)
 
     return
 
@@ -86,15 +90,16 @@ def merge_ncs_time(
         ncs_end_time,
         time_freq,
         time_dlta,
-        time_unts):
+        time_unts,
+        tsps_dvdr):
 
     out_nc_init_flag = False
 
     comp_level = 1
 
-    x_dim_lab = 'dimx'
-    y_dim_lab = 'dimy'
-    t_dim_lab = 'dimt'
+    x_dim_lab = 'x'
+    y_dim_lab = 'y'
+    t_dim_lab = 'time'
 
     with nc.Dataset(out_nc_path, 'w') as out_nc_hdl:
 
@@ -253,7 +258,7 @@ def merge_ncs_time(
                         (time_axis.calendar != out_nc_time_calendar)):
 
                         time_vals = nc.num2date(
-                            time_vals,
+                            time_axis[:].data,
                             units=time_axis.units,
                             calendar=time_axis.calendar)
 
@@ -267,8 +272,20 @@ def merge_ncs_time(
                 # Error when calendars don't match normally.
                 assert np.in1d(time_vals, out_nc_time_idx).all()
 
-                nc_time_insert_idxs = (time_vals - out_nc_time_idx[0]).astype(
-                    np.int64)
+                if tsps_dvdr is not None:
+
+                    nc_time_insert_idxs = (
+                        time_vals - (out_nc_time_idx[0] // tsps_dvdr)
+                        ).astype(np.int64)
+
+                    nc_time_insert_idxs //= tsps_dvdr
+
+                    assert np.unique(nc_time_insert_idxs).size == (
+                        nc_time_insert_idxs.size)
+
+                else:
+                    nc_time_insert_idxs = (
+                        time_vals - out_nc_time_idx[0]).astype(np.int64)
 
                 for var_lab in data_ncs_dict:
                     data_ncs_dict[var_lab][nc_time_insert_idxs,:,:] = (

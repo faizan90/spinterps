@@ -10,8 +10,8 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
 
 # Due to shitty tkinter errors.
-import matplotlib.pyplot as plt
-plt.switch_backend('agg')
+# import matplotlib.pyplot as plt
+# plt.switch_backend('agg')
 
 from .cyth import (
     fill_dists_one_pt,

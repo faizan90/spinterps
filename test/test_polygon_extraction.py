@@ -16,7 +16,7 @@ DEBUG_FLAG = True
 
 def main():
 
-    main_dir = Path(r'U:\DEBY')
+    main_dir = Path(r'P:\DEBY')
     os.chdir(main_dir)
 
     path_to_shp = r'dem_ansys_1km/watersheds_cumm.shp'
@@ -27,16 +27,13 @@ def main():
 
     # paths_to_rass = main_dir.glob('chirps-*.nc')
     paths_to_rass = [
-        # Path(r'T:\TUM\projects\altoetting\spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'T:\TUM\projects\altoetting\spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'spinterps\ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'spinterps\tem_1D_tg_gkd_dwd_1km_bay/kriging.nc'),
-        Path(r'spinterps\pet_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'kriging_regen_tem_1D_tg.nc'),
-        # Path(r'ppt_1D_gkd_dwd_1km_bay/kriging.nc'),
-        # Path(r'ppt_1D_gkd_dwd_1km_bay_infilled/kriging.nc'),
-        # Path(r'2016.nc'),
+        # Path(r'spinterps\pet_1D_1km_20240827/kriging.nc'),
+        # Path(r'spinterps\ppt_1D_1km_20240827/kriging.nc'),
+        # Path(r'spinterps\tg_1D_1km_20240827/kriging.nc'),
+        # Path(r'spinterps\tn_1D_1km_20240827/kriging.nc'),
+        # Path(r'spinterps\tx_1D_1km_20240827/kriging.nc'),
+        # Path(r'spinterps\tem_1h_1km_20240827/kriging.nc'),
+        Path(r'spinterps\ppt_1h_1km_20240827/kriging.nc'),
         ]
 
     input_ras_type = 'nc'
@@ -46,7 +43,7 @@ def main():
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'
-    nc_variable_labels = ['EDK', ]
+    nc_variable_labels = ['NNB', ]
     nc_time_label = 'time'
 
     # nc_x_crds_label = 'x_utm32n'
@@ -68,7 +65,7 @@ def main():
 
     simplify_tol_ratio = 0.0  # 0.01
     minimum_cell_area_intersection_percentage = 1e-3
-    buffer_distance = 10e3
+    buffer_distance = 0  # 10e3
     n_cpus = 'auto'
 
     out_dir = main_dir  # / 'regen_ecad'

@@ -25,14 +25,21 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\krig_sclg\spinterp_ppt5')
+    # main_dir = Path(r'P:\dwd_meteo\gridded\extract_radolan\e_rescld')
+    # main_dir = Path(r'P:\dwd_meteo\gridded\extract_hyras\d_lmtd_and_infld_tst')
+    main_dir = Path(r'P:\dwd_meteo\gridded\extract_radolan\a_snip_hourly')
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'kriging.nc')
+    # in_nc_path = Path(r'pr_hyras_1_1931_2020_v5-0_de.nc')
+    in_nc_path = Path(r'2016.nc')
 
-    var_label = 'OK__RDF'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'EDK'  # 'IDW_000'
-    x_label = 'X'  # 'x_utm32n'  # 'longitude'  # 'lon'  #
-    y_label = 'Y'  # 'y_utm32n'  # 'latitude'  # 'lat'  #
+    var_label = 'RW'  # 'tas'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'EDK'  # 'IDW_000'
+    # x_label = 'lon'  # 'X1D'  # 'X2D'  # 'X'  # 'longitude'  #
+    # y_label = 'lat'  # 'Y1D'  # 'Y2D'  # 'y_utm32n'  # 'Y'  # 'latitude'  #
+
+    x_label = 'x_utm32n'  # 'X2D'  # 'X'  # 'longitude'  # 'lon'  #
+    y_label = 'y_utm32n'  # 'Y2D'  #  'Y'  # 'latitude'  # 'lat'  #
+
     time_label = 'time'
 
     cbar_label = 'Precipitation [mm]'
@@ -44,13 +51,19 @@ def main():
 
     cmap = 'viridis'  # 'Blues'  #
 
-    dpi = 300
+    dpi = 100
 
     var_min_val = None
     var_max_val = None
 
     # var_min_val = 0
-    # var_max_val = 80
+    # var_max_val = 10
+
+    var_llm = None
+    var_ulm = None
+
+    # var_llm = 0.0
+    # var_ulm = 500
 
     x_llim = None
     x_ulim = None
@@ -74,18 +87,20 @@ def main():
     nan_val = None
 
     beg_time, end_time = pd.to_datetime(
-        ['1990-01-01', '1990-12-31'],
+        ['2016-12-01', '2016-12-30'],
         format='%Y-%m-%d')
 
     # beg_time, end_time = pd.to_datetime(
-    #     ['1990-12-01 00:00:00', '1990-12-31 00:00:00'],
+    #     ['2017-01-15 00:50:00', '2017-01-31 00:50:00'],
     #     format='%Y-%m-%d %H:%M:%S')
 
     # beg_time, end_time = pd.to_datetime(
     #     ['20190520T070000', '20190521T070000'],
     #     format='%Y%m%dT%H%M%S')
 
-    in_cat_file = Path(r'../bayern_epsg32632.shp')
+    in_cat_file = Path(r'P:\DEBY\dem_ansys_1km\watersheds.shp')
+    # in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg4326.shp')
+
     # in_cat_file = None
 
     in_crds_file = None
@@ -149,6 +164,12 @@ def main():
         else:
             interp_fld = data[i]
 
+            if var_llm is not None:
+                interp_fld[interp_fld < var_llm] = np.nan
+
+            if var_ulm is not None:
+                interp_fld[interp_fld > var_ulm] = np.nan
+
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
 
@@ -164,9 +185,9 @@ def main():
             interp_fld,
             vmin=var_min_val,
             vmax=var_max_val,
-            # shading='auto',  # 1D CRDS.
+            shading='auto',  # 1D CRDS.
             # shading='flat',  # 2D CRDS.
-            shading='nearest',  # 1D CRDS.
+            # shading='nearest',  # 1D CRDS.
             cmap=cmap)
 
         cb = fig.colorbar(pclr)
@@ -214,7 +235,7 @@ def main():
                     #
                     # ax.add_patch(poly)
 
-                    ax.plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='k')
+                    ax.plot(pts[geom_i][:, 0], pts[geom_i][:, 1], c='k', lw=1)
         #======================================================================
 
         if in_crds_file is not None:
@@ -229,6 +250,8 @@ def main():
 
         ax.set_xlim(x_llim, x_ulim)
         ax.set_ylim(y_ulim, y_llim)
+
+        # plt.show()
 
         out_fig_name = f'{var_label.lower()}_{time_str}.png'
 

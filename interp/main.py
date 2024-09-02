@@ -668,7 +668,7 @@ class SpInterpMain(SID, SIP):
         assert 0 < self._max_mem_usage_ratio <= 1
 
         tot_avail_mem = int(
-            ps.virtual_memory().free * self._max_mem_usage_ratio)
+            ps.virtual_memory().available * self._max_mem_usage_ratio)
 
 #         avail_threads_mem = tot_avail_mem - (self._n_cpus * interpreter_size)
         avail_threads_mem = tot_avail_mem  # - interpreter_size

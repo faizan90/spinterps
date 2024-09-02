@@ -8,12 +8,14 @@ Created on 08.07.2024
 
 import pickle
 from pathlib import Path
+from math import ceil, floor
 from timeit import default_timer
 from multiprocessing import Manager, Pool as MPPool
 
 import numpy as np
 from osgeo import ogr, gdal
 from pyproj import Transformer
+import matplotlib.pyplot as plt
 
 from ..extract import ExtractGTiffCoords
 
@@ -163,7 +165,14 @@ class ResampleRasToRas:
             self._get_ras_crs(self._dst_pth),
             always_xy=True)
 
+        dst_src_tfm = Transformer.from_crs(
+            self._get_ras_crs(self._dst_pth),
+            self._get_ras_crs(self._src_pth),
+            always_xy=True)
+
         if self._vb: print('Transforming source coordinates\' mesh...')
+
+        src_xcs_ogl, src_ycs_ogl = src_xcs.copy(), src_ycs.copy()
 
         self._tfm_msh(src_xcs, src_ycs, src_dst_tfm)
 
@@ -189,6 +198,10 @@ class ResampleRasToRas:
         src_xcs, src_ycs = (
             src_xcs[src_beg_row:src_end_row, src_beg_col:src_end_col],
             src_ycs[src_beg_row:src_end_row, src_beg_col:src_end_col])
+
+        src_xcs_ogl, src_ycs_ogl = (
+            src_xcs_ogl[src_beg_row:src_end_row, src_beg_col:src_end_col],
+            src_ycs_ogl[src_beg_row:src_end_row, src_beg_col:src_end_col])
 
         src_xmn = src_xcs.min()
         src_xmx = src_xcs.max()
@@ -236,15 +249,40 @@ class ResampleRasToRas:
         assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
         #======================================================================
 
+        if False:  # Diagnostics.
+
+            fig = plt.figure()
+
+            plt.gca().set_aspect('equal')
+
+            xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+            ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+
+            plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10, label='DST')
+
+            xcs_ply = [src_xmn, src_xmn, src_xmx, src_xmx, src_xmn]
+            ycs_ply = [src_ymn, src_ymx, src_ymx, src_ymn, src_ymn]
+
+            plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10, label='SRC')
+
+            plt.title(f'src_ply and dst_ply')
+
+            plt.show()
+
+            plt.close(fig)
+        #======================================================================
+
         if self._vb: print('Reading input arrays...')
 
-        dst_arr_shp = self._get_ras_vrs(
+        dst_arr = self._get_ras_vrs(
             self._dst_pth,
             dst_beg_row,
             dst_end_row,
             dst_beg_col,
             dst_end_col,
-            1)[0].shape
+            1)[0]
+
+        dst_arr_shp = dst_arr.shape
 
         src_arr, = self._get_ras_vrs(
             self._src_pth,
@@ -277,7 +315,9 @@ class ResampleRasToRas:
          src_ymx_max,
          src_cel_hgt,
          src_cel_wdh) = self._get_src_adj_vrs(
-             src_xcs, src_ycs, dst_xcs, dst_ycs)
+            dst_xcs, dst_ycs, src_xcs_ogl, src_ycs_ogl)
+
+        _ = src_bfr_rws, src_bfr_cns, src_xmn_min, src_ymx_max, src_cel_wdh
         #======================================================================
 
         if self._vb: print('Computing resampled array...')
@@ -287,12 +327,8 @@ class ResampleRasToRas:
         # Constants and other small objects go here. The rest in _cpt_wts_vrs.
         ags.rsm_flg = True
         ags.vbe_flg = self._vb
-        ags.src_bfr_rws = src_bfr_rws
-        ags.src_bfr_cns = src_bfr_cns
-        ags.src_xmn_min = src_xmn_min
-        ags.src_ymx_max = src_ymx_max
         ags.src_cel_hgt = src_cel_hgt
-        ags.src_cel_wdh = src_cel_wdh
+        ags.dst_src_tfm = dst_src_tfm
         ags.src_wts_dct_sav_flg = self._src_wts_dct_sav_flg
 
         self._cpt_wts_vrs(
@@ -302,12 +338,15 @@ class ResampleRasToRas:
             dst_xcs,
             dst_ycs,
             src_arr,
+            dst_arr,
+            src_xcs_ogl,
+            src_ycs_ogl,
             src_dst_arr)
 
         ags = None
         src_arr = None
-        src_xcs = None
-        src_ycs = None
+        src_xcs = src_xcs_ogl = None
+        src_ycs = src_ycs_ogl = None
         #======================================================================
 
         if self._vb: print('Saving resampled raster...')
@@ -338,7 +377,8 @@ class ResampleRasToRas:
         if self._vb: print_el()
         return
 
-    def _get_src_adj_vrs(self, src_xcs, src_ycs, dst_xcs, dst_ycs):
+    def _get_src_adj_vrs(
+            self, dst_xcs, dst_ycs, src_xcs_ogl, src_ycs_ogl):
 
         dst_ycs_dfs = dst_ycs[:-1,:] - dst_ycs[+1:,:]
 
@@ -362,21 +402,27 @@ class ResampleRasToRas:
             if self._vb: print('Desti. cells are constant in size.')
         #======================================================================
 
-        src_ycs_dfs = src_ycs[:-1,:] - src_ycs[+1:,:]
+        src_ycs_dfs = src_ycs_ogl[:-1,:] - src_ycs_ogl[+1:,:]
 
         src_cle_cdy = np.isclose(
-            src_ycs_dfs, src_ycs[0, 0] - src_ycs[1, 0]).all()
+            src_ycs_dfs, src_ycs_ogl[0, 0] - src_ycs_ogl[1, 0]).all()
 
-        src_cel_hgt = np.abs(src_ycs_dfs).max()
+        # src_cel_hgt = np.abs(src_ycs_dfs).max()
+        src_cel_hgt = np.abs(src_ycs_dfs).min()
+
+        assert src_cel_hgt > 0, src_cel_hgt
 
         src_ycs_dfs = None
 
-        src_xcs_dfs = src_xcs[:, 1:] - src_xcs[:,:-1]
+        src_xcs_dfs = src_xcs_ogl[:, 1:] - src_xcs_ogl[:,:-1]
 
         src_cle_cdx = np.isclose(
-            src_xcs_dfs, src_xcs[0, 1] - src_xcs[0, 0]).all()
+            src_xcs_dfs, src_xcs_ogl[0, 1] - src_xcs_ogl[0, 0]).all()
 
-        src_cel_wdh = np.abs(src_xcs_dfs).max()
+        # src_cel_wdh = np.abs(src_xcs_dfs).max()
+        src_cel_wdh = np.abs(src_xcs_dfs).min()
+
+        assert src_cel_wdh > 0
 
         src_xcs_dfs = None
 
@@ -384,21 +430,42 @@ class ResampleRasToRas:
             if self._vb: print('Source cells are constant in size.')
         #======================================================================
 
-        src_rws_hgt_rel_crt = int(src_cel_hgt / dst_cel_hgt)
-        src_rws_rtn_rel_crt = np.ceil(
-            max(np.abs(src_ycs[+0, +0] - src_ycs[+0, -1]),
-                np.abs(src_ycs[-1, +0] - src_ycs[-1, -1])) / src_cel_hgt)
+        src_rws_hgt_rel_crt = (src_cel_hgt / dst_cel_hgt)
+        src_rws_rtn_rel_crt = (
+            max(np.abs(src_ycs_ogl[+0, +0] - src_ycs_ogl[+0, -1]),
+                np.abs(src_ycs_ogl[-1, +0] - src_ycs_ogl[-1, -1])) / src_cel_hgt)
 
-        src_cns_wdh_rel_crt = int(src_cel_wdh / dst_cel_wdh)
-        src_cns_rtn_rel_crt = np.ceil(
-            max(np.abs(src_xcs[-1, +0] - src_xcs[+0, +0]),
-                np.abs(src_xcs[-1, -1] - src_xcs[+0, -1])) / src_cel_wdh)
+        src_cns_wdh_rel_crt = (src_cel_wdh / dst_cel_wdh)
+        src_cns_rtn_rel_crt = (
+            max(np.abs(src_xcs_ogl[-1, +0] - src_xcs_ogl[+0, +0]),
+                np.abs(src_xcs_ogl[-1, -1] - src_xcs_ogl[+0, -1])) / src_cel_wdh)
 
-        src_bfr_rws = int(max(0, src_rws_hgt_rel_crt + src_rws_rtn_rel_crt))
-        src_bfr_cns = int(max(0, src_cns_wdh_rel_crt + src_cns_rtn_rel_crt))
+        # Buffer should be then taken as relative to the position i.e.,
+        # divided by the number of rows and columns of xcs or ycs.
+        src_bfr_rws = max(
+            0, int(ceil(src_rws_hgt_rel_crt + src_rws_rtn_rel_crt)))
 
-        src_xmn_min = src_xcs[0:, 0].min()
-        src_ymx_max = src_ycs[0, 0:].max()
+        src_bfr_cns = max(
+            0, int(ceil(src_cns_wdh_rel_crt + src_cns_rtn_rel_crt)))
+
+        # Cds may be 2D but have constant cell sizes.
+        # Cell selection for intersection depends on this assumption.
+        assert np.isclose(src_rws_rtn_rel_crt, 0), src_rws_rtn_rel_crt
+        assert np.isclose(src_cns_rtn_rel_crt, 0), src_cns_rtn_rel_crt
+
+        # To compensate for grid rotation temporarily.
+        # This makes it take longer.
+        # Ideally, gen_wts_dct_frm_crd_and_ply_sgl should take care of this.
+        # src_bfr_rws *= 2
+        # src_bfr_cns *= 2
+
+        if False:
+            src_xmn_min = src_xcs_ogl[int(src_xcs_ogl.shape[0] * 0.5), 0].min()
+            src_ymx_max = src_ycs_ogl[0, int(src_xcs_ogl.shape[1] * 0.5)].max()
+
+        else:
+            src_xmn_min = src_xcs_ogl[0:, 0].min()
+            src_ymx_max = src_ycs_ogl[0, 0:].max()
 
         return (
             src_bfr_rws,
@@ -604,6 +671,9 @@ class ResampleRasToRas:
             dst_xcs,
             dst_ycs,
             src_arr,
+            dst_arr,
+            src_xcs_ogl,
+            src_ycs_ogl,
             src_dst_arr):
 
         '''
@@ -612,7 +682,7 @@ class ResampleRasToRas:
         src and dst have same crs.
 
         This function is adapted to handle all sorts of transformation
-         defined till now.
+        defined till now.
         '''
 
         btr = default_timer()
@@ -627,11 +697,15 @@ class ResampleRasToRas:
             ags.dst_xcs = dst_xcs
             ags.dst_ycs = dst_ycs
 
+            ags.src_xcs_ogl = src_xcs_ogl
+            ags.src_ycs_ogl = src_ycs_ogl
+
             if not ags.ncf_flg:
 
                 assert any([ags.rsm_flg, ags.css_flg])
 
                 ags.src_arr = src_arr
+                ags.dst_arr = dst_arr
                 ags.src_dst_arr = src_dst_arr
 
             else:
@@ -639,14 +713,17 @@ class ResampleRasToRas:
 
                 setattr(ags, 'ncf_vrs', list(src_arr))
 
+                setattr(ags, f'dst_arr', dst_arr)
+
                 ncf_shm_nms = []
                 for key in src_arr:
                     setattr(ags, f'src_arr__{key}', src_arr[key])
+
                     setattr(ags, f'src_dst_arr__{key}', src_dst_arr[key])
 
                     ncf_shm_nms.append(f'src_dst_arr__{key}')
 
-            src_wts_dct = gen_wts_dct_frm_crd_and_ply_sgl(
+            ress = gen_wts_dct_frm_crd_and_ply_sgl(
                 (0, dst_xcs.shape[0] - 1, ags))
 
         else:
@@ -660,17 +737,23 @@ class ResampleRasToRas:
             shm_arr_dct['dst_xcs'] = dst_xcs
             shm_arr_dct['dst_ycs'] = dst_ycs
 
+            shm_arr_dct['src_xcs_ogl'] = src_xcs_ogl
+            shm_arr_dct['src_ycs_ogl'] = src_ycs_ogl
+
             if not ags.ncf_flg:
 
                 assert any([ags.rsm_flg, ags.css_flg])
 
                 shm_arr_dct['src_arr'] = src_arr
+                shm_arr_dct['dst_arr'] = dst_arr
                 shm_arr_dct['src_dst_arr'] = src_dst_arr
 
             else:
                 assert all([not ags.rsm_flg, not ags.css_flg])
 
                 setattr(ags, 'ncf_vrs', list(src_arr))
+
+                setattr(ags, 'dst_arr', dst_arr)
 
                 ncf_shm_nms = []
                 for key in src_arr:
@@ -718,18 +801,30 @@ class ResampleRasToRas:
 
             free_shm_arrs(shm_ags)
             #==================================================================
-
-            if self._src_wts_dct_sav_flg:
-                src_wts_dct = {}
-                for res in ress: src_wts_dct.update(res)
-                ress = None
-            #==================================================================
-
             etr = default_timer()
 
             if self._vb: print(
                 f'Weights resampling took: {etr - btr:0.1f} seconds.')
             #==================================================================
+
+        # Hit and miss statistics.
+        hit_ctr_ttl = 0
+        hit_ctr_mis = 0
+        for res in ress:
+            hit_ctr_ttl += res[1]
+            hit_ctr_mis += res[2]
+
+        print(
+            f'TTL: {hit_ctr_ttl}, '
+            f'SCS_RATE: {(hit_ctr_ttl - hit_ctr_mis) / hit_ctr_ttl:0.1%}',
+            f'MIS_RATE: {hit_ctr_mis / hit_ctr_ttl:0.1%}')
+
+        if self._src_wts_dct_sav_flg:
+            src_wts_dct = {}
+            for res in ress: src_wts_dct.update(res[0])
+
+            ress = None
+        #==================================================================
 
         if self._src_wts_dct_sav_flg:
             src_dct_pth = self._out_pth.with_name(
@@ -804,25 +899,33 @@ class ResampleRasToRas:
              xmx_ymx_col]) + 1
         #======================================================================
 
-        # if False:  # Diagnostics.
-        #     import matplotlib.pyplot as plt
-        #     plt.gca().set_aspect('equal')
-        #
-        #     xcs_ply = [xcs_min, xcs_min, xcs_max, xcs_max, xcs_min]
-        #     ycs_ply = [ycs_min, ycs_max, ycs_max, ycs_min, ycs_min]
-        #
-        #     plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
-        #     plt.pcolormesh(
-        #         xcs[beg_row:end_row, beg_col:end_col],
-        #         ycs[beg_row:end_row, beg_col:end_col],
-        #         row_col_ixs[beg_row:end_row - 1, beg_col:end_col - 1],)
-        #     plt.pcolormesh(xcs, ycs, row_col_ixs[:-1,:-1],)
-        #
-        #     plt.close()
+        if False:  # Diagnostics.
+
+            fig = plt.figure()
+
+            plt.gca().set_aspect('equal')
+
+            xcs_ply = [xcs_min, xcs_min, xcs_max, xcs_max, xcs_min]
+            ycs_ply = [ycs_min, ycs_max, ycs_max, ycs_min, ycs_min]
+
+            plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+
+            plt.pcolormesh(
+                xcs[beg_row:end_row, beg_col:end_col],
+                ycs[beg_row:end_row, beg_col:end_col],
+                row_col_ixs[beg_row:end_row - 1, beg_col:end_col - 1],)
+
+            plt.pcolormesh(xcs, ycs, row_col_ixs[:-1,:-1],)
+
+            plt.show()
+
+            plt.close(fig)
         #======================================================================
 
         # Take care of rotation and small adjustments.
-        while xcs[beg_row:end_row, beg_col:end_col].min() > xcs_min:
+
+        # Beg col.
+        while xcs[beg_row, beg_col:end_col].min() > xcs_min:
 
             beg_col -= 1
 
@@ -830,7 +933,16 @@ class ResampleRasToRas:
 
         beg_col = max(0, beg_col)
 
-        while xcs[beg_row:end_row, beg_col:end_col].max() <= xcs_max:
+        while xcs[end_row - 1, beg_col:end_col].min() > xcs_min:
+
+            beg_col -= 1
+
+            if beg_col <= 0: break
+
+        beg_col = max(0, beg_col)
+
+        # End col.
+        while xcs[beg_row, beg_col:end_col].max() <= xcs_max:
 
             end_col += 1
 
@@ -838,7 +950,16 @@ class ResampleRasToRas:
 
         end_col = min(xcs.shape[1], end_col)
 
-        while ycs[beg_row:end_row, beg_col:end_col].min() >= ycs_min:
+        while xcs[end_row - 1, beg_col:end_col].max() <= xcs_max:
+
+            end_col += 1
+
+            if end_col >= xcs.shape[1]: break
+
+        end_col = min(xcs.shape[1], end_col)
+
+        # End row.
+        while ycs[beg_row:end_row, beg_col].min() >= ycs_min:
 
             end_row += 1
 
@@ -846,7 +967,24 @@ class ResampleRasToRas:
 
         end_row = min(xcs.shape[0], end_row)
 
-        while ycs[beg_row:end_row, beg_col:end_col].max() < ycs_max:
+        while ycs[beg_row:end_row, end_col - 1].min() >= ycs_min:
+
+            end_row += 1
+
+            if end_row >= xcs.shape[0]: break
+
+        end_row = min(xcs.shape[0], end_row)
+
+        # Beg row.
+        while ycs[beg_row:end_row, beg_col].max() < ycs_max:
+
+            beg_row -= 1
+
+            if beg_row <= 0: break
+
+        beg_row = max(0, beg_row)
+
+        while ycs[beg_row:end_row, end_col - 1].max() < ycs_max:
 
             beg_row -= 1
 
@@ -873,7 +1011,7 @@ class ResampleRasToRas:
             ycs[beg_row:end_row, beg_col:end_col].max(), ycs_max)
 
         # This works only if y goes low when rows go high.
-        if True:
+        if False:
             # X limit bounds checks.
             assert not (xcs[beg_row:end_row, beg_col + 1:end_col].min() <=
                         xcs_min), (
@@ -982,7 +1120,7 @@ class ResampleRasToRas:
 
         if xcs.ndim == 2:
             assert xcs.ndim == ycs.ndim, (xcs.ndim, ycs.ndim)
-            return
+            return xcs, ycs
 
         assert xcs.ndim == 1, xcs.ndim
         assert ycs.ndim == 1, ycs.ndim
@@ -1028,12 +1166,8 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
 
     # Constants and other small objects go here.
     vbe_flg = ags.vbe_flg
-    src_bfr_rws = ags.src_bfr_rws
-    src_bfr_cns = ags.src_bfr_cns
-    src_xmn_min = ags.src_xmn_min
-    src_ymx_max = ags.src_ymx_max
     src_cel_hgt = ags.src_cel_hgt
-    src_cel_wdh = ags.src_cel_wdh
+    dst_src_tfm = ags.dst_src_tfm
     src_wts_dct_sav_flg = ags.src_wts_dct_sav_flg
     #==========================================================================
 
@@ -1055,13 +1189,17 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
         raise NotImplementedError('Unknown flag for resampling!')
     #==========================================================================
 
-    # Arrays and larger objects read here.
+    # Arrays and larger objects read afterwards.
     if ags.mpg_flg: fill_shm_arrs(ags)
 
     src_xcs = ags.src_xcs
     src_ycs = ags.src_ycs
     dst_xcs = ags.dst_xcs
     dst_ycs = ags.dst_ycs
+    dst_arr = ags.dst_arr
+
+    src_xcs_ogl = ags.src_xcs_ogl
+    src_ycs_ogl = ags.src_ycs_ogl
 
     if any([ags.rsm_flg, ags.css_flg]):
 
@@ -1092,6 +1230,9 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
     assert dst_xcs.shape == dst_ycs.shape, (dst_xcs.shape, dst_ycs.shape)
     #==========================================================================
 
+    hit_ctr_ttl = 0
+    hit_ctr_mis = 0
+
     src_wts_dct = {}
     src_bfr_ply_dct = {}
     src_bfr_ply_ixs_lst = []
@@ -1108,27 +1249,18 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                 f'{2.05 * (etr - btr) * (end_rws_idx - beg_rws_idx):0.2f} '
                 f'seconds.')
 
+        # Leave here!
         assert np.unique(dst_ycs[i,:]).size == 1, dst_ycs[i,:]
         #======================================================================
 
-        dst_ymn = dst_ycs[i + 1, 0]
-        dst_ymx = dst_ycs[i + 0, 0]
+        dst_ymn = dst_ycs[i + 1, 0]  # Same values in all columns.
+        dst_ymx = dst_ycs[i + 0, 0]  # Same values in all columns.
+        #======================================================================
 
-        src_beg_row_idx = int((src_ymx_max - dst_ymx) / src_cel_hgt)
-        src_end_row_idx = int(
-            np.ceil((src_ymx_max - dst_ymn) / src_cel_hgt))
-
-        if src_beg_row_idx > src_xcs.shape[0]: continue
-        if src_end_row_idx < 0: continue
-
-        # Buffer it roughly.
-        src_beg_row_idx = max(0, src_beg_row_idx - src_bfr_rws)
-        src_end_row_idx = min(
-            src_ycs.shape[0] - 1, src_end_row_idx + src_bfr_rws)
-
-        # Truncate.
+        # Truncate polygons list.
         src_bfr_ply_lst_len = (
-            src_ycs.shape[1] * (src_end_row_idx - src_beg_row_idx + 1))
+            src_ycs.shape[1] *
+            int((dst_ycs[0, 0] - dst_ycs[1, 0]) / src_cel_hgt) + 1)
 
         for klt in src_bfr_ply_ixs_lst[:-src_bfr_ply_lst_len]:
 
@@ -1144,31 +1276,53 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
 
             if i == 0: assert np.unique(dst_xcs[:, j]).size == 1, dst_xcs[:, j]
 
-            dst_xmn = dst_xcs[0, j + 0]
-            dst_xmx = dst_xcs[0, j + 1]
+            dst_xmn = dst_xcs[0, j + 0]  # Same values in all rows.
+            dst_xmx = dst_xcs[0, j + 1]  # Same values in all rows.
 
-            src_beg_col_idx = int((dst_xmn - src_xmn_min) / src_cel_wdh)
-            src_end_col_idx = int(
-                np.ceil((dst_xmx - src_xmn_min) / src_cel_wdh))
+            (src_beg_row_idx,
+             src_end_row_idx,
+             src_beg_col_idx,
+             src_end_col_idx) = get_src_ogl_ixs(
+                    dst_xmn,
+                    dst_xmx,
+                    dst_ymn,
+                    dst_ymx,
+                    src_xcs_ogl,
+                    src_ycs_ogl,
+                    dst_src_tfm)
 
-            if src_beg_col_idx > src_xcs.shape[1]:
-                print(i, j, '>', src_beg_col_idx, dst_xcs.shape[1])
-                continue
+            assert src_beg_row_idx < src_end_row_idx, (
+                src_beg_row_idx, src_end_row_idx)
 
-            if src_end_col_idx < 0:
-                print(i, j, '<', src_end_col_idx)
-                continue
+            assert src_beg_col_idx < src_end_col_idx, (
+                src_beg_col_idx, src_end_col_idx)
 
-            # Buffer it roughly.
-            src_beg_col_idx = max(0, src_beg_col_idx - src_bfr_cns)
-            src_end_col_idx = min(
-                src_xcs.shape[1] - 1, src_end_col_idx + src_bfr_cns)
-            #==================================================================
+            if False:  # Diagnostics.
+
+                fig = plt.figure()
+                plt.gca().set_aspect('equal')
+
+                xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+                ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+
+                plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+                plt.pcolormesh(
+                    src_xcs[src_beg_row_idx:src_end_row_idx + 1,
+                            src_beg_col_idx:src_end_col_idx + 1],
+                    src_ycs[src_beg_row_idx:src_end_row_idx + 1,
+                            src_beg_col_idx:src_end_col_idx + 1],
+                    locals()[f'src_arr__{ncf_vrs[0]}'][
+                        0,
+                        src_beg_row_idx:src_end_row_idx,
+                        src_beg_col_idx:src_end_col_idx],)
+
+                plt.title('11')
+
+                plt.show()
+
+                plt.close(fig)
 
             if True:
-                # Incrementation/decrementation can be used to be within
-                # bounds here.
-
                 # +1 is required to account for the extent of cell.
                 src_xmn = src_xcs[
                     src_beg_row_idx:src_end_row_idx + 1,
@@ -1190,7 +1344,18 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                 assert dst_xmx <= src_xmx, (dst_xmx, src_xmx)
 
                 assert dst_ymn >= src_ymn, (dst_ymn, src_ymn)
+
                 assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
+
+                assert dst_xmn >= src_xmn, (
+                    dst_xmn, src_xmn)
+                assert dst_xmx <= src_xmx, (
+                    dst_xmx, src_xmx)
+
+                assert dst_ymn >= src_ymn, (
+                    dst_ymn, src_ymn)
+                assert dst_ymx <= src_ymx, (
+                    dst_ymx, src_ymx)
             #==================================================================
 
             rng = ogr.Geometry(ogr.wkbLinearRing)
@@ -1220,14 +1385,16 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                     # It's so strange, checking inside a list for an item
                     # takes a tremendous toll on speed.
                     if klt not in src_bfr_ply_dct:
-                        src_bfr_ply_ixs_lst.append(klt)
 
                         src_bfr_ply_dct[klt] = get_ply_frm_crd_ary(
                             src_xcs, src_ycs, k, l)
 
+                        src_bfr_ply_ixs_lst.append(klt)
+
                     ara_tot_ctr += 1
 
-                    itt_ara = dst_ply.Intersection(src_bfr_ply_dct[klt]).Area()
+                    itt_ara = dst_ply.Intersection(
+                        src_bfr_ply_dct[klt]).Area()
 
                     if np.isclose(itt_ara, 0.0):
                         ara_mis_ctr += 1
@@ -1237,6 +1404,9 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
 
                     src_ply_ara += itt_ara
             #==================================================================
+
+            hit_ctr_ttl += ara_tot_ctr
+            hit_ctr_mis += ara_mis_ctr
 
             if False:
                 print(
@@ -1248,6 +1418,46 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
 
             assert np.isclose(dst_ply_ara, src_ply_ara), (
                 dst_ply_ara, src_ply_ara, f'{src_ply_ara/dst_ply_ara:.2%}')
+
+            if not np.isclose(dst_ply_ara, src_ply_ara , rtol=1e-5):
+
+                print(
+                    dst_ply_ara,
+                    src_ply_ara,
+                    f'{src_ply_ara/dst_ply_ara:.2%}',
+                    src_ycs.shape,
+                    (src_beg_row_idx,
+                     src_end_row_idx,
+                     src_beg_col_idx,
+                     src_end_col_idx),
+                    src_xcs[src_beg_row_idx:src_end_row_idx,
+                            src_beg_col_idx + 1:src_end_col_idx + 1].shape)
+
+                if False:  # Diagnostics.
+                    fig = plt.figure()
+
+                    plt.gca().set_aspect('equal')
+
+                    xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+                    ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+
+                    plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+
+                    plt.pcolormesh(
+                        src_xcs[src_beg_row_idx:src_end_row_idx,
+                                src_beg_col_idx:src_end_col_idx],
+                        src_ycs[src_beg_row_idx:src_end_row_idx,
+                                src_beg_col_idx:src_end_col_idx],
+                        locals()[f'src_arr'][
+                            0,
+                            src_beg_row_idx:src_end_row_idx,
+                            src_beg_col_idx:src_end_col_idx],)
+
+                    plt.title('2')
+
+                    plt.show(block=True)
+
+                    plt.close(fig)
 
             if src_wts_dct_sav_flg: src_wts_dct[(i, j)] = wts_dct
 
@@ -1268,7 +1478,7 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                 src_dst_arr [:, i, j] = 0.0
 
                 for (k, l), wht in wts_dct.items():
-                    src_dst_arr[src_unq_dct[src_arr[0, k, l]], i, j] += wht
+                    src_dst_arr[src_unq_dct[str(src_arr[0, k, l])], i, j] += wht
 
             elif ags.ncf_flg:
                 assert not any([ags.rsm_flg, ags.css_flg])
@@ -1285,12 +1495,78 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                 raise NotImplementedError('Unknown flag for resampling!')
             #==================================================================
 
+        if False:
+            print(
+                f'IDX: {i:04d}, '
+                f'TTL: {hit_ctr_ttl}, '
+                f'MIS: {hit_ctr_mis}, '
+                f'SCS_RATE: {(hit_ctr_ttl - hit_ctr_mis) / hit_ctr_ttl:0.2%}')
+
         if i == 0: etr = default_timer()
         #======================================================================
 
     src_bfr_ply_ixs_lst = None
     src_bfr_ply_dct = None
-    return src_wts_dct
+
+    return src_wts_dct, hit_ctr_ttl, hit_ctr_mis
+
+
+def get_src_ogl_ixs(
+        dst_xmn,
+        dst_xmx,
+        dst_ymn,
+        dst_ymx,
+        src_xcs_ogl,
+        src_ycs_ogl,
+        dst_src_tfm):
+
+    '''
+    Assuming Y increases left to right and Y increases from top to bottom.
+
+    Assuming constant cell width and height in ogl cds.
+    '''
+
+    src_xmn = src_xcs_ogl[0, 0]
+    src_ymx = src_ycs_ogl[0, 0]
+
+    src_cel_hgt = src_xcs_ogl[0, 1] - src_xmn
+    src_cel_wdh = src_ymx - src_ycs_ogl[1, 0]
+    #==========================================================================
+
+    ulc_xce, ulc_yce = dst_src_tfm.transform(dst_xmn, dst_ymx)
+    ulc_cln = int(floor((ulc_xce - src_xmn) / src_cel_wdh))
+    ulc_row = int(floor((src_ymx - ulc_yce) / src_cel_hgt))
+    #==========================================================================
+
+    urc_xce, urc_yce = dst_src_tfm.transform(dst_xmx, dst_ymx)
+    urc_cln = int(ceil((urc_xce - src_xmn) / src_cel_wdh))
+    urc_row = int(floor((src_ymx - urc_yce) / src_cel_hgt))
+    #==========================================================================
+
+    lrc_xce, lrc_yce = dst_src_tfm.transform(dst_xmx, dst_ymn)
+    lrc_cln = int(ceil((lrc_xce - src_xmn) / src_cel_wdh))
+    lrc_row = int(ceil((src_ymx - lrc_yce) / src_cel_hgt))
+    #==========================================================================
+
+    llc_xce, llc_yce = dst_src_tfm.transform(dst_xmn, dst_ymn)
+    llc_cln = int(floor((llc_xce - src_xmn) / src_cel_wdh))
+    llc_row = int(ceil((src_ymx - llc_yce) / src_cel_hgt))
+    #==========================================================================
+
+    bgn_row = min([ulc_row, urc_row, lrc_row, llc_row]) - 0
+    end_row = max([ulc_row, urc_row, lrc_row, llc_row]) + 0
+
+    bgn_cln = min([ulc_cln, urc_cln, lrc_cln, llc_cln]) - 0
+    end_cln = max([ulc_cln, urc_cln, lrc_cln, llc_cln]) + 0
+    #==========================================================================
+
+    bgn_row = max(0, bgn_row)
+    end_row = min(end_row, src_xcs_ogl.shape[0] - 1)
+
+    bgn_cln = max(0, bgn_cln)
+    end_cln = min(end_cln, src_xcs_ogl.shape[1] - 1)
+
+    return bgn_row, end_row, bgn_cln, end_cln
 
 
 def fil_wtd_cel(i, j, wts_dct, src_arr, src_dst_arr):
@@ -1355,6 +1631,631 @@ class RTRARGS:
 #==============================================================================
 # Dead code afterwards.
 #==============================================================================
+
+# def gen_wts_dct_frm_crd_and_ply_sgl(ags):
+#
+#     '''
+#     This function is supposed to handle all sorts of transformations.
+#     '''
+#
+#     beg_rws_idx, end_rws_idx, ags = ags
+#
+#     # Constants and other small objects go here.
+#     vbe_flg = ags.vbe_flg
+#     src_bfr_rws = ags.src_bfr_rws
+#     src_bfr_cns = ags.src_bfr_cns
+#     src_xmn_min = ags.src_xmn_min
+#     src_ymx_max = ags.src_ymx_max
+#     src_cel_hgt = ags.src_cel_hgt
+#     src_cel_wdh = ags.src_cel_wdh
+#     src_wts_dct_sav_flg = ags.src_wts_dct_sav_flg
+#     #==========================================================================
+#
+#     # Verify all upcoming occurrences of these flags to be correct.
+#     if ags.rsm_flg:
+#         assert not any([ags.css_flg, ags.ncf_flg])
+#
+#     elif ags.css_flg:
+#         assert not any([ags.rsm_flg, ags.ncf_flg])
+#
+#         src_unq_dct = ags.src_unq_dct
+#
+#     elif ags.ncf_flg:
+#         assert not any([ags.rsm_flg, ags.css_flg])
+#
+#         ncf_vrs = ags.ncf_vrs
+#
+#     else:
+#         raise NotImplementedError('Unknown flag for resampling!')
+#     #==========================================================================
+#
+#     # Arrays and larger objects read here.
+#     if ags.mpg_flg: fill_shm_arrs(ags)
+#
+#     src_xcs = ags.src_xcs
+#     src_ycs = ags.src_ycs
+#     dst_xcs = ags.dst_xcs
+#     dst_ycs = ags.dst_ycs
+#     dst_arr = ags.dst_arr
+#
+#     if any([ags.rsm_flg, ags.css_flg]):
+#
+#         assert not ags.ncf_flg
+#
+#         src_arr = ags.src_arr
+#         src_dst_arr = ags.src_dst_arr
+#
+#     elif ags.ncf_flg:
+#
+#         for key in ncf_vrs:
+#             locals()[f'src_arr__{key}'] = getattr(
+#                 ags, f'src_arr__{key}')
+#
+#             locals()[f'src_dst_arr__{key}'] = getattr(
+#                 ags, f'src_dst_arr__{key}')
+#
+#     else:
+#         raise NotImplementedError('Unknown flag for resampling!')
+#     #==========================================================================
+#
+#     assert src_xcs.ndim == 2, src_xcs.ndim
+#     assert src_xcs.size >= 2, src_xcs.shape
+#     assert src_xcs.shape == src_ycs.shape, (src_xcs.shape, src_ycs.shape)
+#
+#     assert dst_xcs.ndim == 2, dst_xcs.ndim
+#     assert dst_xcs.size >= 2, dst_xcs.shape
+#     assert dst_xcs.shape == dst_ycs.shape, (dst_xcs.shape, dst_ycs.shape)
+#     #==========================================================================
+#
+#     roe_flg = False
+#
+#     # src_xmn_min = src_xcs.min()
+#     # src_ymx_max = src_ycs.max()
+#
+#     hit_ctr_ttl = 0
+#     hit_ctr_mis = 0
+#
+#     src_wts_dct = {}
+#     src_bfr_ply_dct = {}
+#     src_bfr_ply_ixs_lst = []
+#     for i in range(beg_rws_idx, end_rws_idx):
+#
+#         if i == 0: btr = etr = default_timer()
+#
+#         if vbe_flg and (beg_rws_idx == 0) and (i == 1):
+#             print(f'One row took {etr - btr:0.2f} seconds.')
+#
+#             print(
+#                 f'Estimated time to go through all the '
+#                 f'{dst_xcs.shape[0]} rows is '
+#                 f'{2.05 * (etr - btr) * (end_rws_idx - beg_rws_idx):0.2f} '
+#                 f'seconds.')
+#
+#         assert np.unique(dst_ycs[i,:]).size == 1, dst_ycs[i,:]
+#         #======================================================================
+#
+#         dst_ymn = dst_ycs[i + 1, 0]  # Same values in all columns.
+#         dst_ymx = dst_ycs[i + 0, 0]  # Same values in all columns.
+#
+#         if roe_flg:
+#             ymn_ixs = src_ycs < dst_ymn
+#             ymx_ixs = src_ycs > dst_ymx
+#
+#             cnd_ymn = ymn_ixs.sum() > 0
+#             cnd_ymx = ymx_ixs.sum() > 0
+#
+#             if not (cnd_ymn and cnd_ymx): continue
+#
+#             src_beg_row = np.where(ymx_ixs.all(axis=1))[0][-1]
+#
+#             try:
+#                 src_end_row = np.where(ymn_ixs.all(axis=1))[0][+0]
+#
+#             except:
+#                 src_end_row = src_ycs.shape[0] - 1
+#
+#             src_end_row = min(src_end_row, src_ycs.shape[0] - 1)
+#
+#         else:
+#             src_beg_row = int((src_ymx_max - dst_ymx) / src_cel_hgt)
+#             src_end_row = int(np.ceil((src_ymx_max - dst_ymn) / src_cel_hgt))
+#
+#         if src_beg_row > src_xcs.shape[0]: continue
+#         if src_end_row < 0: continue
+#         #======================================================================
+#
+#         if not roe_flg:  # Buffer it roughly.
+#             src_beg_row = max(
+#                 0, src_beg_row - int(ceil(src_bfr_rws * 0.5)))
+#
+#             src_end_row = min(
+#                 src_ycs.shape[0] - 1,
+#                 src_end_row + int(ceil(src_bfr_rws * 0.5)))
+#
+#         assert src_beg_row < src_end_row, (src_beg_row, src_end_row)
+#
+#         # Truncate.
+#         src_bfr_ply_lst_len = (
+#             src_ycs.shape[1] * (src_end_row - src_beg_row + src_bfr_rws + 1))
+#
+#         for klt in src_bfr_ply_ixs_lst[:-src_bfr_ply_lst_len]:
+#
+#             del src_bfr_ply_dct[klt]
+#
+#         src_bfr_ply_ixs_lst = src_bfr_ply_ixs_lst[-src_bfr_ply_lst_len:]
+#         #======================================================================
+#
+#         # if src_beg_row_idx > 0: src_beg_row_idx -= 1
+#         # src_end_row_idx = min(src_end_row_idx + 1, src_xcs.shape[0] - 1)
+#
+#         for j in range(dst_xcs.shape[1] - 1):
+#
+#             # Mask or not? There should be an option for this.
+#             # if np.isnan(dst_arr[0, i, j]): continue
+#
+#             if i == 0: assert np.unique(dst_xcs[:, j]).size == 1, dst_xcs[:, j]
+#
+#             dst_xmn = dst_xcs[0, j + 0]  # Same values in all rows.
+#             dst_xmx = dst_xcs[0, j + 1]  # Same values in all rows.
+#
+#             if True:  # roe_flg:
+#                 src_beg_row_idx = src_beg_row
+#                 src_end_row_idx = src_end_row
+#
+#             else:  # Buffer it roughly.
+#                 src_beg_row_idx = max(
+#                     0, src_beg_row - int(ceil(src_bfr_rws * 0.5)))
+#
+#                 src_end_row_idx = min(
+#                     src_ycs.shape[0] - 1,
+#                     src_end_row + int(ceil(src_bfr_rws * 0.5)))
+#
+#                 # src_beg_row_adj = int(ceil(((dst_xmn - src_xmn_min))))
+#                 #
+#                 # if dst_xmn < src_xmn_min: src_beg_row_adj -= 1
+#                 #
+#                 # src_beg_row_adj = src_beg_row_adj * int(ceil(src_bfr_rws / src_xcs.shape[0]))
+#                 #
+#                 # src_beg_row_idx = max(0, src_beg_row - src_beg_row_adj)
+#                 #
+#                 # src_end_row_idx = min(src_ycs.shape[0] - 1, src_end_row + src_beg_row_adj)
+#
+#             assert src_beg_row_idx < src_end_row_idx, (
+#                 src_beg_row_idx, src_end_row_idx)
+#
+#             if roe_flg:
+#                 xmn_ixs = src_xcs < dst_xmn
+#                 xmx_ixs = src_xcs > dst_xmx
+#
+#                 xmn_ixs[:src_beg_row_idx,:] = False
+#                 xmn_ixs[src_end_row_idx + 1:,:] = False
+#
+#                 xmx_ixs[:src_beg_row_idx,:] = False
+#                 xmx_ixs[src_end_row_idx + 1:,:] = False
+#
+#                 cnd_xmn = xmn_ixs.sum() > 0
+#                 cnd_xmx = xmx_ixs.sum() > 0
+#
+#                 if not (cnd_xmn and cnd_xmx): continue
+#
+#                 xmn_ymn_bls = xmn_ixs & ymn_ixs
+#                 xmn_ymx_bls = xmn_ixs & ymx_ixs
+#                 xmx_ymn_bls = xmx_ixs & ymn_ixs
+#                 xmx_ymx_bls = xmx_ixs & ymx_ixs
+#
+#                 cnd_xmn_ymn = xmn_ymn_bls.sum() > 0
+#                 cnd_xmn_ymx = xmn_ymx_bls.sum() > 0
+#                 cnd_xmx_ymn = xmx_ymn_bls.sum() > 0
+#                 cnd_xmx_ymx = xmx_ymx_bls.sum() > 0
+#
+#                 if not (
+#                     cnd_xmn_ymn and
+#                     cnd_xmn_ymx and
+#                     cnd_xmx_ymn and
+#                     cnd_xmx_ymx): continue
+#
+#                 xmn_ymn_row = np.where(xmn_ymn_bls.sum(axis=1))[0][+0]
+#                 xmn_ymn_col = np.where(xmn_ymn_bls.sum(axis=0))[0][-1]
+#
+#                 xmn_ymx_row = np.where(xmn_ymx_bls.sum(axis=1))[0][-1]
+#                 xmn_ymx_col = np.where(xmn_ymx_bls.sum(axis=0))[0][-1]
+#
+#                 xmx_ymn_row = np.where(xmx_ymn_bls.sum(axis=1))[0][+0]
+#                 xmx_ymn_col = np.where(xmx_ymn_bls.sum(axis=0))[0][+0]
+#
+#                 xmx_ymx_row = np.where(xmx_ymx_bls.sum(axis=1))[0][-1]
+#                 xmx_ymx_col = np.where(xmx_ymx_bls.sum(axis=0))[0][+0]
+#
+#                 min_row = min(
+#                     [xmn_ymn_row,
+#                      xmn_ymx_row,
+#                      xmx_ymn_row,
+#                      xmx_ymx_row])
+#
+#                 max_row = max(
+#                     [xmn_ymn_row,
+#                      xmn_ymx_row,
+#                      xmx_ymn_row,
+#                      xmx_ymx_row])
+#
+#                 min_col = min(
+#                     [xmn_ymn_col,
+#                      xmn_ymx_col,
+#                      xmx_ymn_col,
+#                      xmx_ymx_col])
+#
+#                 max_col = max(
+#                     [xmn_ymn_col,
+#                      xmn_ymx_col,
+#                      xmx_ymn_col,
+#                      xmx_ymx_col])
+#
+#                 src_beg_col_idx = np.where(xmn_ixs.sum(axis=0) == (src_end_row_idx - src_beg_row_idx + 1))[0][-1]
+#                 src_end_col_idx = np.where(xmx_ixs.sum(axis=0) == (src_end_row_idx - src_beg_row_idx + 1))[0][+0]
+#
+#             else:
+#                 src_beg_col_idx = int((dst_xmn - src_xmn_min) / src_cel_wdh)
+#                 src_end_col_idx = int(
+#                     np.ceil((dst_xmx - src_xmn_min) / src_cel_wdh))
+#
+#                 # Buffer it roughly.
+#                 src_beg_col_idx = max(
+#                     0, src_beg_col_idx - int(ceil(src_bfr_cns * 0.5)))
+#
+#                 src_end_col_idx = min(
+#                     src_xcs.shape[1] - 1,
+#                     src_end_col_idx + int(ceil(src_bfr_cns * 0.5)))
+#
+#                 assert src_beg_col_idx < src_end_col_idx, (
+#                     src_beg_col_idx, src_end_col_idx)
+#
+#             if False:  # Diagnostics.
+#
+#                 fig = plt.figure()
+#                 plt.gca().set_aspect('equal')
+#
+#                 xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+#                 ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+#
+#                 plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+#                 plt.pcolormesh(
+#                     src_xcs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                     src_ycs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                     locals()[f'src_arr__{ncf_vrs[0]}'][0, src_beg_row_idx:src_end_row_idx, src_beg_col_idx:src_end_col_idx],)
+#                 # plt.pcolormesh(xcs, ycs, row_col_ixs[:-1,:-1],)
+#
+#                 plt.title(f'11 {src_xcs[src_beg_row_idx:src_end_row_idx, src_beg_col_idx:src_end_col_idx].shape}')
+#
+#                 plt.show()
+#
+#                 plt.close(fig)
+#
+#             # # ymx.
+#             # while src_ycs[src_beg_row_idx:src_end_row_idx, src_beg_col_idx].min() < dst_ymx:
+#             #
+#             #     src_beg_col_idx -= 1
+#             #
+#             #     if src_beg_col_idx <= 0: break
+#             #
+#             # src_beg_col_idx = max(0, src_beg_col_idx)
+#             #
+#             # # ymn.
+#             # while src_ycs[src_beg_row_idx:src_end_row_idx + 1, src_end_col_idx].max() < dst_ymn:
+#             #
+#             #     src_end_col_idx += 1
+#             #
+#             #     if src_end_col_idx >= src_xcs.shape[1]: break
+#             #
+#             # src_end_col_idx = min(src_xcs.shape[1] - 1, src_end_col_idx)
+#             #==================================================================
+#
+#             if False:  # Diagnostics.
+#
+#                 fig = plt.figure()
+#
+#                 plt.gca().set_aspect('equal')
+#
+#                 xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+#                 ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+#
+#                 plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+#                 plt.pcolormesh(
+#                     src_xcs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                     src_ycs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                     locals()[f'src_arr__{ncf_vrs[0]}'][0, src_beg_row_idx:src_end_row_idx, src_beg_col_idx:src_end_col_idx],)
+#                 # plt.pcolormesh(xcs, ycs, row_col_ixs[:-1,:-1],)
+#
+#                 plt.title(f'1 {src_xcs[src_beg_row_idx:src_end_row_idx, src_beg_col_idx:src_end_col_idx].shape}')
+#
+#                 plt.show()
+#
+#                 plt.close(fig)
+#
+#             # if src_beg_col_idx > src_xcs.shape[1]:
+#             #     print(i, j, '>', src_beg_col_idx, dst_xcs.shape[1])
+#             #     continue
+#             #
+#             # if src_end_col_idx < 0:
+#             #     print(i, j, '<', src_end_col_idx)
+#             #     continue
+#             #==================================================================
+#
+#             # if src_beg_col_idx > 0: src_beg_col_idx -= 1
+#             # src_end_col_idx = min(src_end_col_idx + 1, src_xcs.shape[1] - 1)
+#
+#             # if False:
+#             #     # Buffer it roughly.
+#             #     src_beg_col_idx = max(0, src_beg_col_idx - src_bfr_cns)
+#             #     src_end_col_idx = min(
+#             #         src_xcs.shape[1] - 1, src_end_col_idx + src_bfr_cns)
+#             #==================================================================
+#
+#             if False:  # Diagnostics.
+#
+#                 fig = plt.figure()
+#
+#                 plt.gca().set_aspect('equal')
+#
+#                 xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+#                 ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+#
+#                 plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+#                 plt.pcolormesh(src_xcs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                                 src_ycs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                                 locals()[f'src_arr__{ncf_vrs[0]}'][0, src_beg_row_idx:src_end_row_idx, src_beg_col_idx:src_end_col_idx],)
+#                 # plt.pcolormesh(xcs, ycs, row_col_ixs[:-1,:-1],)
+#
+#                 plt.title(f'2 {src_xcs[src_beg_row_idx:src_end_row_idx, src_beg_col_idx:src_end_col_idx].shape}')
+#
+#                 plt.show()
+#
+#                 plt.close(fig)
+#             #==================================================================
+#
+#             if True:
+#                 # Incrementation/decrementation can be used to be within
+#                 # bounds here.
+#
+#                 # +1 is required to account for the extent of cell.
+#
+#                 if roe_flg:
+#                     # +1 is required to account for the extent of cell.
+#                     src_xmn = src_xcs[
+#                         min_row:max_row + 1, min_col:max_col + 1].min()
+#
+#                     src_xmx = src_xcs[
+#                         min_row:max_row + 1, min_col:max_col + 1].max()
+#
+#                     src_ymn = src_ycs[
+#                         min_row:max_row + 1, min_col:max_col + 1].min()
+#
+#                     src_ymx = src_ycs[
+#                         min_row:max_row + 1, min_col:max_col + 1].max()
+#
+#                 else:
+#                     src_xmn = src_xcs[
+#                         src_beg_row_idx:src_end_row_idx + 1,
+#                         src_beg_col_idx:src_end_col_idx + 1, ].min()
+#
+#                     src_xmx = src_xcs[
+#                         src_beg_row_idx:src_end_row_idx + 1,
+#                         src_beg_col_idx:src_end_col_idx + 1, ].max()
+#
+#                     src_ymn = src_ycs[
+#                         src_beg_row_idx:src_end_row_idx + 1,
+#                         src_beg_col_idx:src_end_col_idx + 1, ].min()
+#
+#                     src_ymx = src_ycs[
+#                         src_beg_row_idx:src_end_row_idx + 1,
+#                         src_beg_col_idx:src_end_col_idx + 1, ].max()
+#
+#                 assert dst_xmn >= src_xmn, (dst_xmn, src_xmn)
+#                 assert dst_xmx <= src_xmx, (dst_xmx, src_xmx)
+#
+#                 assert dst_ymn >= src_ymn, (dst_ymn, src_ymn)
+#
+#                 assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
+#
+#                 assert dst_xmn >= src_xmn, (
+#                     dst_xmn, src_xmn)
+#                 assert dst_xmx <= src_xmx, (
+#                     dst_xmx, src_xmx)
+#
+#                 assert dst_ymn >= src_ymn, (
+#                     dst_ymn, src_ymn)
+#                 assert dst_ymx <= src_ymx, (
+#                     dst_ymx, src_ymx)
+#             #==================================================================
+#
+#             rng = ogr.Geometry(ogr.wkbLinearRing)
+#
+#             rng.AddPoint(dst_xmn, dst_ymn)
+#             rng.AddPoint(dst_xmx, dst_ymn)
+#             rng.AddPoint(dst_xmx, dst_ymx)
+#             rng.AddPoint(dst_xmn, dst_ymx)
+#             rng.AddPoint(dst_xmn, dst_ymn)
+#
+#             dst_ply = ogr.Geometry(ogr.wkbPolygon)
+#             dst_ply.AddGeometry(rng)
+#             #==================================================================
+#
+#             dst_ply_ara = dst_ply.Area()
+#             src_ply_ara = 0.0
+#
+#             ara_tot_ctr = 0
+#             ara_mis_ctr = 0
+#
+#             wts_dct = {}
+#
+#             if roe_flg:
+#                 for k in range(min_row, max_row + 1):
+#                     for l in range(min_col, max_col + 1):
+#
+#                         klt = (k, l)
+#
+#                         # It's so strange, checking inside a list for an item
+#                         # takes a tremendous toll on speed.
+#                         if klt not in src_bfr_ply_dct:
+#
+#                             try:
+#                                 src_bfr_ply_dct[klt] = get_ply_frm_crd_ary(
+#                                     src_xcs, src_ycs, k, l)
+#
+#                             except IndexError: continue
+#
+#                             src_bfr_ply_ixs_lst.append(klt)
+#
+#                         ara_tot_ctr += 1
+#
+#                         itt_ara = dst_ply.Intersection(
+#                             src_bfr_ply_dct[klt]).Area()
+#
+#                         if np.isclose(itt_ara, 0.0):
+#                             ara_mis_ctr += 1
+#                             continue
+#
+#                         wts_dct[klt] = (itt_ara / dst_ply_ara)
+#
+#                         src_ply_ara += itt_ara
+#
+#             else:
+#                 for k in range(src_beg_row_idx, src_end_row_idx):
+#                     for l in range(src_beg_col_idx, src_end_col_idx):
+#
+#                         klt = (k, l)
+#
+#                         # It's so strange, checking inside a list for an item
+#                         # takes a tremendous toll on speed.
+#                         if klt not in src_bfr_ply_dct:
+#
+#                             try:
+#                                 src_bfr_ply_dct[klt] = get_ply_frm_crd_ary(
+#                                     src_xcs, src_ycs, k, l)
+#
+#                             except IndexError: continue
+#
+#                             src_bfr_ply_ixs_lst.append(klt)
+#
+#                         ara_tot_ctr += 1
+#
+#                         itt_ara = dst_ply.Intersection(
+#                             src_bfr_ply_dct[klt]).Area()
+#
+#                         if np.isclose(itt_ara, 0.0):
+#                             ara_mis_ctr += 1
+#                             continue
+#
+#                         wts_dct[klt] = (itt_ara / dst_ply_ara)
+#
+#                         src_ply_ara += itt_ara
+#             #==================================================================
+#
+#             hit_ctr_ttl += ara_tot_ctr
+#             hit_ctr_mis += ara_mis_ctr
+#
+#             if False:
+#                 print(
+#                     i,
+#                     j,
+#                     ara_mis_ctr,
+#                     ara_tot_ctr,
+#                     f'{ara_mis_ctr / ara_tot_ctr:.2%}')
+#
+#             if True:
+#                 # Check failed on RADOLAN and RADKLIM.
+#                 # Need to account for rotation in the beg and end rows and
+#                 # cols.
+#
+#                 try:
+#                     assert np.isclose(dst_ply_ara, src_ply_ara, rtol=5e-2), (
+#                         dst_ply_ara, src_ply_ara, f'{src_ply_ara/dst_ply_ara:.2%}')
+#
+#                 except:
+#                     # print(dst_ply_ara, src_ply_ara, f'{src_ply_ara/dst_ply_ara:.2%}')
+#
+#                     print(
+#                         dst_ply_ara, src_ply_ara, f'{src_ply_ara/dst_ply_ara:.2%}',
+#                         src_ycs.shape, (src_beg_row_idx, src_end_row_idx, src_beg_col_idx, src_end_col_idx),
+#                         src_xcs[src_beg_row_idx:src_end_row_idx, src_beg_col_idx + 1:src_end_col_idx + 1].shape)
+#
+#                     # fig = plt.figure()
+#                     #
+#                     # plt.gca().set_aspect('equal')
+#                     #
+#                     # xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+#                     # ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+#                     #
+#                     # plt.plot(xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10)
+#                     # plt.pcolormesh(
+#                     #     src_xcs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                     #     src_ycs[src_beg_row_idx:src_end_row_idx + 1, src_beg_col_idx:src_end_col_idx + 1],
+#                     #     locals()[f'src_arr__{ncf_vrs[0]}'][0, src_beg_row_idx:src_end_row_idx, src_beg_col_idx:src_end_col_idx],)
+#                     # # plt.pcolormesh(xcs, ycs, row_col_ixs[:-1,:-1],)
+#                     #
+#                     # plt.title(
+#                     #     f'2 {src_ycs.shape}, {src_beg_row_idx, src_end_row_idx, src_beg_col_idx, src_end_col_idx}, '
+#                     #     f'{src_xcs[src_beg_row_idx:src_end_row_idx, src_beg_col_idx+1:src_end_col_idx+1].shape}')
+#                     #
+#                     # plt.show(block=True)
+#                     #
+#                     # plt.close(fig)
+#
+#             else:
+#                 assert ((dst_ply_ara * 0.95) <=
+#                         src_ply_ara <=
+#                         (dst_ply_ara * 1.05)), (
+#                             dst_ply_ara,
+#                             src_ply_ara,
+#                             f'{src_ply_ara/dst_ply_ara:.2%}')
+#
+#             if src_wts_dct_sav_flg: src_wts_dct[(i, j)] = wts_dct
+#
+#             if ags.rsm_flg:
+#                 assert not any([ags.css_flg, ags.ncf_flg])
+#
+#                 src_dst_vls = np.zeros(
+#                     src_dst_arr.shape[0], dtype=src_dst_arr.dtype.type)
+#
+#                 for (k, l), wht in wts_dct.items():
+#                     src_dst_vls += wht * src_arr[:, k, l]
+#
+#                 src_dst_arr[:, i, j] = src_dst_vls
+#
+#             elif ags.css_flg:
+#                 assert not any([ags.rsm_flg, ags.ncf_flg])
+#
+#                 src_dst_arr [:, i, j] = 0.0
+#
+#                 for (k, l), wht in wts_dct.items():
+#                     src_dst_arr[src_unq_dct[src_arr[0, k, l]], i, j] += wht
+#
+#             elif ags.ncf_flg:
+#                 assert not any([ags.rsm_flg, ags.css_flg])
+#
+#                 for key in ncf_vrs:
+#                     fil_wtd_cel(
+#                         i,
+#                         j,
+#                         wts_dct,
+#                         locals()[f'src_arr__{key}'],
+#                         locals()[f'src_dst_arr__{key}'],)
+#
+#             else:
+#                 raise NotImplementedError('Unknown flag for resampling!')
+#             #==================================================================
+#
+#         print(
+#             f'IDX: {i:04d}, '
+#             f'TTL: {hit_ctr_ttl}, '
+#             f'MIS: {hit_ctr_mis}, '
+#             f'SCS_RATE: {(hit_ctr_ttl - hit_ctr_mis) / hit_ctr_ttl:0.2%}')
+#
+#         if i == 0: etr = default_timer()
+#         #======================================================================
+#
+#     src_bfr_ply_ixs_lst = None
+#     src_bfr_ply_dct = None
+#     return src_wts_dct
 
 # def get_ply_dct_frm_crd_sgl(ags):
 #

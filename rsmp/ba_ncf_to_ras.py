@@ -11,9 +11,10 @@ from multiprocessing import Manager, Pool as MPPool
 
 import numpy as np
 import netCDF4 as nc
+from pyproj.crs import CRS
 from osgeo import ogr, gdal
 from pyproj import Transformer
-from pyproj.crs import CRS
+import matplotlib.pyplot as plt
 
 from ..extract import ExtractNetCDFCoords
 
@@ -177,7 +178,7 @@ class ResampleNCFToRas(ResampleRasToRas):
 
         elif src_xcs.ndim == 2:
 
-            raise NotImplementedError('Too much work!')
+            # raise NotImplementedError('Too much work!')
 
             assert src_xcs[0, 0] < src_xcs[0, 1], src_xcs
 
@@ -185,6 +186,7 @@ class ResampleNCFToRas(ResampleRasToRas):
                 self._src_flp_flg = True
 
                 src_ycs = src_ycs[::-1,:]
+                src_xcs = src_xcs[::-1,:]
 
         else:
             raise NotImplementedError(src_xcs.ndim)
@@ -225,7 +227,14 @@ class ResampleNCFToRas(ResampleRasToRas):
             self._get_ras_crs(self._dst_pth),
             always_xy=True)
 
+        dst_src_tfm = Transformer.from_crs(
+            self._get_ras_crs(self._dst_pth),
+            self._src_crs,
+            always_xy=True)
+
         if self._vb: print('Transforming source coordinates\' mesh...')
+
+        src_xcs_ogl, src_ycs_ogl = src_xcs.copy(), src_ycs.copy()
 
         self._tfm_msh(src_xcs, src_ycs, src_dst_tfm)
 
@@ -251,6 +260,10 @@ class ResampleNCFToRas(ResampleRasToRas):
         src_xcs, src_ycs = (
             src_xcs[src_beg_row:src_end_row, src_beg_col:src_end_col],
             src_ycs[src_beg_row:src_end_row, src_beg_col:src_end_col])
+
+        src_xcs_ogl, src_ycs_ogl = (
+            src_xcs_ogl[src_beg_row:src_end_row, src_beg_col:src_end_col],
+            src_ycs_ogl[src_beg_row:src_end_row, src_beg_col:src_end_col])
 
         src_xmn = src_xcs.min()
         src_xmx = src_xcs.max()
@@ -298,15 +311,39 @@ class ResampleNCFToRas(ResampleRasToRas):
         assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
         #======================================================================
 
+        if False:  # Diagnostics.
+            plt.gca().set_aspect('equal')
+
+            xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+            ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+
+            plt.plot(
+                xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10, label='DST')
+
+            xcs_ply = [src_xmn, src_xmn, src_xmx, src_xmx, src_xmn]
+            ycs_ply = [src_ymn, src_ymx, src_ymx, src_ymn, src_ymn]
+
+            plt.plot(
+                xcs_ply, ycs_ply, c='r', alpha=0.85, zorder=10, label='SRC')
+
+            plt.title(f'src_ply and dst_ply')
+
+            plt.show()
+
+            plt.close()
+        #======================================================================
+
         if self._vb: print('Reading desti. array...')
 
-        dst_arr_shp = self._get_ras_vrs(
+        dst_arr = self._get_ras_vrs(
             self._dst_pth,
             dst_beg_row,
             dst_end_row,
             dst_beg_col,
             dst_end_col,
-            1)[0].shape
+            1)[0]
+
+        dst_arr_shp = dst_arr.shape
 
         src_tcs, src_tcs_unt, src_tcs_cal = self._get_ncf_tvs(
             self._src_pth, self._src_tlb)
@@ -402,7 +439,9 @@ class ResampleNCFToRas(ResampleRasToRas):
          src_ymx_max,
          src_cel_hgt,
          src_cel_wdh) = self._get_src_adj_vrs(
-             src_xcs, src_ycs, dst_xcs, dst_ycs)
+            dst_xcs, dst_ycs, src_xcs_ogl, src_ycs_ogl)
+
+        _ = src_bfr_rws, src_bfr_cns, src_xmn_min, src_ymx_max, src_cel_wdh
         #======================================================================
 
         if self._vb: print('Computing resampled array...')
@@ -412,12 +451,8 @@ class ResampleNCFToRas(ResampleRasToRas):
         # Constants and other small objects go here. The rest in _cpt_wts_vrs.
         ags.ncf_flg = True
         ags.vbe_flg = self._vb
-        ags.src_bfr_rws = src_bfr_rws
-        ags.src_bfr_cns = src_bfr_cns
-        ags.src_xmn_min = src_xmn_min
-        ags.src_ymx_max = src_ymx_max
         ags.src_cel_hgt = src_cel_hgt
-        ags.src_cel_wdh = src_cel_wdh
+        ags.dst_src_tfm = dst_src_tfm
         ags.src_wts_dct_sav_flg = self._src_wts_dct_sav_flg
 
         self._cpt_wts_vrs(
@@ -427,12 +462,15 @@ class ResampleNCFToRas(ResampleRasToRas):
             dst_xcs,
             dst_ycs,
             src_ays,
+            dst_arr,
+            src_xcs_ogl,
+            src_ycs_ogl,
             src_dst_ays)
 
         ags = None
         src_ays = None
-        src_xcs = None
-        src_ycs = None
+        src_xcs = src_xcs_ogl = None
+        src_ycs = src_ycs_ogl = None
         #======================================================================
 
         if self._vb: print('Saving resampled raster...')
@@ -577,12 +615,10 @@ class ResampleNCFToRas(ResampleRasToRas):
                 tst_xcs, tst_ycs = self._get_crd_msh(tst_xcs, tst_ycs)
 
             elif ncf_hdl[xlb].ndim == 2:
-                tst_xcs = ncf_hdl[xlb][
-                    beg_row:end_row, beg_col:end_col - 1].data
+                tst_xcs = ncf_hdl[xlb][beg_row:end_row + 1, beg_col:end_col].data
+                tst_ycs = ncf_hdl[ylb][beg_row:end_row + 1, beg_col:end_col].data
 
-                tst_ycs = ncf_hdl[ylb][
-                    beg_row:end_row, beg_col:end_col - 1].data
-
+                tst_xcs = tst_ycs[::-1,:]
                 tst_ycs = tst_ycs[::-1,:]
 
             else:
@@ -593,19 +629,48 @@ class ResampleNCFToRas(ResampleRasToRas):
 
         self._tfm_msh(tst_xcs, tst_ycs, crs_tfm)
 
-        # These can fail if there is significant roation of the grid.
-        # More likely to happen whe source grid is fine.
-        assert np.isclose(ref_xcs.min(), tst_xcs.min()), (
-            ref_xcs.min(), tst_xcs.min())
+        if False:
+            # These can fail if there is significant rotation of the grid.
+            # More likely to happen when source grid is fine.
+            assert np.isclose(ref_xcs.min(), tst_xcs.min()), (
+                ref_xcs.min(), tst_xcs.min())
 
-        assert np.isclose(ref_xcs.max(), tst_xcs.max()), (
-            ref_xcs.max(), tst_xcs.max())
+            assert np.isclose(ref_xcs.max(), tst_xcs.max()), (
+                ref_xcs.max(), tst_xcs.max())
 
-        assert np.isclose(ref_ycs.min(), tst_ycs.min()), (
-            ref_ycs.min(), tst_ycs.min())
+            assert np.isclose(ref_ycs.min(), tst_ycs.min()), (
+                ref_ycs.min(), tst_ycs.min())
 
-        assert np.isclose(ref_ycs.max(), tst_ycs.max()), (
-            ref_ycs.max(), tst_ycs.max())
+            assert np.isclose(ref_ycs.max(), tst_ycs.max()), (
+                ref_ycs.max(), tst_ycs.max())
+
+        if False:  # Diagnostics.
+
+            ref_xmn, ref_xmx = ref_xcs.min(), ref_xcs.max()
+            ref_ymn, ref_ymx = ref_ycs.min(), ref_ycs.max()
+
+            tst_xmn, tst_xmx = tst_xcs.min(), tst_xcs.max()
+            tst_ymn, tst_ymx = tst_ycs.min(), tst_ycs.max()
+
+            plt.gca().set_aspect('equal')
+
+            xcs_ply = [ref_xmn, ref_xmn, ref_xmx, ref_xmx, ref_xmn]
+            ycs_ply = [ref_ymn, ref_ymx, ref_ymx, ref_ymn, ref_ymn]
+
+            plt.plot(
+                xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10, label='REF')
+
+            xcs_ply = [tst_xmn, tst_xmn, tst_xmx, tst_xmx, tst_xmn]
+            ycs_ply = [tst_ymn, tst_ymx, tst_ymx, tst_ymn, tst_ymn]
+
+            plt.plot(
+                xcs_ply, ycs_ply, c='r', alpha=0.85, zorder=10, label='TST')
+
+            plt.title(f'ref_ply and tst_ply')
+
+            plt.show()
+
+            plt.close()
 
         return
 
@@ -667,11 +732,11 @@ class ResampleNCFToRas(ResampleRasToRas):
 
                 elif xcs.ndim == 2:
 
-                    assert (xcs.shape[0] - 1, xcs.shape[1] - 1) == (
+                    assert (xcs.shape[0], xcs.shape[1]) == (
                         ncf_hdl[var].shape[1:]), (
                             xcs.shape, ncf_hdl[var].shape)
 
-                    assert (ycs.shape[0] - 1, ycs.shape[1] - 1) == (
+                    assert (ycs.shape[0], ycs.shape[1]) == (
                         ncf_hdl[var].shape[1:]), (
                             ycs.shape, ncf_hdl[var].shape)
 

@@ -75,7 +75,14 @@ class ResampleRasToRasClss(ResampleRasToRas):
             self._get_ras_crs(self._dst_pth),
             always_xy=True)
 
+        dst_src_tfm = Transformer.from_crs(
+            self._get_ras_crs(self._dst_pth),
+            self._get_ras_crs(self._src_pth),
+            always_xy=True)
+
         if self._vb: print('Transforming source coordinates\' mesh...')
+
+        src_xcs_ogl, src_ycs_ogl = src_xcs.copy(), src_ycs.copy()
 
         self._tfm_msh(src_xcs, src_ycs, src_dst_tfm)
 
@@ -101,6 +108,10 @@ class ResampleRasToRasClss(ResampleRasToRas):
         src_xcs, src_ycs = (
             src_xcs[src_beg_row:src_end_row, src_beg_col:src_end_col],
             src_ycs[src_beg_row:src_end_row, src_beg_col:src_end_col])
+
+        src_xcs_ogl, src_ycs_ogl = (
+            src_xcs_ogl[src_beg_row:src_end_row, src_beg_col:src_end_col],
+            src_ycs_ogl[src_beg_row:src_end_row, src_beg_col:src_end_col])
 
         src_xmn = src_xcs.min()
         src_xmx = src_xcs.max()
@@ -150,13 +161,15 @@ class ResampleRasToRasClss(ResampleRasToRas):
 
         if self._vb: print('Reading input arrays...')
 
-        dst_arr_shp = self._get_ras_vrs(
+        dst_arr = self._get_ras_vrs(
             self._dst_pth,
             dst_beg_row,
             dst_end_row,
             dst_beg_col,
             dst_end_col,
-            1)[0].shape
+            1)[0]
+
+        dst_arr_shp = dst_arr.shape
 
         src_arr, = self._get_ras_vrs(
             self._src_pth,
@@ -169,11 +182,11 @@ class ResampleRasToRasClss(ResampleRasToRas):
 
         if self._vb: print('Finding source unique values...')
 
-        src_uqs = np.unique(src_arr)
-        src_unq_dct = {src_uqs[i]: i for i in range(src_uqs.size)}
+        src_uqs = [str(vle) for vle in np.unique(src_arr)]
+        src_unq_dct = {src_uqs[i]: i for i in range(len(src_uqs))}
 
         # Meta data for Raster.
-        src_mda = [{'CLASS_CODE':src_uqs[i]} for i in range(src_uqs.size)]
+        src_mda = [{'CLASS_CODE':src_uqs[i]} for i in range(len(src_uqs))]
 
         if self._vb: print(f'Found {len(src_mda)} unique values.')
         #======================================================================
@@ -200,7 +213,9 @@ class ResampleRasToRasClss(ResampleRasToRas):
          src_ymx_max,
          src_cel_hgt,
          src_cel_wdh) = self._get_src_adj_vrs(
-             src_xcs, src_ycs, dst_xcs, dst_ycs)
+            dst_xcs, dst_ycs, src_xcs_ogl, src_ycs_ogl)
+
+        _ = src_bfr_rws, src_bfr_cns, src_xmn_min, src_ymx_max, src_cel_wdh
         #======================================================================
 
         if self._vb: print('Computing resampled array...')
@@ -211,12 +226,8 @@ class ResampleRasToRasClss(ResampleRasToRas):
         ags.css_flg = True
         ags.vbe_flg = self._vb
         ags.src_unq_dct = src_unq_dct
-        ags.src_bfr_rws = src_bfr_rws
-        ags.src_bfr_cns = src_bfr_cns
-        ags.src_xmn_min = src_xmn_min
-        ags.src_ymx_max = src_ymx_max
         ags.src_cel_hgt = src_cel_hgt
-        ags.src_cel_wdh = src_cel_wdh
+        ags.dst_src_tfm = dst_src_tfm
         ags.src_wts_dct_sav_flg = self._src_wts_dct_sav_flg
 
         self._cpt_wts_vrs(
@@ -226,12 +237,15 @@ class ResampleRasToRasClss(ResampleRasToRas):
             dst_xcs,
             dst_ycs,
             src_arr,
+            dst_arr,
+            src_xcs_ogl,
+            src_ycs_ogl,
             src_dst_arr)
 
         ags = None
         src_arr = None
-        src_xcs = None
-        src_ycs = None
+        src_xcs = src_xcs_ogl = None
+        src_ycs = src_ycs_ogl = None
         #======================================================================
 
         if self._vb: print('Saving resampled raster...')

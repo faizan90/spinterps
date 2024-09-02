@@ -192,7 +192,7 @@ def monitor_memory(args):
             swap_used = round(sum(
                 [mem for mem in mems_swap if not isnan(mem)]) / mb, 1)
 
-            phy_avail = round(ps.virtual_memory().free / mb, 1)
+            phy_avail = round(ps.virtual_memory().available / mb, 1)
 
             # Last one has no sep after it.
             txt_hdl.write(
