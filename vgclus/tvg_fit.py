@@ -154,10 +154,10 @@ class TVGFit(CEVG):
         sq_diffs = (vg_vals - vg_mix) ** 2
 
         if self._sett_clus_tvg_apply_wts_flag and (dists[0] == 0):
-            sq_diffs[1:] /= dists[1:] ** 0.5
+            sq_diffs[1:] /= dists[1:] ** 2
 
         elif self._sett_clus_tvg_apply_wts_flag and (dists[0] > 0):
-            sq_diffs /= dists ** 0.5
+            sq_diffs /= dists ** 2
 
         else:
             assert not self._sett_clus_tvg_apply_wts_flag

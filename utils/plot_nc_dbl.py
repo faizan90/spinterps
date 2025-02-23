@@ -26,34 +26,35 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\dwd_meteo\gridded\extract_hyras')
+    main_dir = Path(r'P:\Synchronize\TUM\Colleagues_Students\hadi\modis')
 
     os.chdir(main_dir)
 
-    in_nc_path_1 = Path(r'pr_hyras_1_1931_2020_v5-0_de.nc')
-    var_label_1 = 'pr'
-    x_label_1 = 'x_utm32n'
-    y_label_1 = 'y_utm32n'
+    in_nc_path_1 = Path(r'da_rescld_mod_myd/MOD10A1.061_500m_aid0001.nc')
+    var_label_1 = 'NDSI_Snow_Cover'
+    x_label_1 = 'X1D'
+    y_label_1 = 'Y1D'
     time_label_1 = 'time'
     sclr_1 = None
 
-    in_nc_path_2 = Path(r'dstr_deby/pr_hyras_1_1931_2020_v5-0_de.nc')
-    var_label_2 = 'pr'
-    x_label_2 = 'X2D'  # 'longitude'  #
-    y_label_2 = 'Y2D'  # 'latitude'  #
+    in_nc_path_2 = Path(r'da_rescld_infilled__tme3/MOD10A1.061_500m_aid0001.nc')
+    var_label_2 = 'NDSI_Snow_Cover'
+    x_label_2 = 'X1D'  # 'longitude'  #
+    y_label_2 = 'Y1D'  # 'latitude'  #
     time_label_2 = 'time'
     sclr_2 = None
 
-    cbar_label = 'Precipitation (mm)'
+    # cbar_label = 'Precipitation (mm)'
     # cbar_label = 'PET (mm)'
     # cbar_label = 'Temperature (C)'
     # cbar_label = 'Humidity (%)'
     # cbar_label = 'Radiation'
+    cbar_label = 'NDSI [-]'
 
     cmap = 'viridis'  # 'Blues'  #
 
     var_min_val = 0
-    var_max_val = 3e1
+    var_max_val = 1e2
 
     # var_min_val = 0
     # var_max_val = 2
@@ -64,17 +65,17 @@ def main():
     # y_llim = 49.2
     # y_ulim = 47.6
 
-    # x_llim = None
-    # x_ulim = None
-    #
-    # y_llim = None
-    # y_ulim = None
+    x_llim = None
+    x_ulim = None
 
-    x_llim = 500000
-    x_ulim = 860000
+    y_llim = None
+    y_ulim = None
 
-    y_llim = 56e5
-    y_ulim = 52e5
+    # x_llim = 500000
+    # x_ulim = 860000
+
+    # y_llim = 56e5
+    # y_ulim = 52e5
 
     show_title_flag = True
     # show_title_flag = False
@@ -92,38 +93,69 @@ def main():
     #     format='%Y-%m-%d %H:%M:%S')
 
     beg_time, end_time = pd.to_datetime(
-        ['2010-01-01', '2010-01-10'],
+        ['2023-01-01', '2023-03-31'],
         format='%Y-%m-%d')
+
+    # beg_time, end_time = pd.to_datetime(
+    #     ['2023-04-01', '2023-06-30'],
+    #     format='%Y-%m-%d')
+
+    # beg_time, end_time = pd.to_datetime(
+    #     ['2023-07-01', '2023-09-30'],
+    #     format='%Y-%m-%d')
+
+    # beg_time, end_time = pd.to_datetime(
+    #     ['2023-10-01', '2023-12-31'],
+    #     format='%Y-%m-%d')
 
     # beg_time, end_time = pd.to_datetime(
     #     ['2013-05-18 00', '2013-05-20 23'],
     #     format='%Y-%m-%d %H')
 
     # Catchments shapefile.
-    in_cat_file = Path(r'P:\DEBY\dem_ansys_1km\watersheds.shp')  # None
+    in_cat_file = None  # Path(r'P:\DEBY\dem_ansys_1km\watersheds.shp')  #
 
     cat_col = 'DN'
 
     drop_stns = []  # [420, 3421, 427, 3465, 3470]
 
-    out_figs_dir = Path(r'cmpr_grids1')
+    out_figs_dir = Path(r'cmpr_grids__mrgd_ifld__tme3')
     #==========================================================================
 
     with nc.Dataset(in_nc_path_1, 'r') as nc_hdl:
         x_crds_1 = nc_hdl[x_label_1][...].data
         y_crds_1 = nc_hdl[y_label_1][...].data
 
-        times_1 = nc.num2date(
-            nc_hdl[time_label_1][:].data,
-            units=nc_hdl[time_label_1].units,
-            calendar=nc_hdl[time_label_1].calendar,
-            only_use_cftime_datetimes=False,
-            only_use_python_datetimes=True)
+        if True:
+            times_1 = nc.num2date(
+                nc_hdl[time_label_1][:].data,
+                units=nc_hdl[time_label_1].units,
+                calendar=nc_hdl[time_label_1].calendar)
+
+            indices = nc.date2num(
+                times_1,
+                units=nc_hdl[time_label_1].units,
+                calendar='gregorian')
+
+            times_1 = nc.num2date(
+                indices,
+                units=nc_hdl[time_label_1].units,
+                calendar='gregorian',
+                only_use_cftime_datetimes=False,
+                only_use_python_datetimes=True)
+
+        else:
+            times_1 = nc.num2date(
+                indices,
+                units=nc_hdl[time_label_1].units,
+                calendar=nc_hdl[time_label_1].calendar,
+                only_use_cftime_datetimes=False,
+                only_use_python_datetimes=True)
 
         times_1 = pd.DatetimeIndex(times_1)
 
         take_idxs_beg_1 = times_1.get_loc(beg_time)
-        take_idxs_end_1 = times_1.get_loc(end_time)
+        take_idxs_end_1 = times_1.get_loc(end_time) + 1
 
         times_1 = times_1[take_idxs_beg_1:take_idxs_end_1]
         data_1 = nc_hdl[var_label_1][take_idxs_beg_1:take_idxs_end_1].data
@@ -149,7 +181,7 @@ def main():
         times_2 = pd.DatetimeIndex(times_2)
 
         take_idxs_beg_2 = times_2.get_loc(beg_time)
-        take_idxs_end_2 = times_2.get_loc(end_time)
+        take_idxs_end_2 = times_2.get_loc(end_time) + 1
 
         times_2 = times_2[take_idxs_beg_2:take_idxs_end_2]
         data_2 = nc_hdl[var_label_2][take_idxs_beg_2:take_idxs_end_2].data
@@ -165,7 +197,7 @@ def main():
         cats_hdl = fiona.open(str(in_cat_file))
     #==========================================================================
 
-    out_var_figs_dir = out_figs_dir / f'{var_label_1}__{2}'
+    out_var_figs_dir = out_figs_dir / f'{var_label_1}'
 
     out_figs_dir.mkdir(exist_ok=True)
     out_var_figs_dir.mkdir(exist_ok=True)
@@ -177,7 +209,6 @@ def main():
             1, 3, width_ratios=(1, 1, 0.1), figsize=(10, 5))
 
         time_str_1 = f'{times_1[i].strftime("%Y%m%dT%H%M")}'
-
         time_str_2 = f'{times_2[i].strftime("%Y%m%dT%H%M")}'
 
         print(f'Plotting {time_str_1} vs. {time_str_2}')
@@ -225,7 +256,8 @@ def main():
         if show_title_flag:
             title = (
                 f'Time: {time_str_1}\n'
-                f'Min.: {grd_min_1:0.4f}, Max.: {grd_max_1:0.4f}')
+                f'Min.: {grd_min_1:0.4f}, Max.: {grd_max_1:0.4f}\n'
+                f'Ct: {np.isfinite(interp_fld_1).sum()}')
 
             axs[0].set_title(title)
         #======================================================================
@@ -279,7 +311,8 @@ def main():
         if show_title_flag:
             title = (
                 f'Time: {time_str_2}\n'
-                f'Min.: {grd_min_2:0.4f}, Max.: {grd_max_2:0.4f}')
+                f'Min.: {grd_min_2:0.4f}, Max.: {grd_max_2:0.4f}\n'
+                f'Ct: {np.isfinite(interp_fld_2).sum()}')
 
             axs[1].set_title(title)
 
@@ -319,7 +352,7 @@ def main():
 
         # fig.clear()
 
-        plt.close()
+        plt.close(fig)
     return
 
 

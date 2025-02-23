@@ -329,7 +329,7 @@ class ExtractGTiffValues:
             else:
                 raise NotImplementedError(
                     'Only configured for file extensions ending in '
-                    'h5 and hdf5 only!')
+                    'csv, pkl, h5 and hdf5 only!')
 
             assert out_fmt is not None
 
@@ -351,7 +351,8 @@ class ExtractGTiffValues:
             self,
             indices,
             save_add_vars_flag=True,
-            ignore_rows_cols_equality=False):
+            ignore_rows_cols_equality=False,
+            ignr_nans_flag=False):
 
         '''Extract the values at given indices.
 
@@ -426,10 +427,6 @@ class ExtractGTiffValues:
         for i in range(1, n_bnds + 1):
             bnd = in_hdl.GetRasterBand(i)
 
-            ndv = bnd.GetNoDataValue()
-
-            bnd_ndvs[f'B{i:02d}'] = ndv
-
             data = bnd.ReadAsArray()
 
             assert data.ndim == 2, 'Raster bands allowed to be 2D only!'
@@ -438,7 +435,19 @@ class ExtractGTiffValues:
             if data.size == 1:
                 data = data[0]
 
-            gtiff_bnds[f'B{i:02d}'] = data
+            rtr_mts_dta_dct = bnd.GetMetadata_Dict()
+
+            if 'CLASS_CODE' in rtr_mts_dta_dct:
+                bnd_lbl = rtr_mts_dta_dct['CLASS_CODE']
+
+            else:
+                bnd_lbl = f'B{i:02d}'
+
+            gtiff_bnds[bnd_lbl] = data
+
+            ndv = bnd.GetNoDataValue()
+
+            bnd_ndvs[bnd_lbl] = ndv
 
         data = None
         in_hdl = None
@@ -531,9 +540,26 @@ class ExtractGTiffValues:
             assert bnds_data, 'This should not have happend!'
 
             if self._out_fmt in ('csv', 'pkl'):
-                extrtd_data[label] = np.array([
-                    (bnds_data[key] * crds_idxs['rel_itsctd_area']).sum()
-                    for key in bnds_data])
+
+                if not ignr_nans_flag:
+                    extrtd_data[label] = np.array([
+                        (bnds_data[key] * crds_idxs['rel_itsctd_area']).sum()
+                        for key in bnds_data])
+
+                else:
+                    lbl_dta = []
+                    for bnd in bnds_data:
+                        bnd_lbl_dta = bnds_data[bnd]
+
+                        nan_ixs = np.isnan(bnd_lbl_dta)
+
+                        wts_vls = bnds_data[bnd] * crds_idxs['rel_itsctd_area']
+
+                        if np.any(nan_ixs): wts_vls = wts_vls[~nan_ixs]
+
+                        lbl_dta.append(wts_vls.sum())
+
+                    extrtd_data[label] = np.array(lbl_dta)
 
             else:
                 extrtd_data[label] = bnds_data
@@ -611,6 +637,7 @@ class ExtractGTiffValues:
             else:
                 raise NotImplementedError
 
+        bnd_lbs = list(gtiff_bnds.keys())
         gtiff_bnds = None
 
         if self._out_fmt == 'h5':
@@ -621,7 +648,7 @@ class ExtractGTiffValues:
         elif self._out_fmt in ('csv', 'pkl'):
 
             # Transposed to have the same form as a coordinates DataFrame.
-            extrtd_data = pd.DataFrame(extrtd_data).T
+            extrtd_data = pd.DataFrame(extrtd_data, index=bnd_lbs).T
 
             # Make Series if only one column.
             # This is expected by some programs.

@@ -25,25 +25,31 @@ DEBUG_FLAG = False
 
 def main():
 
-    # main_dir = Path(r'P:\dwd_meteo\gridded\extract_radolan\e_rescld')
+    main_dir = Path(r'P:\HYRAS\precipitation')
     # main_dir = Path(r'P:\dwd_meteo\gridded\extract_hyras\d_lmtd_and_infld_tst')
-    main_dir = Path(r'P:\dwd_meteo\gridded\extract_radolan\a_snip_hourly')
+    # main_dir = Path(r'P:\DEBY\spinterps\ppt_1D_1km_20240906')
     os.chdir(main_dir)
 
-    # in_nc_path = Path(r'pr_hyras_1_1931_2020_v5-0_de.nc')
-    in_nc_path = Path(r'2016.nc')
+    in_nc_path = Path(r'pr_hyras_1_1970_v6-0_de.nc')
+    # in_nc_path = Path(r'tas_1hr_HOSTRADA-v1-0_BE_gn_2001030100-2001033123.nc')
+    # in_nc_path = Path(r'RW_2007_2023.nc')
+    # in_nc_path = Path(r'kriging.nc')
 
-    var_label = 'RW'  # 'tas'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'EDK'  # 'IDW_000'
-    # x_label = 'lon'  # 'X1D'  # 'X2D'  # 'X'  # 'longitude'  #
-    # y_label = 'lat'  # 'Y1D'  # 'Y2D'  # 'y_utm32n'  # 'Y'  # 'latitude'  #
+    nme_sfx = ''
 
-    x_label = 'x_utm32n'  # 'X2D'  # 'X'  # 'longitude'  # 'lon'  #
-    y_label = 'y_utm32n'  # 'Y2D'  #  'Y'  # 'latitude'  # 'lat'  #
+    var_label = 'pr'  # 'NNB'  # 'EDK'  # 'pptn'  # 'tas'  # 'RR'  # 'petn'  # 'pr'  # 'tasmin'  #
+    # var_label = 'RW'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'IDW_000'
+
+    x_label = 'x'  # 'X'  # 'X1D'  # 'lon'  # 'longitude'  #
+    y_label = 'y'  # 'Y'  # 'Y1D'  # 'lat'  # 'latitude'  #
+    # x_label = 'x_utm32n'  # 'X2D'  #
+    # y_label = 'y_utm32n'  # 'Y2D'  #
 
     time_label = 'time'
 
     cbar_label = 'Precipitation [mm]'
-    # cbar_label = 'Snow depth [m]'
+    # cbar_label = 'Snow depth [mm]'
+    # cbar_label = 'Snow melt [mm]'
     # cbar_label = 'PET [mm]'
     # cbar_label = 'Temperature [°C]'
 
@@ -51,7 +57,7 @@ def main():
 
     cmap = 'viridis'  # 'Blues'  #
 
-    dpi = 100
+    dpi = 150
 
     var_min_val = None
     var_max_val = None
@@ -63,7 +69,7 @@ def main():
     var_ulm = None
 
     # var_llm = 0.0
-    # var_ulm = 500
+    # var_ulm = 100
 
     x_llim = None
     x_ulim = None
@@ -86,27 +92,29 @@ def main():
     # nan_val = 9999
     nan_val = None
 
-    beg_time, end_time = pd.to_datetime(
-        ['2016-12-01', '2016-12-30'],
-        format='%Y-%m-%d')
-
     # beg_time, end_time = pd.to_datetime(
-    #     ['2017-01-15 00:50:00', '2017-01-31 00:50:00'],
-    #     format='%Y-%m-%d %H:%M:%S')
+    #     ['1970-01-01', '1970-01-10'],
+    #     format='%Y-%m-%d')
+
+    beg_time, end_time = pd.to_datetime(
+        ['1970-01-01 18:00:00', '1970-01-12 18:00:00'],
+        format='%Y-%m-%d %H:%M:%S')
 
     # beg_time, end_time = pd.to_datetime(
     #     ['20190520T070000', '20190521T070000'],
     #     format='%Y%m%dT%H%M%S')
 
-    in_cat_file = Path(r'P:\DEBY\dem_ansys_1km\watersheds.shp')
-    # in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg4326.shp')
+    # in_cat_file = Path(r'P:\DEBY\dem_ansys_1km\watersheds.shp')
+    # in_cat_file = Path(r'P:\DEBY\bayern_epsg32632.shp')
+    # in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg32632.shp')
+    in_cat_file = Path(r'P:\DEBY\bayern_epsg3035.shp')
 
     # in_cat_file = None
 
     in_crds_file = None
     # in_crds_file = Path(r'../ppt_1D_gkd_dwd_crds.csv')
 
-    out_figs_dir = Path(r'plots')
+    out_figs_dir = Path(r'vbe_gds__plots')
     #==========================================================================
 
     if in_crds_file is not None:
@@ -252,8 +260,9 @@ def main():
         ax.set_ylim(y_ulim, y_llim)
 
         # plt.show()
+        # break
 
-        out_fig_name = f'{var_label.lower()}_{time_str}.png'
+        out_fig_name = f'{var_label.lower()}{nme_sfx}_{time_str}.png'
 
         out_fig_name = out_fig_name.replace(':', '_')
 

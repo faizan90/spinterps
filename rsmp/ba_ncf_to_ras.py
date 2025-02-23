@@ -6,10 +6,12 @@ Created on 09.07.2024
 @author: Faizan-TU Munich
 '''
 
+from math import ceil
 from pathlib import Path
 from multiprocessing import Manager, Pool as MPPool
 
 import numpy as np
+import psutil as ps
 import netCDF4 as nc
 from pyproj.crs import CRS
 from osgeo import ogr, gdal
@@ -172,7 +174,7 @@ class ResampleNCFToRas(ResampleRasToRas):
                 src_ycs = src_ycs[::-1]
 
             src_ycs = np.concatenate((
-                (src_ycs - (0.5 * (src_ycs[0] - src_ycs[1]))),
+                (src_ycs + (0.5 * (src_ycs[0] - src_ycs[1]))),
                 (src_ycs[-1] + (0.5 * (src_ycs[1] - src_ycs[0])),),
                 ))
 
@@ -225,12 +227,14 @@ class ResampleNCFToRas(ResampleRasToRas):
         src_dst_tfm = Transformer.from_crs(
             self._src_crs,
             self._get_ras_crs(self._dst_pth),
-            always_xy=True)
+            always_xy=True,
+            only_best=True)
 
         dst_src_tfm = Transformer.from_crs(
             self._get_ras_crs(self._dst_pth),
             self._src_crs,
-            always_xy=True)
+            always_xy=True,
+            only_best=True)
 
         if self._vb: print('Transforming source coordinates\' mesh...')
 
@@ -241,6 +245,9 @@ class ResampleNCFToRas(ResampleRasToRas):
         if self._vb: print(f'Source original mesh shape: {src_xcs.shape}...')
         if self._vb: print(f'Desti. original mesh shape: {dst_xcs.shape}...')
         #======================================================================
+
+        (xcs_ply_src_ful,
+         ycs_ply_src_ful) = self._get_msh_ply_cns_cds(src_xcs, src_ycs)
 
         if self._vb:
             print('Calculating intersection indices of both rasters...')
@@ -273,6 +280,9 @@ class ResampleNCFToRas(ResampleRasToRas):
 
         if self._vb: print(f'Source snipped mesh shape: {src_xcs.shape}...')
         #======================================================================
+
+        (xcs_ply_dst_ful,
+         ycs_ply_dst_ful) = self._get_msh_ply_cns_cds(dst_xcs, dst_ycs)
 
         if self._vb: print(f'Adjusting desti. bounds...')
 
@@ -311,26 +321,21 @@ class ResampleNCFToRas(ResampleRasToRas):
         assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
         #======================================================================
 
-        if False:  # Diagnostics.
-            plt.gca().set_aspect('equal')
+        if True:  # Diagnostics.
 
-            xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
-            ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+            if self._vb:
+                print('Plotting full and intersection source and desti. '
+                      'polygons...')
 
-            plt.plot(
-                xcs_ply, ycs_ply, c='cyan', alpha=0.85, zorder=10, label='DST')
-
-            xcs_ply = [src_xmn, src_xmn, src_xmx, src_xmx, src_xmn]
-            ycs_ply = [src_ymn, src_ymx, src_ymx, src_ymn, src_ymn]
-
-            plt.plot(
-                xcs_ply, ycs_ply, c='r', alpha=0.85, zorder=10, label='SRC')
-
-            plt.title(f'src_ply and dst_ply')
-
-            plt.show()
-
-            plt.close()
+            self._plt_src_dst_eps(
+                src_xcs,
+                src_ycs,
+                dst_xcs,
+                dst_ycs,
+                xcs_ply_src_ful,
+                ycs_ply_src_ful,
+                xcs_ply_dst_ful,
+                ycs_ply_dst_ful)
         #======================================================================
 
         if self._vb: print('Reading desti. array...')
@@ -501,7 +506,7 @@ class ResampleNCFToRas(ResampleRasToRas):
 
     def _cvt_ncf_fle(self, var, arr):
 
-        cmp_lvl = 1
+        cmp_lvl = 0
 
         ncf_hdl = nc.Dataset(self._out_pth, 'r+')
 
@@ -509,13 +514,14 @@ class ResampleNCFToRas(ResampleRasToRas):
 
         ncf_var = ncf_hdl.createVariable(
             var,
-            'd',
+            arr.dtype,
             dimensions=(self._ncf_dim_tlb,
                         self._ncf_dim_ylb_1dn,
                         self._ncf_dim_xlb_1dn,),
             fill_value=False,
             compression='zlib',
             complevel=cmp_lvl,
+            shuffle=True,
             chunksizes=(1, arr.shape[1], arr.shape[2]))
 
         ncf_var[:] = arr
@@ -697,12 +703,82 @@ class ResampleNCFToRas(ResampleRasToRas):
             var,
             flp_flg):
 
+        inp_cnk_sze = 1024 ** 3
+
         with nc.Dataset(inp_pth) as ncf_hdl:
+
+            # A quick fix for now. Suboptimal.
+            if not flp_flg:
+                if (end_row - beg_row - 1) == ncf_hdl[var].shape[1]:
+                    end_row_fnl = end_row - 1
+
+                else:
+                    end_row_fnl = end_row
+
+                if (end_col - beg_col - 1) == ncf_hdl[var].shape[2]:
+                    end_col_fnl = end_col - 1
+
+                else:
+                    end_col_fnl = end_col
+
+                ary = np.empty(
+                    (ncf_hdl[var].shape[0],
+                     end_row_fnl - beg_row,
+                     end_col_fnl - beg_col),
+                    dtype=np.float32)
+
+            else:
+                ary = np.empty(
+                    (ncf_hdl[var].shape[0],
+                     end_row - beg_row,
+                     end_col - beg_col),
+                    dtype=np.float32)
+
+            assert ary.shape[1] <= ncf_hdl[var].shape[1], (
+                ary.shape[1], ncf_hdl[var].shape[1])
+
+            assert ary.shape[2] <= ncf_hdl[var].shape[2], (
+                ary.shape[2], ncf_hdl[var].shape[2])
+
+            # Memory management.
+            inp_vle_cts = np.prod(ncf_hdl[var].shape, dtype=np.uint64)
+
+            tot_mmy = min(
+                inp_cnk_sze, int(ps.virtual_memory().available * 0.5))
+
+            mmy_cns_cnt = ceil(
+                (inp_vle_cts / tot_mmy) * ncf_hdl[var].dtype.itemsize)
+
+            assert mmy_cns_cnt >= 1, mmy_cns_cnt
+
+            if mmy_cns_cnt > 1:
+                if self._vb: print('Memory not enough to read in one go!')
+
+                mmy_ixs = np.linspace(
+                    0,
+                    ncf_hdl[var].shape[0],
+                    (mmy_cns_cnt + 1),
+                    endpoint=True,
+                    dtype=np.int64)
+
+                assert mmy_ixs[+0] == 0, mmy_ixs
+                assert mmy_ixs[-1] == ncf_hdl[var].shape[0], mmy_ixs
+
+                assert np.unique(mmy_ixs).size == mmy_ixs.size, (
+                    np.unique(mmy_ixs).size, mmy_ixs.size)
+
+            else:
+                mmy_ixs = np.array([0, ncf_hdl[var].shape[0]])
 
             if flp_flg:
                 beg_row, end_row = -end_row - 1, -beg_row - 1
 
-            ary = ncf_hdl[var][:, beg_row:end_row, beg_col:end_col].data
+            for mmy_idx_bgn, mmy_idx_end in zip(mmy_ixs[:-1], mmy_ixs[1:]):
+
+                ary[mmy_idx_bgn:mmy_idx_end,:,:] = ncf_hdl[var][
+                    mmy_idx_bgn:mmy_idx_end,
+                    beg_row:end_row,
+                    beg_col:end_col].astype(np.float32)
 
             if flp_flg:
                 for i in range(ary.shape[0]): ary[i,:,:] = ary[i,::-1,:]
@@ -733,11 +809,13 @@ class ResampleNCFToRas(ResampleRasToRas):
                 elif xcs.ndim == 2:
 
                     assert (xcs.shape[0], xcs.shape[1]) == (
-                        ncf_hdl[var].shape[1:]), (
+                        ncf_hdl[var].shape[1] + 1,
+                        ncf_hdl[var].shape[2] + 1), (
                             xcs.shape, ncf_hdl[var].shape)
 
                     assert (ycs.shape[0], ycs.shape[1]) == (
-                        ncf_hdl[var].shape[1:]), (
+                        ncf_hdl[var].shape[1] + 1,
+                        ncf_hdl[var].shape[2] + 1), (
                             ycs.shape, ncf_hdl[var].shape)
 
                 else:
@@ -753,14 +831,3 @@ class ResampleNCFToRas(ResampleRasToRas):
         ras_crd_obj.extract_coordinates()
 
         return ras_crd_obj
-
-#==============================================================================
-# Dead code afterwards.
-#==============================================================================
-
-# def _get_wtd_arr_ncf(self, src_arr, dst_arr, dst_xcs, src_wts_dct):
-#
-#     src_dst_arr = self._get_wtd_arr_ras(
-#         src_arr, dst_arr, dst_xcs, src_wts_dct)
-#
-#     return src_dst_arr

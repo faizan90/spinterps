@@ -598,7 +598,7 @@ class SpInterpSteps:
             tke_stn_ixs = np.unique(tke_stn_ixs)
 
             if tke_stn_ixs.size != self._crds_df.shape[0]:
-                print(tke_stn_ixs.size, self._crds_df.shape[0])
+                # print(tke_stn_ixs.size, self._crds_df.shape[0])
 
                 self._crds_df = self._crds_df.iloc[tke_stn_ixs,:].copy()
                 data_df = data_df.iloc[:, tke_stn_ixs].copy()

@@ -409,7 +409,8 @@ class ExtractNetCDFValues:
             self,
             indices,
             save_add_vars_flag=True,
-            ignore_rows_cols_equality=False):
+            ignore_rows_cols_equality=False,
+            ignr_nan_flag=True):
 
         '''Extract the values at given indices.
 
@@ -471,6 +472,14 @@ class ExtractNetCDFValues:
 
         in_var = in_hdl[self._in_var_lab]
         in_var.set_always_mask(False)
+
+        scl_fcr = None
+        # if hasattr(in_var, 'scale_factor'):
+        #     scl_fcr = np.float32(in_var.scale_factor)
+
+        msg_vle = None
+        if hasattr(in_var, 'missing_value'):
+            msg_vle = in_var.missing_value
 
         assert in_var.ndim == 3, (
             f'Variable: {self._in_var_lab} in the input must have '
@@ -732,6 +741,13 @@ class ExtractNetCDFValues:
 
                     steps_data = in_var_dta[:, rows_idxs, cols_idxs]
 
+                    if msg_vle is not None:
+
+                        if steps_data.dtype != np.float32:
+                            steps_data = steps_data.astype(np.float32)
+
+                        steps_data[np.isclose(steps_data, msg_vle)] = np.nan
+
                     assert steps_data.size, 'This should not have happend!'
 
                     if self._out_fmt == 'raw':
@@ -746,7 +762,7 @@ class ExtractNetCDFValues:
 
                         nan_idxs = np.isnan(steps_data)
 
-                        if nan_idxs.any():
+                        if (not ignr_nan_flag) and nan_idxs.any():
 
                             iis = extrtd_data.index[mmy_bgn_idx:mmy_end_idx]
 
@@ -861,10 +877,17 @@ class ExtractNetCDFValues:
                     #==========================================================
 
                     if mmy_bgn_idx == 0:
+
+                        if (scl_fcr is not None) or (msg_vle is not None):
+                            dtype = np.float32
+
+                        else:
+                            dtype = in_var.dtype
+
                         out_lab_ds = out_var_grp.create_dataset(
                             label_str,
                             (in_var.shape[0], rows_idxs.size),
-                            in_var.dtype,
+                            dtype,
                             compression='gzip',
                             compression_opts=self._h5nc_comp_level,
                             chunks=(1, rows_idxs.size))
@@ -872,8 +895,20 @@ class ExtractNetCDFValues:
                     else:
                         out_lab_ds = out_var_grp[label_str]
 
-                    out_lab_ds[mmy_bgn_idx:mmy_end_idx] = (
-                        in_var_dta[:, rows_idxs, cols_idxs])
+                    ote_grd = in_var_dta[:, rows_idxs, cols_idxs]
+
+                    if msg_vle is not None:
+
+                        if ote_grd.dtype != np.float32:
+                            ote_grd = ote_grd.astype(np.float32)
+
+                        ote_grd[np.isclose(ote_grd, msg_vle)] = np.nan
+
+                    if scl_fcr is not None:
+                        out_lab_ds[mmy_bgn_idx:mmy_end_idx] = ote_grd * scl_fcr
+
+                    else:
+                        out_lab_ds[mmy_bgn_idx:mmy_end_idx] = ote_grd
 
                     out_hdl.flush()
 
@@ -962,6 +997,14 @@ class ExtractNetCDFValues:
         # memory manage?
         in_var = in_hdl[self._in_var_lab]
         in_var.set_always_mask(False)
+
+        scl_fcr = None
+        # if hasattr(in_var, 'scale_factor'):
+        #     scl_fcr = np.float32(in_var.scale_factor)
+
+        msg_vle = None
+        if hasattr(in_var, 'missing_value'):
+            msg_vle = in_var.missing_value
 
         assert in_var.ndim == 3, (
             f'Variable: {self._in_var_lab} in the input must have '
@@ -1282,9 +1325,17 @@ class ExtractNetCDFValues:
 
             # Data.
             if self._in_var_lab not in out_hdl.variables:
+
+                # missing value not used in any meaningful manner?
+                if (scl_fcr is not None):  # or (msg_vle is not None):
+                    dtype = np.float32
+
+                else:
+                    dtype = in_var[[0], [0], [0]].dtype
+
                 out_data = out_hdl.createVariable(
                     self._in_var_lab,
-                    in_var[[0], [0], [0]].dtype,
+                    dtype,
                     (in_time_dim_lab, in_y_dim_lab, in_x_dim_lab),
                     compression='zlib',
                     complevel=self._h5nc_comp_level,
@@ -1353,19 +1404,21 @@ class ExtractNetCDFValues:
         in_var_nbytes = in_var.dtype.itemsize * np.prod(
             in_var.shape, dtype=np.uint64)
 
-        tot_avail_mem = int(ps.virtual_memory().available * 0.35)
+        tot_avail_mem = min(
+            10 * (1024 ** 3), int(ps.virtual_memory().available * 0.35))
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 
         assert n_mem_time_prds >= 1, n_mem_time_prds
 
         if n_mem_time_prds > 1:
-            if self._vb: print('Memory not enough to read in one go!')
+            if self._vb: print(
+                f'Memory not enough to read in one go ({n_mem_time_prds})!')
 
             in_var_mem_idxs = np.linspace(
                 0,
                 in_var.shape[0],
-                n_mem_time_prds,
+                n_mem_time_prds + 1,
                 endpoint=True,
                 dtype=np.int64)
 
@@ -1384,6 +1437,14 @@ class ExtractNetCDFValues:
 
                 steps_slc = in_var[i:j, snip_row_slice, snip_col_slice]
 
+                if msg_vle is not None:
+                    if steps_slc.dtype != np.float32:
+                        steps_slc = steps_slc.astype(np.float32)
+
+                    steps_slc[np.isclose(steps_slc, msg_vle)] = np.nan
+
+                if scl_fcr is not None: steps_slc *= scl_fcr
+
                 for k, l in enumerate(range(i, j)):
                     step = in_time_data[l]
                     step_data = steps_slc[k]
@@ -1397,9 +1458,22 @@ class ExtractNetCDFValues:
         elif self._out_fmt == 'nc':
             for i, j in zip(in_var_mem_idxs[:-1], in_var_mem_idxs[1:]):
 
-                out_data[i:j] = in_var[i:j, snip_row_slice, snip_col_slice]
+                # print(f'Reading {i, j}...')
+                slc_ful = in_var[i:j]  # .data  # .data not for RADOLAN.
+                slc_ful = slc_ful[:, snip_row_slice, snip_col_slice]
 
-                out_hdl.sync()
+                # print(f'Writing {i, j}...')
+
+                if msg_vle is not None:
+                    if slc_ful.dtype != np.float32:
+                        slc_ful = slc_ful.astype(np.float32)
+
+                    slc_ful[np.isclose(slc_ful, msg_vle)] = np.nan
+
+                if scl_fcr is not None: out_data[i:j] = slc_ful * scl_fcr
+                else: out_data[i:j] = slc_ful
+
+                slc_ful = None
 
             out_hdl.sync()
 

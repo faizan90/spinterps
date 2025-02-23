@@ -61,7 +61,7 @@ class Extract:
 
         gtiff_crds_cls.extract_coordinates()
 
-        itsct_cls = GeomAndCrdsItsctIdxs()
+        itsct_cls = GeomAndCrdsItsctIdxs(verbose=self._vb)
 
         itsct_cls.set_geometries(
             poly_cls.get_polygons(), poly_cls._geom_type, simplify_tol_ratio)

@@ -1256,6 +1256,7 @@ class GeomAndCrdsItsctIdxs:
         sub_x_crds = []
         sub_y_crds = []
         for poly, label in zip(polys, labels):
+
             extents = poly.GetEnvelope()
             poly_xmin, poly_xmax, poly_ymin, poly_ymax = extents
 

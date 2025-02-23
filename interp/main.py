@@ -530,6 +530,7 @@ class SpInterpMain(SID, SIP):
 
         for stat in stats:
 
+            min_val = +np.inf
             max_val = -np.inf
 
             obs_vls = stats_df[f'data_{stat}'].values
@@ -549,6 +550,9 @@ class SpInterpMain(SID, SIP):
                 obs_cum_sum /= obs_cum_sum[-1]
                 ref_cum_sum /= ref_cum_sum[-1]
 
+            min_val = min(min_val, obs_cum_sum[+0])
+            min_val = min(min_val, ref_cum_sum[+0])
+
             max_val = max(max_val, obs_cum_sum[-1])
             max_val = max(max_val, ref_cum_sum[-1])
 
@@ -567,13 +571,14 @@ class SpInterpMain(SID, SIP):
                 if stat == 'count':
                     sim_cum_sum /= sim_cum_sum[-1]
 
+                min_val = min(min_val, sim_cum_sum[+0])
                 max_val = max(max_val, sim_cum_sum[-1])
 
                 plt.plot(ref_cum_sum, sim_cum_sum, label=ilab)
 
             plt.plot(
-                [0, max_val],
-                [0, max_val],
+                [min_val, max_val],
+                [min_val, max_val],
                 ls='--',
                 c='k',
                 lw=2.0,

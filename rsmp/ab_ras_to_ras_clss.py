@@ -71,14 +71,16 @@ class ResampleRasToRasClss(ResampleRasToRas):
         #======================================================================
 
         src_dst_tfm = Transformer.from_crs(
-            self._get_ras_crs(self._src_pth),
+            self._src_crs,
             self._get_ras_crs(self._dst_pth),
-            always_xy=True)
+            always_xy=True,
+            only_best=True)
 
         dst_src_tfm = Transformer.from_crs(
             self._get_ras_crs(self._dst_pth),
-            self._get_ras_crs(self._src_pth),
-            always_xy=True)
+            self._src_crs,
+            always_xy=True,
+            only_best=True)
 
         if self._vb: print('Transforming source coordinates\' mesh...')
 
@@ -89,6 +91,9 @@ class ResampleRasToRasClss(ResampleRasToRas):
         if self._vb: print(f'Source original mesh shape: {src_xcs.shape}...')
         if self._vb: print(f'Desti. original mesh shape: {dst_xcs.shape}...')
         #======================================================================
+
+        (xcs_ply_src_ful,
+         ycs_ply_src_ful) = self._get_msh_ply_cns_cds(src_xcs, src_ycs)
 
         if self._vb:
             print('Calculating intersection indices of both rasters...')
@@ -121,6 +126,9 @@ class ResampleRasToRasClss(ResampleRasToRas):
 
         if self._vb: print(f'Source snipped mesh shape: {src_xcs.shape}...')
         #======================================================================
+
+        (xcs_ply_dst_ful,
+         ycs_ply_dst_ful) = self._get_msh_ply_cns_cds(dst_xcs, dst_ycs)
 
         if self._vb: print(f'Adjusting desti. bounds...')
 
@@ -157,6 +165,23 @@ class ResampleRasToRasClss(ResampleRasToRas):
 
         assert dst_ymn >= src_ymn, (dst_ymn, src_ymn)
         assert dst_ymx <= src_ymx, (dst_ymx, src_ymx)
+        #======================================================================
+
+        if True:  # Diagnostics.
+
+            if self._vb:
+                print('Plotting full and intersection source and desti. '
+                      'polygons...')
+
+            self._plt_src_dst_eps(
+                src_xcs,
+                src_ycs,
+                dst_xcs,
+                dst_ycs,
+                xcs_ply_src_ful,
+                ycs_ply_src_ful,
+                xcs_ply_dst_ful,
+                ycs_ply_dst_ful)
         #======================================================================
 
         if self._vb: print('Reading input arrays...')
@@ -276,38 +301,3 @@ class ResampleRasToRasClss(ResampleRasToRas):
 
         if self._vb: print_el()
         return
-
-#==============================================================================
-# Dead code afterwards.
-#==============================================================================
-
-# def _get_wtd_arr_ras_clss(self, src_arr, dst_arr, dst_xcs, src_wts_dct):
-#
-#     assert src_arr.shape[0] == 1, 'Only one band is allowed!'
-#
-#     src_uqs = np.unique(src_arr)
-#     src_unq_dct = {src_uqs[i]: i for i in range(src_uqs.size)}
-#
-#     # Meta data for Raster.
-#     src_mda = [{'CLASS_CODE':src_uqs[i]} for i in range(src_uqs.size)]
-#
-#     src_dst_arr = np.full(
-#         (src_uqs.shape[0], dst_xcs.shape[0] - 1, dst_xcs.shape[1] - 1),
-#         np.nan,
-#         dtype=np.float32)
-#
-#     assert dst_arr.shape[1:] == src_dst_arr.shape[1:], (
-#             dst_arr.shape, src_dst_arr.shape)
-#
-#     for (i, j), wts_dct in src_wts_dct.items():
-#
-#         if np.isnan(dst_arr[0, i, j]): continue
-#
-#         src_dst_arr [:, i, j] = 0.0
-#
-#         for (k, l), wht in wts_dct.items():
-#             if np.isnan(src_arr[0, k, l]): continue
-#
-#             src_dst_arr[src_unq_dct[src_arr[0, k, l]], i, j] += wht
-#
-#     return src_dst_arr, src_mda

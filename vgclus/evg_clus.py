@@ -111,22 +111,48 @@ class CEVG(CS):
 
                 stn_j_vals = data_df[stn_j].values.copy()
 
-                comb_vg_vals = 0.5 * (
-                    (stn_i_vals[cmn_nnan_idxs] -
-                     stn_j_vals[cmn_nnan_idxs]) ** 2)
+                if False:
+                    comb_vg_vals = 0.5 * (
+                        (stn_i_vals[cmn_nnan_idxs] -
+                         stn_j_vals[cmn_nnan_idxs]) ** 2)
 
-                if self._sett_clus_cevg_ignr_zeros_flag:
-                    zero_vg_idxs = comb_vg_vals > 0
+                    if self._sett_clus_cevg_ignr_zeros_flag:
+                        zero_vg_idxs = comb_vg_vals > 0
 
-                    n_zero_vals = zero_vg_idxs.sum()
+                        n_zero_vals = zero_vg_idxs.sum()
 
-                    if not n_zero_vals:
-                        continue
+                        if not n_zero_vals: continue
 
-                    comb_vg_vals = comb_vg_vals[zero_vg_idxs]
+                        comb_vg_vals = comb_vg_vals[zero_vg_idxs]
 
-                comb_vg_vals_stat = getattr(
-                    np, self._sett_clus_cevg_evg_stat)(comb_vg_vals)
+                    comb_vg_vals_stat = getattr(
+                        np, self._sett_clus_cevg_evg_stat)(comb_vg_vals)
+
+                else:
+                    # From Sampson and Guttorp 1992.
+                    stn_i_nrmd = stn_i_vals[cmn_nnan_idxs]
+                    stn_j_nrmd = stn_j_vals[cmn_nnan_idxs]
+
+                    if self._sett_clus_cevg_ignr_zeros_flag:
+                        stn_i_zg_ixs = stn_i_nrmd > 0
+                        stn_j_zg_ixs = stn_j_nrmd > 0
+
+                        stn_ij_zg_ixs = stn_i_zg_ixs & stn_j_zg_ixs
+
+                        if not stn_ij_zg_ixs.any(): continue
+
+                        stn_i_nrmd = stn_i_nrmd[stn_ij_zg_ixs]
+                        stn_j_nrmd = stn_j_nrmd[stn_ij_zg_ixs]
+
+                    stn_i_nrmd -= stn_i_nrmd.mean()
+                    stn_j_nrmd -= stn_j_nrmd.mean()
+
+                    sii = (stn_i_nrmd ** 2).mean()
+                    sjj = (stn_j_nrmd ** 2).mean()
+
+                    sij = (stn_i_nrmd * stn_j_nrmd).mean()
+
+                    comb_vg_vals_stat = sii + sjj - (2 * sij)
 
                 vg_vals[comb_ctr] = comb_vg_vals_stat
                 dists[comb_ctr] = dist

@@ -248,14 +248,23 @@ def linearize_sub_polys(poly, polys, simplify_tol):
             if simplify_tol:
                 poly = poly.SimplifyPreserveTopology(simplify_tol)
 
-            poly = poly.Buffer(0)
+            poly = poly.GetLinearGeometry()
 
-            n_pts = poly.GetGeometryRef(0).GetPointCount()
+            rng = ogr.Geometry(ogr.wkbLinearRing)
+            for pnt in poly.GetGeometryRef(0).GetPoints():
+                assert len(pnt) == 2, len(pnt)
+                rng.AddPoint(pnt[0], pnt[1])
+
+            ply = ogr.Geometry(ogr.wkbPolygon)
+            ply.AddGeometry(rng)
+
+            n_pts = ply.GetGeometryRef(0).GetPointCount()
 
             if n_pts >= 3:
-                polys.put_nowait(poly)
+                polys.put_nowait(ply)
 
             else:
+                # raise RuntimeError('A polygon has less than 3 points!')
                 print('WARNING: A polygon has less than 3 points!')
 
         elif gct > 1:
@@ -309,7 +318,29 @@ def linearize_sub_polys_with_labels(label, poly, labels_polys, simplify_tol):
             if simplify_tol:
                 poly = poly.SimplifyPreserveTopology(simplify_tol)
 
+            # Creates poly with more than one geom, sometimes!
             poly = poly.Buffer(0)
+
+            if not poly.GetGeometryCount() == 1:
+
+                ply_ars = []
+                for i in range(poly.GetGeometryCount()):
+                    ply_ars.append(poly.GetGeometryRef(i).GetArea())
+
+                ply_ara_sum = sum(ply_ars)
+
+                ply_rts = np.array([ara / ply_ara_sum for ara in ply_ars])
+
+                # One large poly only.
+                assert (ply_rts > 0.999).sum() == 1, ply_rts
+
+                geom_max_ara = poly.GetGeometryRef(
+                    int(np.argmax(ply_rts))).Clone()
+
+                poly = ogr.Geometry(ogr.wkbPolygon)
+                poly.AddGeometry(geom_max_ara)
+
+            assert poly.GetGeometryCount() == 1, poly.GetGeometryCount()
 
             assert poly.GetGeometryType() in (3, 6), (
                 f'Geometry changed to {gn} '

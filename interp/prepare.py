@@ -152,7 +152,7 @@ class SpInterpPrepare(SIBD, KDT):
                 'Grid x_min outside of the drift rasters!')
 
             assert self._x_max <= self._drft_x_max, (
-                'Grid x_max outside of drift rtasters!')
+                'Grid x_max outside of drift rasters!')
 
             assert self._y_min >= self._drft_y_min, (
                 'Grid y_min outside of drift rasters!')

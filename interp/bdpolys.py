@@ -3,10 +3,15 @@ Created on Nov 25, 2018
 
 @author: Faizan
 '''
+
 from timeit import default_timer
+
+from osgeo import ogr
 
 from ..misc import (
     print_sl, print_el, chk_pt_cntmnt_in_polys_mp, get_all_polys_in_shp)
+
+ogr.UseExceptions()
 
 
 class SpInterpBoundaryPolygons:
@@ -58,7 +63,7 @@ class SpInterpBoundaryPolygons:
             geom_type = geom.GetGeometryType()
             geom_name = geom.GetGeometryName()
 
-            assert geom_type == 3, (
+            assert geom_type in (3, -2147483645), (
                 f'Unknown geometry type, name: {geom_type}, {geom_name}!')
 
             assert geom.Area() > 0, 'Geometry has no area!'
@@ -98,6 +103,35 @@ class SpInterpBoundaryPolygons:
                 cell_slct_polys = [
                     geom.SimplifyPreserveTopology(geom_simplify_tol)
                     for geom in cell_slct_polys]
+
+            # assert all(
+            #     [geom.GetGeometryCount() == 1 for geom in cell_slct_polys]), (
+            #     'Geometry count changed after buffering!')
+
+            if not all(
+                [geom.GetGeometryCount() == 1 for geom in cell_slct_polys]):
+
+                cell_slct_polys2 = []
+
+                for geom in cell_slct_polys:
+
+                    assert geom.GetGeometryCount() >= 1
+
+                    if geom.GetGeometryCount() == 1:
+                        cell_slct_polys2.append(geom)
+
+                    else:
+                        for i in range(geom.GetGeometryCount()):
+                            geom2 = geom.GetGeometryRef(i)
+
+                            geom_clone = geom2.Clone()
+
+                            ply = ogr.Geometry(ogr.wkbPolygon)
+                            ply.AddGeometry(geom_clone)
+
+                            cell_slct_polys2.append(ply)
+
+                cell_slct_polys = cell_slct_polys2
 
             assert all(
                 [geom.GetGeometryCount() == 1 for geom in cell_slct_polys]), (

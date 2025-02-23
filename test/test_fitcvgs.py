@@ -23,43 +23,43 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\hydmod_de')
+    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\cvgs')
     os.chdir(main_dir)
 
-    in_data_file = Path(r'P:\dwd_meteo\daily_de_buff_100km_tem__merged__daily_hourly_dwd__daily_ecad\daily_de_tn_Y1961_2020__merged_data.pkl')
-    in_crds_file = Path(r'P:\dwd_meteo\daily_de_buff_100km_tem__merged__daily_hourly_dwd__daily_ecad\daily_de_tn_Y1961_2020__merged_crds.csv')
+    in_data_file = Path(r'deby_20km_daily_ppt_Y1950_2023.pkl')
+    in_crds_file = Path(r'deby_20km_daily_ppt_epsg32632.csv')
 
     in_manual_file = Path(r'P:\Synchronize\IWS\Testings\variograms\cp_time_ser_neckar_1910_2014.csv')
     manual_df_col = 'cp'
     manual_nan_val = 99
 
-    out_dir = Path(r'test_fitcvgs_months')
+    out_dir = Path(r'test_fitcvgs_months_sampson5_ppt')
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
 
     beg_time = '1961-01-01'
-    end_time = '1965-12-31'
+    end_time = '2015-12-31'
 
     clus_type = 'months'
 
     # Minimum values to form a mean value per pair.
-    n_min_valid_values = 10
+    n_min_valid_values = 1000
 
     stns_min_dist_thresh = 100
 
     # Number of value to compute the smoothed empirical variogram.
     # Works as a running statistic.
-    smoothing = 100
+    smoothing = 50  # 100
 
-    max_dist_thresh = 5e5
+    max_dist_thresh = 5e4
 
     n_cpus = 12
 
     evg_stat = 'median'
 
     ignore_zeros_flag = True
-    pstv_dfnt_flag = True
+    pstv_dfnt_flag = False
     simplify_flag = True
     norm_flag = True
 

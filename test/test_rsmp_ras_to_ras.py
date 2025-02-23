@@ -27,16 +27,16 @@ DEBUG_FLAG = True
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ras_to_ras')
+    main_dir = Path(r'P:\Synchronize\TUM\Colleagues_Students\hadi\modis')
     os.chdir(main_dir)
 
     # src_pth = Path(r'lower_de_gauss_z3.tif')
     # dst_pth = Path(r'lower_de_gauss_z3_1km.tif')
     # out_pth = Path(r'ref_aln1.tif')
 
-    src_pth = Path(r'AWC_eu23_utm32N.tif')
-    dst_pth = Path(r'dem_1km_raw.tif')
-    out_pth = Path(r'ref_aln2.tif')
+    src_pth = Path(r'P:\Synchronize\IWS\Hydrological_Modeling\dems\srtm_de_mosaic_utm32N_100m_bayern.tif')
+    dst_pth = Path(r'modis_hmg3d_itsct_grid.tif')
+    out_pth = Path(r'modis_hmg3d_itsct_srtm.tif')
 
     # src_pth = Path(r'srtm_de_mosaic_utm32N_25m_bayern.tif')
     # dst_pth = Path(r'srtm_de_mosaic_utm32N_25m_bayern_to_1km_hydr.tif')
@@ -46,7 +46,7 @@ def main():
     # dst_pth = Path(r'AWC_eu23_utm32N.tif')
     # out_pth = Path(r'ref_aln4.tif')
 
-    n_cpus = 'auto'
+    n_cpus = 4  # 'auto'
     #==========================================================================
 
     rsp_obj = ResampleRasToRas(True)
