@@ -2125,13 +2125,24 @@ def tfm_msh_sgl(ags):
 
     # if ags.mpg_flg: fill_shm_arrs(ags)
 
-    for i in ii:
-        for j in range(ags.xcs.shape[1]):
+    # cls_cnt = ags.xcs.shape[1]
 
-            (ags.xcs[i, j],
-             ags.ycs[i, j]) = ags.src_dst_tfm.transform(
-                 ags.xcs[i, j],
-                 ags.ycs[i, j])
+    for i in ii:
+
+        (tfm_xcs,
+         tfm_ycs) = ags.src_dst_tfm.transform(ags.xcs[i,:], ags.ycs[i,:])
+
+        ags.xcs[i,:] = tfm_xcs
+        ags.ycs[i,:] = tfm_ycs
+
+        # This turned out to be too slow. I don't remember, why I didn't use
+        # simple broadcasting. Perhaps, memory saving.
+        # for j in range(cls_cnt):
+        #
+        #     (ags.xcs[i, j],
+        #      ags.ycs[i, j]) = ags.src_dst_tfm.transform(
+        #          ags.xcs[i, j],
+        #          ags.ycs[i, j])
 
     return
 

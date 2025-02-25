@@ -43,6 +43,8 @@ class SHMARY2:
 
         # shr is a property that uses _shr.
         self._shr = shr
+
+        self._init_shr_flg = True
         return
 
     def _init_shr(self):
@@ -56,12 +58,14 @@ class SHMARY2:
                 buffer=self.shm.buf,
                 order=self.odr)
 
+            self._init_shr_flg = False
+
         return
 
     @property
     def shr(self):
 
-        self._init_shr()
+        if self._init_shr_flg: self._init_shr()
 
         return self._shr
 
@@ -74,7 +78,10 @@ class SHMARY2:
         '''
 
         stt = self.__dict__.copy()
-        if '_shr' in stt: del stt['_shr']
+
+        if '_shr' in stt:
+            self._init_shr_flg = True
+            del stt['_shr']
 
         return stt
 
@@ -93,7 +100,7 @@ class SHMARY2:
         This allows for Numpy like indexing on the SHMARY2 object.
         '''
 
-        self._init_shr()
+        if self._init_shr_flg: self._init_shr()
 
         return self._shr.__getitem__(key)
 
@@ -103,7 +110,7 @@ class SHMARY2:
         This allows for Numpy like indexing on the SHMARY object.
         '''
 
-        self._init_shr()
+        if self._init_shr_flg: self._init_shr()
 
         return self._shr.__setitem__(key, vle)
 
@@ -122,7 +129,7 @@ class SHMARY2:
         the method of the array is called.
         '''
 
-        self._init_shr()
+        if self._init_shr_flg: self._init_shr()
 
         return getattr(self._shr, key)
 
