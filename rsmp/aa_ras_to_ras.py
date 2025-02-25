@@ -751,8 +751,6 @@ class ResampleRasToRas:
         defined till now.
         '''
 
-        btr = default_timer()
-
         # Range will be between 0 and 5.
         rsp_fgs = np.zeros(dst_arr.shape[1:], dtype=np.int8)
 
@@ -817,6 +815,8 @@ class ResampleRasToRas:
 
                     setattr(ags, f'src_dst_arr__{key}', src_dst_arr[key])
 
+            btr = default_timer()
+
             ress = [gen_wts_dct_frm_crd_and_ply_sgl(
                 (0, dst_xcs.shape[0] - 1, ags))]
 
@@ -869,11 +869,12 @@ class ResampleRasToRas:
             mpg_ags = (
                 (i, j, ags) for i, j in zip(mpg_ixs[:-1], mpg_ixs[+1:]))
 
+            btr = default_timer()
+
             ress = self._mpg_pol.map(
                 gen_wts_dct_frm_crd_and_ply_sgl, mpg_ags, chunksize=1)
 
             ress = list(ress)
-            #==================================================================
 
             etr = default_timer()
             #==================================================================
@@ -1277,7 +1278,11 @@ class ResampleRasToRas:
             ags.xcs = xcs
             ags.ycs = ycs
 
+            btr = default_timer()
+
             tfm_msh_sgl(((i for i in range(xcs.shape[0])), ags))
+
+            etr = default_timer()
 
         else:
             ags.mpg_flg = True
@@ -1299,7 +1304,11 @@ class ResampleRasToRas:
             mpg_ags = (
                 (iis[i:j], ags) for i, j in zip(mpg_ixs[:-1], mpg_ixs[+1:]))
 
+            btr = default_timer()
+
             list(self._mpg_pol.map(tfm_msh_sgl, mpg_ags, chunksize=1))
+
+            etr = default_timer()
             #==================================================================
 
             for key, val in shm_arr_dct.items():
@@ -1312,6 +1321,9 @@ class ResampleRasToRas:
 
             free_shm_arrs(shm_ags)
             #==================================================================
+
+        if self._vb: print(
+            f'Coordinate transformation took: {etr - btr:0.1f} seconds.')
 
         return
 
