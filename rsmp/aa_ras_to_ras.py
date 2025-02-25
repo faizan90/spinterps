@@ -19,8 +19,8 @@ import matplotlib.pyplot as plt
 
 from ..extract import ExtractGTiffCoords
 
-from ..mpg import init_shm_arrs, fill_shm_arrs, get_shm_arr, free_shm_arrs
-from ..mpg import SHMARGS, DummyLock
+from ..mpg import SHMARY, fre_shm_ars
+from ..mpg import DummyLock
 
 from ..misc import print_sl, print_el, ret_mp_idxs, get_n_cpus
 
@@ -812,7 +812,6 @@ class ResampleRasToRas:
 
                 for key in src_arr:
                     setattr(ags, f'src_arr__{key}', src_arr[key])
-
                     setattr(ags, f'src_dst_arr__{key}', src_dst_arr[key])
 
             btr = default_timer()
@@ -825,43 +824,45 @@ class ResampleRasToRas:
         else:
             ags.mpg_flg = True
 
-            shm_ags = SHMARGS()
-            shm_arr_dct = {}
+            ags.src_xcs = SHMARY.frm_npy_ary(src_xcs)
+            ags.src_ycs = SHMARY.frm_npy_ary(src_ycs)
 
-            shm_arr_dct['src_xcs'] = src_xcs
-            shm_arr_dct['src_ycs'] = src_ycs
-            shm_arr_dct['dst_xcs'] = dst_xcs
-            shm_arr_dct['dst_ycs'] = dst_ycs
+            ags.dst_xcs = SHMARY.frm_npy_ary(dst_xcs)
+            ags.dst_ycs = SHMARY.frm_npy_ary(dst_ycs)
 
-            shm_arr_dct['src_xcs_ogl'] = src_xcs_ogl
-            shm_arr_dct['src_ycs_ogl'] = src_ycs_ogl
+            ags.src_xcs_ogl = SHMARY.frm_npy_ary(src_xcs_ogl)
+            ags.src_ycs_ogl = SHMARY.frm_npy_ary(src_ycs_ogl)
 
-            shm_arr_dct['rsp_fgs'] = rsp_fgs
-            shm_arr_dct['nan_fgs'] = nan_fgs
+            ags.rsp_fgs = SHMARY.frm_npy_ary(rsp_fgs)
+            ags.nan_fgs = SHMARY.frm_npy_ary(nan_fgs)
 
             if not ags.ncf_flg:
 
                 assert any([ags.rsm_flg, ags.css_flg])
 
-                shm_arr_dct['src_arr'] = src_arr
-                shm_arr_dct['dst_arr'] = dst_arr
-                shm_arr_dct['src_dst_arr'] = src_dst_arr
+                ags.src_arr = SHMARY.frm_npy_ary(src_arr)
+                ags.dst_arr = SHMARY.frm_npy_ary(dst_arr)
+                ags.src_dst_arr = SHMARY.frm_npy_ary(src_dst_arr)
 
             else:
                 assert all([not ags.rsm_flg, not ags.css_flg])
 
                 setattr(ags, 'ncf_vrs', list(src_arr))
-                setattr(ags, 'dst_arr', dst_arr)
 
-                ncf_shm_nms = []
+                ags.dst_arr = SHMARY.frm_npy_ary(dst_arr)
+
                 for key in src_arr:
-                    shm_arr_dct[f'src_arr__{key}'] = src_arr[key]
-                    shm_arr_dct[f'src_dst_arr__{key}'] = src_dst_arr[key]
 
-                    ncf_shm_nms.append(f'src_dst_arr__{key}')
+                    setattr(
+                        ags,
+                        f'src_arr__{key}',
+                        SHMARY.frm_npy_ary(src_arr[key]))
+
+                    setattr(
+                        ags,
+                        f'src_dst_arr__{key}',
+                        SHMARY.frm_npy_ary(src_dst_arr[key]))
             #==================================================================
-
-            init_shm_arrs(ags, shm_ags, shm_arr_dct)
 
             mpg_ixs = ret_mp_idxs(
                 dst_xcs.shape[0] - 1, self._mpg_pol._processes * 2)
@@ -879,32 +880,19 @@ class ResampleRasToRas:
             etr = default_timer()
             #==================================================================
 
-            for key, val in shm_arr_dct.items():
+            if not ags.ncf_flg:
 
-                if key == 'rsp_fgs':
-                    val[:] = get_shm_arr(ags, key)
-                    continue
+                assert any([ags.rsm_flg, ags.css_flg])
 
-                if not ags.ncf_flg:
+                src_dst_arr[:] = ags.src_dst_arr
 
-                    assert any([ags.rsm_flg, ags.css_flg])
+            else:
+                assert all([not ags.rsm_flg, not ags.css_flg])
 
-                    if key not in ['src_dst_arr', ]: continue
+                for key in src_arr:
+                    src_dst_arr[key][:] = getattr(ags, f'src_dst_arr__{key}')
 
-                    if hasattr(ags, key): continue
-
-                    val[:] = get_shm_arr(ags, key)
-
-                else:
-                    assert not any([ags.rsm_flg, ags.css_flg])
-
-                    if key not in ncf_shm_nms: continue
-
-                    ky1, ky2 = key.rsplit('__', 1)
-
-                    locals()[ky1][ky2][:] = get_shm_arr(ags, key)
-
-            free_shm_arrs(shm_ags)
+            fre_shm_ars(ags)
             #==================================================================
 
         if self._vb: print(
@@ -1287,14 +1275,9 @@ class ResampleRasToRas:
         else:
             ags.mpg_flg = True
 
-            shm_ags = SHMARGS()
-            shm_arr_dct = {}
-
-            shm_arr_dct['xcs'] = xcs
-            shm_arr_dct['ycs'] = ycs
+            ags.xcs = SHMARY.frm_npy_ary(xcs)
+            ags.ycs = SHMARY.frm_npy_ary(ycs)
             #==================================================================
-
-            init_shm_arrs(ags, shm_ags, shm_arr_dct)
 
             mpg_ixs = ret_mp_idxs(xcs.shape[0], self._mpg_pol._processes)
 
@@ -1311,20 +1294,14 @@ class ResampleRasToRas:
             etr = default_timer()
             #==================================================================
 
-            for key, val in shm_arr_dct.items():
+            xcs[:] = ags.xcs
+            ycs[:] = ags.ycs
 
-                if key not in ('xcs', 'ycs'): continue
-
-                if hasattr(ags, key): continue
-
-                val[:] = get_shm_arr(ags, key)
-
-            free_shm_arrs(shm_ags)
+            fre_shm_ars(ags)
             #==================================================================
 
         if self._vb: print(
             f'Coordinate transformation took: {etr - btr:0.1f} seconds.')
-
         return
 
     def _get_crd_msh(self, xcs, ycs):
@@ -1496,7 +1473,7 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
     #==========================================================================
 
     # Arrays and larger objects read afterwards.
-    if ags.mpg_flg: fill_shm_arrs(ags)
+    # if ags.mpg_flg: fill_shm_arrs(ags)
 
     src_xcs = ags.src_xcs
     src_ycs = ags.src_ycs
@@ -2050,16 +2027,26 @@ def tfm_msh_sgl(ags):
 
     ii, ags = ags
 
-    if ags.mpg_flg:
-        fill_shm_arrs(ags)
+    # if ags.mpg_flg: fill_shm_arrs(ags)
+
+    # cls_cnt = ags.xcs.shape[1]
 
     for i in ii:
-        for j in range(ags.xcs.shape[1]):
 
-            (ags.xcs[i, j],
-             ags.ycs[i, j]) = ags.src_dst_tfm.transform(
-                 ags.xcs[i, j],
-                 ags.ycs[i, j])
+        (tfm_xcs,
+         tfm_ycs) = ags.src_dst_tfm.transform(ags.xcs[i,:], ags.ycs[i,:])
+
+        ags.xcs[i,:] = tfm_xcs
+        ags.ycs[i,:] = tfm_ycs
+
+        # This turned out to be too slow. I don't remember, why I didn't use
+        # simple broadcasting. Perhaps, memory saving.
+        # for j in range(cls_cnt):
+        #
+        #     (ags.xcs[i, j],
+        #      ags.ycs[i, j]) = ags.src_dst_tfm.transform(
+        #          ags.xcs[i, j],
+        #          ags.ycs[i, j])
 
     return
 
