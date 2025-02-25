@@ -411,9 +411,9 @@ class ResampleNCFToRas(ResampleRasToRas):
             src_ays[var] = self._get_ncf_vrs(
                 self._src_pth,
                 src_beg_row,
-                src_end_row,
+                src_end_row - 1,
                 src_beg_col,
-                src_end_col,
+                src_end_col - 1,
                 var,
                 self._src_flp_flg)[0]
 

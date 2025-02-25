@@ -36,7 +36,7 @@ def main():
 
     src_pth = Path(r'P:\Synchronize\IWS\Hydrological_Modeling\dems\srtm_de_mosaic_utm32N_100m_bayern.tif')
     dst_pth = Path(r'modis_hmg3d_itsct_grid.tif')
-    out_pth = Path(r'modis_hmg3d_itsct_srtm.tif')
+    out_pth = Path(r'modis_hmg3d_itsct_srtm_test.tif')
 
     # src_pth = Path(r'srtm_de_mosaic_utm32N_25m_bayern.tif')
     # dst_pth = Path(r'srtm_de_mosaic_utm32N_25m_bayern_to_1km_hydr.tif')
