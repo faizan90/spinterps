@@ -33,6 +33,8 @@ class SpInterpData(VD):
         self._nc_vlab = None
         self._nc_tunits = None
         self._nc_tcldr = None
+        self._nc_nmrl_prcn = None
+        self._nc_cprm_levl = None
         self._nc_tlab = None
         self._nc_xlab = None
         self._nc_ylab = None
@@ -155,7 +157,9 @@ class SpInterpData(VD):
             var_units,
             var_label,
             time_units,
-            time_calendar):
+            time_calendar,
+            nmrl_prcn,
+            cprm_levl):
 
         '''
         Set some properties of the output netCDF file.
@@ -185,6 +189,14 @@ class SpInterpData(VD):
             It is typically gregorian or something. Read the netCDF4
             documentation to get a better idea. Can be None to represent
             non-datetime like index.
+        nmrl_prcn : int
+            Numerical precision to use in terms of values after the decimal.
+            A smaller value results in a better compression.
+        cprm_levl : int
+            zlib compression level in the output file. Valid values between
+            0 and 9. 0 means no compression while 9 results in the highest.
+            The higher the compression, the longer it takes to read and write
+            from the file.
         '''
 
         assert isinstance(out_file_name, str), (
@@ -216,6 +228,21 @@ class SpInterpData(VD):
 
         self._nc_tcldr = time_calendar
 
+        assert isinstance(nmrl_prcn, int), (
+            f'nmrl_prcn not an integer ({type(nmrl_prcn)})!')
+
+        assert nmrl_prcn >= 0, 'nmrl_prcn must be greater than zero!'
+
+        self._nc_nmrl_prcn = nmrl_prcn
+
+        assert isinstance(cprm_levl, int), (
+            f'cprm_levl not and integer ({type(cprm_levl)}!')
+
+        assert 0 <= cprm_levl <= 9, (
+            f'cprm_levl ({cprm_levl}) not between 0 and 9!')
+
+        self._nc_cprm_levl = cprm_levl
+
         self._nc_tlab = 'time'
         self._nc_xlab = 'X'
         self._nc_ylab = 'Y'
@@ -227,6 +254,9 @@ class SpInterpData(VD):
             print(f'Variable units: {self._nc_vunits}')
             print(f'Variable label: {self._nc_vlab}')
             print(f'Time units: {self._nc_tunits}')
+            print(f'Time calendar: {self._nc_tcldr}')
+            print(f'Variable precision: {self._nc_nmrl_prcn}')
+            print(f'Variable compression level: {self._nc_cprm_level}')
             print(f'Time calendar: {self._nc_tcldr}')
             print(f'Time label: {self._nc_tlab}')
             print(f'X-coordinates label: {self._nc_xlab}')

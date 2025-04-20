@@ -43,6 +43,7 @@ class SpInterpSteps:
             '_interp_x_crds_msh',
             '_interp_y_crds_msh',
             '_nc_file_path',
+            '_nc_nmrl_prcn',
             '_neb_sel_mthd',
             '_n_nebs',
             '_n_pies',
@@ -913,6 +914,8 @@ class SpInterpSteps:
                 for interp_label in interp_labels:
                     interp_flds = interp_flds_dict[interp_label]
 
+                    np.round(interp_flds, self._nc_nmrl_prcn, interp_flds)
+
                     nc_ds = nc_hdl[interp_label]
 
                     for i in range(max_rng):
@@ -927,6 +930,8 @@ class SpInterpSteps:
             else:
                 for interp_label in interp_labels:
                     interp_flds = interp_flds_dict[interp_label]
+
+                    np.round(interp_flds, self._nc_nmrl_prcn, interp_flds)
 
                     nc_ds = nc_hdl[interp_label]
 

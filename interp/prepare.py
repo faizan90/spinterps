@@ -357,7 +357,6 @@ class SpInterpPrepare(SIBD, KDT):
             raise NotImplementedError(
                 f'Unknown index_type: {self._index_type}!')
 
-        comp_level = 1
         for interp_arg in self._interp_args:
             ivar_name = interp_arg[2]
 
@@ -367,7 +366,7 @@ class SpInterpPrepare(SIBD, KDT):
                 dimensions=(dim_t_lab, dim_y_lab, dim_x_lab),
                 fill_value=False,
                 compression='zlib',
-                complevel=comp_level,
+                complevel=self._nc_cprm_levl,
                 chunksizes=(1,
                             self._nc_y_crds.shape[0],
                             self._nc_x_crds.shape[0]))

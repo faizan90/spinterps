@@ -43,6 +43,9 @@ def main():
     var_units = 'mm'
     var_name = 'precipitation'
 
+    nmrl_prcn = 2  # Numerical precision in netcdf4 file.
+    cprn_levl = 1  # zlib compression level in netCDF4 file.
+
     out_krig_net_cdf_file = r'kriging.nc'
 
     freq = 'D'
@@ -196,7 +199,9 @@ def main():
         var_units,
         var_name,
         nc_time_units,
-        nc_calendar)
+        nc_calendar,
+        nmrl_prcn,
+        cprn_levl)
 
     spinterp_cls.set_interp_time_parameters(
         strt_date, end_date, freq, in_date_fmt)
