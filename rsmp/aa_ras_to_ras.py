@@ -40,6 +40,9 @@ class ResampleRasToRas:
         self._src_pth = None
         self._dst_pth = None
 
+        # Numerical precision.
+        self._nml_prn = None
+
         self._mpg_ncs = None  # Number of processes.
         self._mpg_pol = None  # MP Pool.
         self._mpg_mmr = None  # Manager.
@@ -52,7 +55,7 @@ class ResampleRasToRas:
         self._otp_set_flg = False
         return
 
-    def set_inputs(self, path_to_src, path_to_dst, n_cpus):
+    def set_inputs(self, path_to_src, path_to_dst, n_cpus, nmrl_prcn):
 
         if self._vb:
             print_sl()
@@ -83,6 +86,15 @@ class ResampleRasToRas:
             assert n_cpus > 0, 'Invalid n_cpus!'
 
         self._mpg_ncs = n_cpus
+
+        # Numerical precision of the output values.
+        assert isinstance(nmrl_prcn, int), (
+            f'nmrl_prcn not an integer ({type(nmrl_prcn)})!')
+
+        assert nmrl_prcn >= 0, (
+            'nmrl_prcn must be greater than or equal to zero!')
+
+        self._nml_prn = nmrl_prcn
         #======================================================================
 
         if self._vb:
@@ -91,6 +103,7 @@ class ResampleRasToRas:
             print(f'Source path: {self._src_pth}')
             print(f'Desti. path: {self._dst_pth}')
             print(f'No. of Procs: {self._mpg_ncs}')
+            print(f'Desti. numerical precision: {self._nml_prn}')
 
             print_el()
 
@@ -750,6 +763,8 @@ class ResampleRasToRas:
         This function is adapted to handle all sorts of transformation
         defined till now.
         '''
+
+        ags.nml_prn = self._nml_prn
 
         # Range will be between 0 and 5.
         rsp_fgs = np.zeros(dst_arr.shape[1:], dtype=np.int8)
@@ -1450,6 +1465,7 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
 
     # Constants and other small objects go here.
     vbe_flg = ags.vbe_flg
+    nml_prn = ags.nml_prn
     src_cel_hgt = ags.src_cel_hgt
     dst_src_tfm = ags.dst_src_tfm
     src_wts_dct_sav_flg = ags.src_wts_dct_sav_flg
@@ -1871,11 +1887,13 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                 src_dst_arr[:, i, j] = src_dst_vls
 
                 if (~np.isfinite(src_dst_vls)).any():
-
                     rsp_fgs[i, j] = 5
 
                 else:
                     rsp_fgs[i, j] = 1
+
+                    if np.issubdtype(src_dst_arr.dtype, np.floating):
+                        np.round(src_dst_vls, nml_prn, src_dst_arr[:, i, j])
 
             elif ags.css_flg:
                 assert not any([ags.rsm_flg, ags.ncf_flg])
@@ -1893,6 +1911,12 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                 else:
                     rsp_fgs[i, j] = 1
 
+                    if np.issubdtype(src_dst_arr.dtype, np.floating):
+                        np.round(
+                            src_dst_arr[:, i, j],
+                            nml_prn,
+                            src_dst_arr[:, i, j])
+
             elif ags.ncf_flg:
                 assert not any([ags.rsm_flg, ags.css_flg])
 
@@ -1903,7 +1927,8 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                         wts_dct,
                         locals()[f'src_arr__{key}'],
                         locals()[f'src_dst_arr__{key}'],
-                        rsp_fgs)
+                        rsp_fgs,
+                        nml_prn)
 
             else:
                 raise NotImplementedError('Unknown flag for resampling!')
@@ -1986,7 +2011,7 @@ def get_src_ogl_ixs(
     return bgn_row, end_row, bgn_cln, end_cln
 
 
-def fil_wtd_cel(i, j, wts_dct, src_arr, src_dst_arr, rsp_fgs):
+def fil_wtd_cel(i, j, wts_dct, src_arr, src_dst_arr, rsp_fgs, nml_prn):
 
     src_dst_vls = np.zeros(src_dst_arr.shape[0], dtype=src_dst_arr.dtype.type)
 
@@ -2000,6 +2025,10 @@ def fil_wtd_cel(i, j, wts_dct, src_arr, src_dst_arr, rsp_fgs):
 
     else:
         if rsp_fgs[i, j] == 0: rsp_fgs[i, j] = 1
+
+        if np.issubdtype(src_dst_arr.dtype, np.floating):
+            np.round(
+                src_dst_arr[:, i, j], nml_prn, src_dst_arr[:, i, j])
 
     return
 

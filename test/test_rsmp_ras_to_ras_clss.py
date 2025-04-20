@@ -39,12 +39,14 @@ def main():
 
     out_pth = Path(r'U2018_CLC2018_V2020_20u1_utm32N_deby_clss.tif')
 
+    nmrl_prcn = 2
+
     n_cpus = 'auto'
     #==========================================================================
 
     rsp_obj = ResampleRasToRasClss(True)
 
-    rsp_obj.set_inputs(src_pth, dst_pth, n_cpus)
+    rsp_obj.set_inputs(src_pth, dst_pth, n_cpus, nmrl_prcn)
     rsp_obj.set_outputs(out_pth)
 
     rsp_obj.resample()

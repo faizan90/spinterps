@@ -42,6 +42,12 @@ class ResampleNCFToRas(ResampleRasToRas):
         self._src_tlb = None
         self._src_crs = None
 
+        # Numerical precision.
+        self._nml_prn = None
+
+        # Compression level.
+        self._cpn_lvl = None
+
         self._src_flp_flg = False
 
         self._ncf_dim_xlb_1dn = '_dimx_1D'
@@ -69,7 +75,9 @@ class ResampleNCFToRas(ResampleRasToRas):
             src_xlb,
             src_ylb,
             src_tlb,
-            src_crs):
+            src_crs,
+            nml_prn,
+            cpn_lvl,):
 
         if self._vb:
             print_sl()
@@ -127,6 +135,23 @@ class ResampleNCFToRas(ResampleRasToRas):
         assert isinstance(src_crs, CRS), type(src_crs)
 
         self._src_crs = src_crs
+
+        # Destination NCF numerical precision in terms of digits after decimal.
+        assert isinstance(nml_prn, int), (
+            f'nml_prn not an integer ({type(nml_prn)})!')
+
+        assert nml_prn >= 0, 'nml_prn must be greater than or equal to zero!'
+
+        self._nml_prn = nml_prn
+
+        # Destination NCF compression level.
+        assert isinstance(cpn_lvl, int), (
+            f'cpn_lvl not and integer ({type(cpn_lvl)}!')
+
+        assert 0 <= cpn_lvl <= 9, (
+            f'cpn_lvl ({cpn_lvl}) not between 0 and 9!')
+
+        self._cpn_lvl = cpn_lvl
         #======================================================================
 
         if self._vb:
@@ -140,6 +165,8 @@ class ResampleNCFToRas(ResampleRasToRas):
             print(f'Source Y label: {self._src_ylb}')
             print(f'Source time label: {self._src_tlb}')
             print(f'Source CRS: {self._src_crs}')
+            print(f'Desti. precision: {self._nml_prn}')
+            print(f'Desti. compression level: {self._cpn_lvl}')
 
             print_el()
 
@@ -506,8 +533,6 @@ class ResampleNCFToRas(ResampleRasToRas):
 
     def _cvt_ncf_fle(self, var, arr):
 
-        cmp_lvl = 0
-
         ncf_hdl = nc.Dataset(self._out_pth, 'r+')
 
         ncf_hdl.set_auto_mask(False)
@@ -520,7 +545,7 @@ class ResampleNCFToRas(ResampleRasToRas):
                         self._ncf_dim_xlb_1dn,),
             fill_value=False,
             compression='zlib',
-            complevel=cmp_lvl,
+            complevel=self._cpn_lvl,
             shuffle=True,
             chunksizes=(1, arr.shape[1], arr.shape[2]))
 

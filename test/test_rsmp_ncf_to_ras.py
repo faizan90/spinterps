@@ -35,7 +35,7 @@ def main():
     src_pth = Path(r'R:\ECAD\grids\v30.0e\rr_ens_mean_0.1deg_reg_v30.0e.nc')
     dst_pth = Path(r'vils_rott_isen_fil_1km.tif')
 
-    out_pth = Path(r'ncf_to_ras10.nc')
+    out_pth = Path(r'ncf_to_ras11.nc')
 
     src_vrs = ('rr',)
     src_tlb = 'time'
@@ -43,6 +43,9 @@ def main():
 
     src_xlb = 'longitude'  # Should be with constant cell width.
     src_ylb = 'latitude'  # Should be with constant cell height.
+
+    nmrl_prcn = 2
+    cprn_levl = 1
 
     n_cpus = 'auto'
     #==========================================================================
@@ -57,7 +60,9 @@ def main():
         src_xlb,
         src_ylb,
         src_tlb,
-        src_crs)
+        src_crs,
+        nmrl_prcn,
+        cprn_levl)
 
     rsp_obj.set_outputs(out_pth)
 

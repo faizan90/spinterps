@@ -914,7 +914,8 @@ class SpInterpSteps:
                 for interp_label in interp_labels:
                     interp_flds = interp_flds_dict[interp_label]
 
-                    np.round(interp_flds, self._nc_nmrl_prcn, interp_flds)
+                    if np.issubdtype(interp_flds.dtype, np.floating):
+                        np.round(interp_flds, self._nc_nmrl_prcn, interp_flds)
 
                     nc_ds = nc_hdl[interp_label]
 
@@ -931,7 +932,8 @@ class SpInterpSteps:
                 for interp_label in interp_labels:
                     interp_flds = interp_flds_dict[interp_label]
 
-                    np.round(interp_flds, self._nc_nmrl_prcn, interp_flds)
+                    if np.issubdtype(interp_flds.dtype, np.floating):
+                        np.round(interp_flds, self._nc_nmrl_prcn, interp_flds)
 
                     nc_ds = nc_hdl[interp_label]
 

@@ -46,12 +46,14 @@ def main():
     # dst_pth = Path(r'AWC_eu23_utm32N.tif')
     # out_pth = Path(r'ref_aln4.tif')
 
+    nmrl_prcn = 2
+
     n_cpus = 4  # 'auto'
     #==========================================================================
 
     rsp_obj = ResampleRasToRas(True)
 
-    rsp_obj.set_inputs(src_pth, dst_pth, n_cpus)
+    rsp_obj.set_inputs(src_pth, dst_pth, n_cpus, nmrl_prcn)
     rsp_obj.set_outputs(out_pth)
 
     rsp_obj.resample()
