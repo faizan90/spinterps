@@ -7,4 +7,4 @@ Created on Jul 6, 2024
 '''
 
 from .aa_lcks import DummyLock, DummyManager
-from .ab_shms import SHMARY, fre_shm_ars
+from .ab_shms import SHMARY2, fre_shm_ars

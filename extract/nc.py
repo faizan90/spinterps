@@ -1405,7 +1405,7 @@ class ExtractNetCDFValues:
             in_var.shape, dtype=np.uint64)
 
         tot_avail_mem = min(
-            10 * (1024 ** 3), int(ps.virtual_memory().available * 0.35))
+            10 * (1024 ** 3), int(ps.virtual_memory().available * 0.2))
 
         n_mem_time_prds = ceil(in_var_nbytes / tot_avail_mem)
 

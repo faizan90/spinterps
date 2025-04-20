@@ -537,7 +537,7 @@ class ExtractGTiffValues:
 
             data = bnd_data = None
 
-            assert bnds_data, 'This should not have happend!'
+            assert bnds_data, 'This should not have happened!'
 
             if self._out_fmt in ('csv', 'pkl'):
 

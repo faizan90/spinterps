@@ -11,13 +11,14 @@ from multiprocessing import shared_memory
 import numpy as np
 
 
-class SHMARY:
+class SHMARY2:
 
     '''
     - This array will behave as a numpy array in normal cases.
     - Upon pickling, it will not allow the main array (shr) to be pickled.
     - When shr is accessed in a another process, it is read from the buffer
       created by the main process and then it behaves as a numpy array.
+    - Different to SHMARY in HMG3D.
     '''
 
     def __init__(self, shape, dtype, order, label):
@@ -116,7 +117,7 @@ class SHMARY:
 
     def __copy__(self):
 
-        shy = SHMARY(self.shp, self.dte, self.odr, self.lbl)
+        shy = SHMARY2(self.shp, self.dte, self.odr, self.lbl)
 
         if '_shr' in self.__dict__: shy[:] = self._shr
 
@@ -160,7 +161,7 @@ class SHMARY:
         else:
             order = 'c'
 
-        shy = SHMARY(ary.shape, ary.dtype.type, order, None)
+        shy = SHMARY2(ary.shape, ary.dtype.type, order, None)
 
         shy[:] = ary
         return shy
@@ -172,7 +173,7 @@ def fre_shm_ars(ags):
 
         obj = getattr(ags, attr)
 
-        if not isinstance(obj, SHMARY): continue
+        if not isinstance(obj, SHMARY2): continue
 
         obj.close(); obj.unlink()
 

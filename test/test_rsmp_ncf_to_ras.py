@@ -32,10 +32,10 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\rsmp\ncf_to_ras')
     os.chdir(main_dir)
 
-    src_pth = Path(r'rr_ens_mean_0.1deg_reg_v29.0e.nc')
-    dst_pth = Path(r'vils_rott_isen_dem_1km.tif')
+    src_pth = Path(r'R:\ECAD\grids\v30.0e\rr_ens_mean_0.1deg_reg_v30.0e.nc')
+    dst_pth = Path(r'vils_rott_isen_fil_1km.tif')
 
-    out_pth = Path(r'ncf_to_ras1.nc')
+    out_pth = Path(r'ncf_to_ras10.nc')
 
     src_vrs = ('rr',)
     src_tlb = 'time'

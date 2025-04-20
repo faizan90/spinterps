@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 from ..extract import ExtractGTiffCoords
 
-from ..mpg import SHMARY, fre_shm_ars
+from ..mpg import SHMARY2, fre_shm_ars
 from ..mpg import DummyLock
 
 from ..misc import print_sl, print_el, ret_mp_idxs, get_n_cpus
@@ -824,44 +824,44 @@ class ResampleRasToRas:
         else:
             ags.mpg_flg = True
 
-            ags.src_xcs = SHMARY.frm_npy_ary(src_xcs)
-            ags.src_ycs = SHMARY.frm_npy_ary(src_ycs)
+            ags.src_xcs = SHMARY2.frm_npy_ary(src_xcs)
+            ags.src_ycs = SHMARY2.frm_npy_ary(src_ycs)
 
-            ags.dst_xcs = SHMARY.frm_npy_ary(dst_xcs)
-            ags.dst_ycs = SHMARY.frm_npy_ary(dst_ycs)
+            ags.dst_xcs = SHMARY2.frm_npy_ary(dst_xcs)
+            ags.dst_ycs = SHMARY2.frm_npy_ary(dst_ycs)
 
-            ags.src_xcs_ogl = SHMARY.frm_npy_ary(src_xcs_ogl)
-            ags.src_ycs_ogl = SHMARY.frm_npy_ary(src_ycs_ogl)
+            ags.src_xcs_ogl = SHMARY2.frm_npy_ary(src_xcs_ogl)
+            ags.src_ycs_ogl = SHMARY2.frm_npy_ary(src_ycs_ogl)
 
-            ags.rsp_fgs = SHMARY.frm_npy_ary(rsp_fgs)
-            ags.nan_fgs = SHMARY.frm_npy_ary(nan_fgs)
+            ags.rsp_fgs = SHMARY2.frm_npy_ary(rsp_fgs)
+            ags.nan_fgs = SHMARY2.frm_npy_ary(nan_fgs)
 
             if not ags.ncf_flg:
 
                 assert any([ags.rsm_flg, ags.css_flg])
 
-                ags.src_arr = SHMARY.frm_npy_ary(src_arr)
-                ags.dst_arr = SHMARY.frm_npy_ary(dst_arr)
-                ags.src_dst_arr = SHMARY.frm_npy_ary(src_dst_arr)
+                ags.src_arr = SHMARY2.frm_npy_ary(src_arr)
+                ags.dst_arr = SHMARY2.frm_npy_ary(dst_arr)
+                ags.src_dst_arr = SHMARY2.frm_npy_ary(src_dst_arr)
 
             else:
                 assert all([not ags.rsm_flg, not ags.css_flg])
 
                 setattr(ags, 'ncf_vrs', list(src_arr))
 
-                ags.dst_arr = SHMARY.frm_npy_ary(dst_arr)
+                ags.dst_arr = SHMARY2.frm_npy_ary(dst_arr)
 
                 for key in src_arr:
 
                     setattr(
                         ags,
                         f'src_arr__{key}',
-                        SHMARY.frm_npy_ary(src_arr[key]))
+                        SHMARY2.frm_npy_ary(src_arr[key]))
 
                     setattr(
                         ags,
                         f'src_dst_arr__{key}',
-                        SHMARY.frm_npy_ary(src_dst_arr[key]))
+                        SHMARY2.frm_npy_ary(src_dst_arr[key]))
             #==================================================================
 
             mpg_ixs = ret_mp_idxs(
@@ -892,6 +892,7 @@ class ResampleRasToRas:
                 for key in src_arr:
                     src_dst_arr[key][:] = getattr(ags, f'src_dst_arr__{key}')
 
+            rsp_fgs[:] = ags.rsp_fgs
             fre_shm_ars(ags)
             #==================================================================
 
@@ -1275,8 +1276,8 @@ class ResampleRasToRas:
         else:
             ags.mpg_flg = True
 
-            ags.xcs = SHMARY.frm_npy_ary(xcs)
-            ags.ycs = SHMARY.frm_npy_ary(ycs)
+            ags.xcs = SHMARY2.frm_npy_ary(xcs)
+            ags.ycs = SHMARY2.frm_npy_ary(ycs)
             #==================================================================
 
             mpg_ixs = ret_mp_idxs(xcs.shape[0], self._mpg_pol._processes)

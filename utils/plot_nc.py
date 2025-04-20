@@ -25,33 +25,36 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\HYRAS\precipitation')
+    main_dir = Path(r'P:\DEBY_ISAR\spinterps\tg_1D_100m_20250418')
     # main_dir = Path(r'P:\dwd_meteo\gridded\extract_hyras\d_lmtd_and_infld_tst')
     # main_dir = Path(r'P:\DEBY\spinterps\ppt_1D_1km_20240906')
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'pr_hyras_1_1970_v6-0_de.nc')
+    # in_nc_path = Path(r'EMO-1arcmin-ws_1990_2022.nc')
     # in_nc_path = Path(r'tas_1hr_HOSTRADA-v1-0_BE_gn_2001030100-2001033123.nc')
     # in_nc_path = Path(r'RW_2007_2023.nc')
-    # in_nc_path = Path(r'kriging.nc')
+    in_nc_path = Path(r'kriging.nc')
 
     nme_sfx = ''
 
-    var_label = 'pr'  # 'NNB'  # 'EDK'  # 'pptn'  # 'tas'  # 'RR'  # 'petn'  # 'pr'  # 'tasmin'  #
-    # var_label = 'RW'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'IDW_000'
+    var_label = 'EDK'  # 'NNB'  # 'pr'  # 'pptn'  # 'tas'  # 'RR'  # 'petn'  # 'pr'  # 'tasmin'  #
+    # var_label = 'ws'  # 'RW'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'IDW_000'
 
-    x_label = 'x'  # 'X'  # 'X1D'  # 'lon'  # 'longitude'  #
-    y_label = 'y'  # 'Y'  # 'Y1D'  # 'lat'  # 'latitude'  #
+    x_label = 'X'  # 'lon'  # 'x'  # 'X1D'  #  'longitude'  #
+    y_label = 'Y'  # 'lat'  # 'y'  # 'Y1D'  # 'latitude'  #
     # x_label = 'x_utm32n'  # 'X2D'  #
     # y_label = 'y_utm32n'  # 'Y2D'  #
 
     time_label = 'time'
 
-    cbar_label = 'Precipitation [mm]'
+    # cbar_label = 'Precipitation [mm]'
     # cbar_label = 'Snow depth [mm]'
     # cbar_label = 'Snow melt [mm]'
     # cbar_label = 'PET [mm]'
-    # cbar_label = 'Temperature [°C]'
+    cbar_label = 'Temperature [°C]'
+    # cbar_label = 'Vapor pressure [hPa]'
+    # cbar_label = 'Radiation [j/m$^2$]'
+    # cbar_label = 'Wind speed [m/s]'
 
     # cbar_label = 'Estimation variance'
 
@@ -92,13 +95,13 @@ def main():
     # nan_val = 9999
     nan_val = None
 
-    # beg_time, end_time = pd.to_datetime(
-    #     ['1970-01-01', '1970-01-10'],
-    #     format='%Y-%m-%d')
-
     beg_time, end_time = pd.to_datetime(
-        ['1970-01-01 18:00:00', '1970-01-12 18:00:00'],
-        format='%Y-%m-%d %H:%M:%S')
+        ['2022-01-02', '2022-01-30'],
+        format='%Y-%m-%d')
+
+    # beg_time, end_time = pd.to_datetime(
+    #     ['1990-01-02 06:00:00', '1990-01-30 06:00:00'],
+    #     format='%Y-%m-%d %H:%M:%S')
 
     # beg_time, end_time = pd.to_datetime(
     #     ['20190520T070000', '20190521T070000'],
@@ -107,7 +110,8 @@ def main():
     # in_cat_file = Path(r'P:\DEBY\dem_ansys_1km\watersheds.shp')
     # in_cat_file = Path(r'P:\DEBY\bayern_epsg32632.shp')
     # in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg32632.shp')
-    in_cat_file = Path(r'P:\DEBY\bayern_epsg3035.shp')
+    # in_cat_file = Path(r'P:\DEBY_ISAR\dem\v2_500m\dem_ansys__daily\watersheds.shp')
+    in_cat_file = Path(r'P:\DEBY_ISAR\inputs\catchment_epsg_3034.shp')
 
     # in_cat_file = None
 
