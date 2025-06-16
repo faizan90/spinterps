@@ -1074,19 +1074,37 @@ class ResampleRasToRas:
         xmx_ymn_col = np.where(row_col_ixs.any(axis=0))[0].max()
         #======================================================================
 
+        # Rotation.
+        cel_wds = xcs[:, +1:] - xcs[:,:-1]
+        cel_wdh_min = cel_wds[cel_wds > 0].min()
+
+        cel_col_oft = max(
+            ceil((abs(xcs[+0, +0] - xcs[-1, +0]) / cel_wdh_min)),
+            ceil((abs(xcs[+0, -1] - xcs[-1, -1]) / cel_wdh_min)))
+
+        cel_hts = ycs[:-1,:] - ycs[+1:,:]
+        cel_hgt_min = cel_hts[cel_hts > 0].min()
+
+        cel_row_oft = max(
+            ceil((abs(ycs[+0, +0] - ycs[+0, -1]) / cel_hgt_min)),
+            ceil((abs(ycs[-1, +0] - ycs[-1, -1]) / cel_hgt_min)))
+        #======================================================================
+
         beg_row = min(
             [xmn_ymn_row,
              xmn_ymx_row,
              xmx_ymn_row,
              xmx_ymx_row])
 
-        beg_row = max(0, beg_row)
+        beg_row = max(0, beg_row - cel_row_oft)
 
         end_row = max(
             [xmn_ymn_row,
              xmn_ymx_row,
              xmx_ymn_row,
-             xmx_ymx_row]) + 1
+             xmx_ymx_row]) + 1 + cel_row_oft
+
+        end_row = min(end_row, ycs.shape[0])
 
         beg_col = min(
             [xmn_ymn_col,
@@ -1094,13 +1112,15 @@ class ResampleRasToRas:
              xmx_ymn_col,
              xmx_ymx_col])
 
-        beg_col = max(0, beg_col)
+        beg_col = max(0, beg_col - cel_col_oft)
 
         end_col = max(
             [xmn_ymn_col,
              xmn_ymx_col,
              xmx_ymn_col,
-             xmx_ymx_col]) + 1
+             xmx_ymx_col]) + 1 + cel_col_oft
+
+        end_col = min(end_col, xcs.shape[1])
         #======================================================================
 
         if False:  # Diagnostics.
@@ -1126,7 +1146,9 @@ class ResampleRasToRas:
             plt.close(fig)
         #======================================================================
 
+        #======================================================================
         # Take care of rotation and small adjustments.
+        #======================================================================
 
         # Beg col.
         while xcs[beg_row, beg_col:end_col].min() > xcs_min:
@@ -1865,8 +1887,72 @@ def gen_wts_dct_frm_crd_and_ply_sgl(ags):
                     ara_tot_ctr,
                     f'{ara_mis_ctr / ara_tot_ctr:.2%}')
 
-            if True and (not np.isclose(src_ply_ara, dst_ply_ara)):
+            # Turn on for diagnostics only. This sometimes also happens when
+            # the snipping results in a cut that is a bit too small.
+            # If a problem cannot be tracked here then try using a buffered
+            # polygon for snipping and then resampling it.
+            if False and (not np.isclose(src_ply_ara, dst_ply_ara)):
                 rsp_fgs[i, j] = 3
+                continue
+
+                src_xcs_ulc = src_xcs[src_beg_row_idx, src_beg_col_idx]
+                src_xcs_llc = src_xcs[src_end_row_idx, src_beg_col_idx]
+
+                src_xcs_urc = src_xcs[src_beg_row_idx, src_end_col_idx]
+                src_xcs_lrc = src_xcs[src_end_row_idx, src_end_col_idx]
+
+                src_ycs_ulc = src_ycs[src_beg_row_idx, src_beg_col_idx]
+                src_ycs_llc = src_ycs[src_end_row_idx, src_beg_col_idx]
+
+                src_ycs_urc = src_ycs[src_beg_row_idx, src_end_col_idx]
+                src_ycs_lrc = src_ycs[src_end_row_idx, src_end_col_idx]
+
+                fig = plt.figure()
+
+                plt.gca().set_aspect('equal')
+
+                xcs_ply = [dst_xmn, dst_xmn, dst_xmx, dst_xmx, dst_xmn]
+                ycs_ply = [dst_ymn, dst_ymx, dst_ymx, dst_ymn, dst_ymn]
+
+                plt.plot(
+                    xcs_ply,
+                    ycs_ply,
+                    c='cyan',
+                    zorder=10,
+                    alpha=0.85,
+                    label='DST')
+
+                xcs_ply = [
+                    src_xcs_ulc,
+                    src_xcs_llc,
+                    src_xcs_lrc,
+                    src_xcs_urc,
+                    src_xcs_ulc]
+
+                ycs_ply = [
+                    src_ycs_ulc,
+                    src_ycs_llc,
+                    src_ycs_lrc,
+                    src_ycs_urc,
+                    src_ycs_ulc]
+
+                plt.plot(
+                    xcs_ply,
+                    ycs_ply,
+                    c='red',
+                    zorder=10,
+                    alpha=0.85,
+                    label='SRC')
+
+                plt.title('Intersection area mismatch')
+
+                plt.legend()
+
+                plt.show(block=True)
+
+                plt.close(fig)
+                #==============================================================
+
                 continue
 
             else:
@@ -1961,10 +2047,20 @@ def get_src_ogl_ixs(
         dst_src_tfm):
 
     '''
-    Assuming X increases left to right and Y increases from top to bottom.
+    Assuming X increases left to right and Y decreases from top to bottom.
 
     Assuming constant cell width and height in ogl cds.
     '''
+
+    # Scale dst cell to make it look bigger. This avoids problems with very
+    # small cell overlaps.
+    if True:
+        dst_xmn -= 0.05 * (dst_xmx - dst_xmn)
+        dst_ymn -= 0.05 * (dst_ymx - dst_ymn)
+
+        dst_xmx += 0.05 * (dst_xmx - dst_xmn)
+        dst_ymx += 0.05 * (dst_ymx - dst_ymn)
+    #==========================================================================
 
     src_xmn = src_xcs_ogl[0, 0]
     src_ymx = src_ycs_ogl[0, 0]
@@ -1973,21 +2069,25 @@ def get_src_ogl_ixs(
     src_cel_wdh = src_ymx - src_ycs_ogl[1, 0]
     #==========================================================================
 
+    # Upper left.
     ulc_xce, ulc_yce = dst_src_tfm.transform(dst_xmn, dst_ymx)
     ulc_cln = int(floor((ulc_xce - src_xmn) / src_cel_wdh))
     ulc_row = int(floor((src_ymx - ulc_yce) / src_cel_hgt))
     #==========================================================================
 
+    # Upper right.
     urc_xce, urc_yce = dst_src_tfm.transform(dst_xmx, dst_ymx)
     urc_cln = int(ceil((urc_xce - src_xmn) / src_cel_wdh))
     urc_row = int(floor((src_ymx - urc_yce) / src_cel_hgt))
     #==========================================================================
 
+    # Lower right.
     lrc_xce, lrc_yce = dst_src_tfm.transform(dst_xmx, dst_ymn)
     lrc_cln = int(ceil((lrc_xce - src_xmn) / src_cel_wdh))
     lrc_row = int(ceil((src_ymx - lrc_yce) / src_cel_hgt))
     #==========================================================================
 
+    # Lower left.
     llc_xce, llc_yce = dst_src_tfm.transform(dst_xmn, dst_ymn)
     llc_cln = int(floor((llc_xce - src_xmn) / src_cel_wdh))
     llc_row = int(ceil((src_ymx - llc_yce) / src_cel_hgt))

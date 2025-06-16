@@ -189,6 +189,13 @@ class ResampleNCFToRas(ResampleRasToRas):
         if src_xcs.ndim == 1:
             assert src_xcs[0] < src_xcs[1], src_xcs
 
+            # assert np.unique(src_xcs[1:] - src_xcs[:-1]).size == 1
+
+            # assert np.isclose(
+            #     src_xcs[1:] - src_xcs[:-1],
+            #     src_xcs[1] - src_xcs[0]).all()
+
+            # Convert to 2D.
             src_xcs = np.concatenate((
                 (src_xcs - (0.5 * (src_xcs[1] - src_xcs[0]))),
                 (src_xcs[-1] + (0.5 * (src_xcs[1] - src_xcs[0])),),
@@ -646,8 +653,11 @@ class ResampleNCFToRas(ResampleRasToRas):
                 tst_xcs, tst_ycs = self._get_crd_msh(tst_xcs, tst_ycs)
 
             elif ncf_hdl[xlb].ndim == 2:
-                tst_xcs = ncf_hdl[xlb][beg_row:end_row + 1, beg_col:end_col].data
-                tst_ycs = ncf_hdl[ylb][beg_row:end_row + 1, beg_col:end_col].data
+                tst_xcs = ncf_hdl[xlb][
+                    beg_row:end_row + 1, beg_col:end_col].data
+
+                tst_ycs = ncf_hdl[ylb][
+                    beg_row:end_row + 1, beg_col:end_col].data
 
                 tst_xcs = tst_ycs[::-1,:]
                 tst_ycs = tst_ycs[::-1,:]
@@ -699,6 +709,8 @@ class ResampleNCFToRas(ResampleRasToRas):
 
             plt.title(f'ref_ply and tst_ply')
 
+            plt.legend()
+
             plt.show()
 
             plt.close()
@@ -733,7 +745,7 @@ class ResampleNCFToRas(ResampleRasToRas):
         with nc.Dataset(inp_pth) as ncf_hdl:
 
             # A quick fix for now. Suboptimal.
-            if not flp_flg:
+            if False:  # not flp_flg:
                 if (end_row - beg_row - 1) == ncf_hdl[var].shape[1]:
                     end_row_fnl = end_row - 1
 
@@ -796,7 +808,8 @@ class ResampleNCFToRas(ResampleRasToRas):
                 mmy_ixs = np.array([0, ncf_hdl[var].shape[0]])
 
             if flp_flg:
-                beg_row, end_row = -end_row - 1, -beg_row - 1
+                # beg_row, end_row = -end_row - 1, -beg_row - 1
+                beg_row, end_row = -end_row - 0, -beg_row - 0
 
             for mmy_idx_bgn, mmy_idx_end in zip(mmy_ixs[:-1], mmy_ixs[1:]):
 
