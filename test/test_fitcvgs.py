@@ -26,25 +26,25 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\Testings\spinterps\cvgs')
     os.chdir(main_dir)
 
-    in_data_file = Path(r'deby_20km_daily_ppt_Y1950_2023.pkl')
-    in_crds_file = Path(r'deby_20km_daily_ppt_epsg32632.csv')
+    in_data_file = Path(r'RS_tss.csv')
+    in_crds_file = Path(r'RS_cds.csv')
 
     in_manual_file = Path(r'P:\Synchronize\IWS\Testings\variograms\cp_time_ser_neckar_1910_2014.csv')
     manual_df_col = 'cp'
     manual_nan_val = 99
 
-    out_dir = Path(r'test_fitcvgs_months_sampson5_ppt')
+    out_dir = Path(r'test_cds_tfm_06_ref')
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
 
-    beg_time = '1961-01-01'
-    end_time = '2015-12-31'
+    beg_time = '1990-01-01'
+    end_time = '2000-12-31'
 
     clus_type = 'months'
 
     # Minimum values to form a mean value per pair.
-    n_min_valid_values = 1000
+    n_min_valid_values = 10
 
     stns_min_dist_thresh = 100
 
@@ -52,9 +52,9 @@ def main():
     # Works as a running statistic.
     smoothing = 50  # 100
 
-    max_dist_thresh = 5e4
+    max_dist_thresh = 50e3
 
-    n_cpus = 12
+    n_cpus = 6
 
     evg_stat = 'median'
 
@@ -93,7 +93,7 @@ def main():
 
     crds_df = pd.read_csv(in_crds_file, sep=sep, index_col=0)
 
-    crds_df = crds_df.loc[:, ['X', 'Y']]
+    crds_df = crds_df.loc[:, ['X', 'Y', 'Z']]
 
     if clus_type == 'manual':
         manual_ser = pd.read_csv(
@@ -152,9 +152,9 @@ def main():
 
     cvgs_cls.cluster_evgs()
 
-    cvgs_cls.fit_theoretical_variograms()
+    if True: cvgs_cls.fit_theoretical_variograms()
 
-    cvgs_cls.cluster_theoretical_variograms()
+    if False: cvgs_cls.cluster_theoretical_variograms()
     return
 
 

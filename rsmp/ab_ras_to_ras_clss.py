@@ -71,14 +71,14 @@ class ResampleRasToRasClss(ResampleRasToRas):
         #======================================================================
 
         src_dst_tfm = Transformer.from_crs(
-            self._src_crs,
+            self._get_ras_crs(self._src_pth),
             self._get_ras_crs(self._dst_pth),
             always_xy=True,
             only_best=True)
 
         dst_src_tfm = Transformer.from_crs(
             self._get_ras_crs(self._dst_pth),
-            self._src_crs,
+            self._get_ras_crs(self._src_pth),
             always_xy=True,
             only_best=True)
 

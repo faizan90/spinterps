@@ -124,90 +124,90 @@ def main():
     evs = evs[fnt_ixs]
     #==========================================================================
 
-    # bds = np.full((itp_cds_dfe.shape[1], 2), np.nan)
-    # # bds[0, 0] = 10.
-    # # bds[0, 1] = 1e4
-    #
-    # bds[0, 0] = 0
-    # bds[0, 1] = 0
-    #
-    # # Fix bounds to same value for any one so that the answer is unique.
-    # bds[1, 0] = 1.00
-    # bds[1, 1] = 1.00
-    #
-    # bds[2, 0] = 1.00
-    # bds[2, 1] = 1.00
-    #
-    # # bds = Bounds(bds[:, 0], bds[:, 1])
-    #
+    bds = np.full((itp_cds_dfe.shape[1], 2), np.nan)
+    # bds[0, 0] = 10.
+    # bds[0, 1] = 1e4
+
+    bds[0, 0] = 0
+    bds[0, 1] = 0
+
+    # Fix bounds to same value for any one so that the answer is unique.
+    bds[1, 0] = 1.00
+    bds[1, 1] = 1.00
+
+    bds[2, 0] = 1.00
+    bds[2, 1] = 1.00
+
+    # bds = Bounds(bds[:, 0], bds[:, 1])
+
     opt_ags = OPTAGS()
     opt_ags.cds = itp_cds_dfe.values.astype(np.float32, order='c')
     opt_ags.evs = evs
     opt_ags.fnt_ixs = fnt_ixs
-    #
-    # opt_itr_cnt = [0]
-    #
-    # icvs_args = (100, 1, 0.02, 1e-4, 0.5, 2.0)
-    # size_popn = 400
-    # incs = np.array((0.1, 1.0, 0.01))
-    # bds_updt_iters = 100
-    # bds_updt_alpha = 0.1
-    # size_mprg = 24
-    #
-    # # print('Optimizing...')
-    # tmr_bgn = timeit.default_timer()
-    #
-    # opt_res = devn_host(
-    #     True,
-    #     (0.01, 0.5),  # buds_mutn
-    #     bds,  # buds_prms
-    #     (0.7, 1.0),  # buds_rcbn
-    #     None,  # crts_args
-    #     icvs_args,  # icvs_args
-    #     obj_ftn,  # objt_fntn
-    #     size_mprg,  # size_mprg
-    #     size_popn,  # size_popn
-    #     0.001,  # acpt_objt_rato
-    #     100000,  # acpt_objt_minm
-    #     1,  # algm_cnfg_type
-    #     opt_ags,  # objt_fntn_args
-    #     None,  # mprg_pool_extl
-    #     None,  # mprg_mngr_extl
-    #     incs,  # prms_inct_sizs
-    #     0.01,  # stop_acpt_rate
-    #     5,  # stop_acpt_wndw
-    #     50,  # stop_itrs_maxm
-    #     20,  # stop_itrs_rjtn
-    #     0.02,  # stop_tlrc_prms
-    #     1e-8,  # stop_tlrc_objt
-    #     bds_updt_iters,  # updt_buds_itrs
-    #     bds_updt_alpha,  # bds_updt_alpha
-    #     False,  # diag_flag_snap_shot
-    #     False,  # diag_flag_optn_args
-    #     )
-    #
-    # # ress = differential_evolution(
-    # #     obj_ftn,
-    # #     bounds=bds,
-    # #     args=((itp_cds_dfe.values, evs, fnt_ixs, opt_itr_cnt),),
-    # #     # maxiter=500,
-    # #     popsize=500,
-    # #     polish=False)
-    #
-    # tmr_end = timeit.default_timer()
-    #
-    # # dts_wts = ress.x
-    # dts_wts = opt_res.prms_modl_best.astype(np.float32)
-    #
-    # print(dts_wts)
-    #
-    # # print(f'{ress.fun:0.3E} using {opt_itr_cnt[0]} iterations')
-    # print(f'{opt_res.ofve_best:0.3E} using {opt_itr_cnt[0]} iterations')
-    #
-    # print('Took', tmr_end - tmr_bgn, 'secs')
+
+    opt_itr_cnt = [0]
+
+    icvs_args = (100, 1, 0.02, 1e-4, 0.5, 2.0)
+    size_popn = 400
+    incs = np.array((0.1, 1.0, 0.01))
+    bds_updt_iters = 100
+    bds_updt_alpha = 0.1
+    size_mprg = 24
+
+    # print('Optimizing...')
+    tmr_bgn = timeit.default_timer()
+
+    opt_res = devn_host(
+        True,
+        (0.01, 0.5),  # buds_mutn
+        bds,  # buds_prms
+        (0.7, 1.0),  # buds_rcbn
+        None,  # crts_args
+        icvs_args,  # icvs_args
+        obj_ftn,  # objt_fntn
+        size_mprg,  # size_mprg
+        size_popn,  # size_popn
+        0.001,  # acpt_objt_rato
+        100000,  # acpt_objt_minm
+        1,  # algm_cnfg_type
+        opt_ags,  # objt_fntn_args
+        None,  # mprg_pool_extl
+        None,  # mprg_mngr_extl
+        incs,  # prms_inct_sizs
+        0.01,  # stop_acpt_rate
+        5,  # stop_acpt_wndw
+        50,  # stop_itrs_maxm
+        20,  # stop_itrs_rjtn
+        0.02,  # stop_tlrc_prms
+        1e-8,  # stop_tlrc_objt
+        bds_updt_iters,  # updt_buds_itrs
+        bds_updt_alpha,  # bds_updt_alpha
+        False,  # diag_flag_snap_shot
+        False,  # diag_flag_optn_args
+        )
+
+    # ress = differential_evolution(
+    #     obj_ftn,
+    #     bounds=bds,
+    #     args=((itp_cds_dfe.values, evs, fnt_ixs, opt_itr_cnt),),
+    #     # maxiter=500,
+    #     popsize=500,
+    #     polish=False)
+
+    tmr_end = timeit.default_timer()
+
+    # dts_wts = ress.x
+    dts_wts = opt_res.prms_modl_best.astype(np.float32)
+
+    print(dts_wts)
+
+    # print(f'{ress.fun:0.3E} using {opt_itr_cnt[0]} iterations')
+    print(f'{opt_res.ofve_best:0.3E} using {opt_itr_cnt[0]} iterations')
+
+    print('Took', tmr_end - tmr_bgn, 'secs')
     #==========================================================================
 
-    dts_wts = np.array([0, 1, 1], dtype=np.float32)
+    # dts_wts = np.array([0, 1, 1], dtype=np.float32)
 
     pts_cnt = opt_ags.cds.shape[0]
     dts_cnt = (pts_cnt * (pts_cnt - 1)) // 2
@@ -216,7 +216,7 @@ def main():
 
     cmpt_wgtd_dist(opt_ags.cds, dts_wts, dts_wtd, pts)
 
-    scn = np.corrcoef(rankdata(evs), dts_wtd[fnt_ixs])[0, 1]
+    scn = np.corrcoef(rankdata(evs), rankdata(dts_wtd[fnt_ixs]))[0, 1]
     print('SCN:', scn)
 
     if True:

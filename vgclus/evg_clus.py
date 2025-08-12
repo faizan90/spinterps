@@ -9,11 +9,16 @@ import timeit
 from math import factorial
 
 import numpy as np
+from scipy.stats import rankdata
 import matplotlib.pyplot as plt; plt.ioff()
 from pathos.multiprocessing import ProcessPool
 
+from fdiffevo import devn_host_vrn2 as devn_host
+
 from ..misc import print_sl, print_el
 from .settings import VGCSettings as CS
+
+from ..cyth import cmpt_wgtd_dist
 
 
 class CEVG(CS):
@@ -63,6 +68,148 @@ class CEVG(CS):
         self._cevg_verify_flag = False
         self._cevg_fitted_flag = False
         return
+
+    def _get_evg_cds_tfm(self, tss_dfe):
+
+        cds_dfe = self._crds_df
+
+        assert cds_dfe.shape[1] == 3, cds_dfe.shape
+
+        evs = cmpt_evgs(tss_dfe.values, self._sett_clus_cevg_min_vlds)
+
+        fnt_ixs = np.isfinite(evs)
+
+        assert fnt_ixs.any()
+
+        pts_cnt = cds_dfe.shape[0]
+        dts_cnt = (pts_cnt * (pts_cnt - 1)) // 2
+        dts_wtd = np.full(dts_cnt, np.nan, dtype=np.float32)
+
+        pts = np.full(
+            (cds_dfe.shape[0], 2), np.nan, dtype=np.float32)
+
+        dts_all = cmpt_wgtd_dist(
+            cds_dfe.values[:, [0, 1]].astype(np.float32, order='c'),
+            np.full(2, 1.0, dtype=np.float32),
+            dts_wtd,
+            pts)
+
+        dts_thd_ixs = dts_all <= self._sett_clus_cevg_max_dist_thresh
+
+        fnt_ixs &= dts_thd_ixs
+
+        assert fnt_ixs.any()
+
+        evs = evs[fnt_ixs]
+        #======================================================================
+
+        bds = np.full((cds_dfe.shape[1], 2), np.nan)
+        ics = np.full((cds_dfe.shape[1],), np.nan)
+
+        for i in range(bds.shape[0]):
+
+            if i == 0:
+                # Fix bounds to same value for any one so that the answer is
+                # unique.
+                bds[i, 0] = 1.0
+                bds[i, 1] = 1.0
+
+                ics[i] = 0
+
+            else:
+                bds[i, 0] = 0.0
+                bds[i, 1] = 1e4
+
+                ics[i] = 1e-3
+
+        opt_ags = OPTAGS()
+        opt_ags.cds = cds_dfe.values.astype(np.float32, order='c')
+        opt_ags.evs = evs
+        opt_ags.fnt_ixs = fnt_ixs
+
+        opt_itr_cnt = [0]
+
+        icvs_args = None  # (100, 1, 0.02, 1e-4, 0.5, 2.0)
+        size_popn = 400
+        bds_updt_iters = 100
+        bds_updt_alpha = 0.1
+        size_mprg = 1
+        stop_itrs_maxm = 1000
+
+        tmr_bgn = timeit.default_timer()
+
+        opt_res = devn_host(
+            False,
+            (0.01, 0.5),  # buds_mutn
+            bds,  # buds_prms
+            (0.7, 1.0),  # buds_rcbn
+            None,  # crts_args
+            icvs_args,  # icvs_args
+            evg_cds_tfm_obj_ftn,  # objt_fntn
+            size_mprg,  # size_mprg
+            size_popn,  # size_popn
+            0.001,  # acpt_objt_rato
+            100000,  # acpt_objt_minm
+            1,  # algm_cnfg_type
+            opt_ags,  # objt_fntn_args
+            None,  # mprg_pool_extl
+            None,  # mprg_mngr_extl
+            ics,  # prms_inct_sizs
+            0.01,  # stop_acpt_rate
+            100,  # stop_acpt_wndw
+            stop_itrs_maxm,  # stop_itrs_maxm
+            200,  # stop_itrs_rjtn
+            0.01,  # stop_tlrc_prms
+            1e-8,  # stop_tlrc_objt
+            bds_updt_iters,  # updt_buds_itrs
+            bds_updt_alpha,  # bds_updt_alpha
+            False,  # diag_flag_snap_shot
+            False,  # diag_flag_optn_args
+            )
+
+        # ress = differential_evolution(
+        #     obj_ftn,
+        #     bounds=bds,
+        #     args=((itp_cds_dfe.values, evs, fnt_ixs, opt_itr_cnt),),
+        #     # maxiter=500,
+        #     popsize=500,
+        #     polish=False)
+
+        tmr_end = timeit.default_timer()
+
+        # dts_wts = ress.x
+        dts_wts = opt_res.prms_modl_best.astype(np.float32)
+
+        print(dts_wts)
+
+        if False:
+            # print(f'{ress.fun:0.3E} using {opt_itr_cnt[0]} iterations')
+            print(
+                f'{opt_res.ofve_best:0.3E} using {opt_itr_cnt[0]} iterations')
+
+            print('Took', tmr_end - tmr_bgn, 'secs')
+        #==========================================================================
+
+        pts_cnt = opt_ags.cds.shape[0]
+        dts_cnt = (pts_cnt * (pts_cnt - 1)) // 2
+        dts_wtd = np.full(dts_cnt, np.nan, dtype=np.float32)
+        pts = np.full_like(opt_ags.cds, np.nan, dtype=np.float32)
+
+        cmpt_wgtd_dist(opt_ags.cds, dts_wts, dts_wtd, pts)
+
+        dts_wtd = dts_wtd[fnt_ixs]
+
+        scn = np.corrcoef(rankdata(evs), rankdata(dts_wtd))[0, 1]
+        print('SCN:', scn)
+        print('WTS:', dts_wts)
+        #======================================================================
+
+        dst_srt_ixs = np.argsort(dts_wtd)
+
+        dts = dts_wtd[dst_srt_ixs]
+        evs = evs[dst_srt_ixs]
+
+        return dts, evs,  # dts_wts
 
     def _get_evg(self, data_df):
 
@@ -302,6 +449,8 @@ class CEVG(CS):
 
         plt.title(ttl, loc='left')
 
+        # plt.xlim(0, 2e5)
+
         out_fig_path = self._cevg_figs_dir / f'{self._cevg_pref}{idntfr}.png'
 
         plt.savefig(str(out_fig_path), dpi=200, bbox_inches='tight')
@@ -316,6 +465,7 @@ class CEVG(CS):
         #======================================================================
 
         distances, evg_vals = self._get_evg(data_df)
+        # distances, evg_vals = self._get_evg_cds_tfm(data_df)
 
         np.save(
             str(self._cevg_txts_dir /
@@ -758,3 +908,74 @@ class CEVG(CS):
     __verify = verify
     __prepare = prepare
 
+
+def cmpt_evgs(pts, min_cnt_thd):
+
+    pnt_cnt = pts.shape[1]
+
+    vgs_cnt = (pnt_cnt * (pnt_cnt - 1)) // 2
+    vgs = np.full(vgs_cnt, np.nan, dtype=float)
+
+    fnt_ixs = np.isfinite(pts)
+
+    pnt_ctr = 0
+    for i in range(pnt_cnt):
+        for j in range(i + 1, pnt_cnt, 1):
+
+            fnt_ixs_lft_rht = fnt_ixs[:, i] & fnt_ixs[:, j]
+
+            if fnt_ixs_lft_rht.sum() < min_cnt_thd:
+                pnt_ctr += 1
+                continue
+
+            # From Sampson and Guttorp 1992.
+            nrm_lft = pts[:, i][fnt_ixs_lft_rht]
+            nrm_rht = pts[:, j][fnt_ixs_lft_rht]
+
+            nrm_lft -= nrm_lft.mean()
+            nrm_rht -= nrm_rht.mean()
+
+            sii = (nrm_lft ** 2).mean()
+            sjj = (nrm_rht ** 2).mean()
+
+            sij = (nrm_lft * nrm_rht).mean()
+
+            svg = sii + sjj - (2. * sij)
+
+            vgs[pnt_ctr] = svg
+
+            pnt_ctr += 1
+
+    assert pnt_ctr == vgs_cnt
+    if False: assert np.all(np.isfinite(vgs))
+
+    return vgs
+
+
+def evg_cds_tfm_obj_ftn(pms, opt_ags):
+
+    pms = pms.astype(np.float32)
+
+    cds = opt_ags.cds
+    evs = opt_ags.evs
+    fnt_ixs = opt_ags.fnt_ixs
+
+    if not hasattr(opt_ags, 'pts'):
+        pts_cnt = cds.shape[0]
+
+        dts_cnt = (pts_cnt * (pts_cnt - 1)) // 2
+
+        opt_ags.dts_wtd = np.full(dts_cnt, np.nan, dtype=np.float32)
+        opt_ags.pts = np.full_like(cds, np.nan, dtype=np.float32)
+
+    cmpt_wgtd_dist(cds, pms, opt_ags.dts_wtd, opt_ags.pts)
+
+    scn = np.corrcoef(rankdata(evs), rankdata(opt_ags.dts_wtd[fnt_ixs]))[0, 1]
+
+    return 1. - abs(scn)
+
+
+class OPTAGS:
+
+    def __init__(self):
+        return

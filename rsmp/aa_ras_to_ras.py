@@ -2054,19 +2054,22 @@ def get_src_ogl_ixs(
 
     # Scale dst cell to make it look bigger. This avoids problems with very
     # small cell overlaps.
-    if True:
-        dst_xmn -= 0.05 * (dst_xmx - dst_xmn)
-        dst_ymn -= 0.05 * (dst_ymx - dst_ymn)
+    if False:
+        xcs_dif = (dst_xmx - dst_xmn)
+        ycs_dif = (dst_ymx - dst_ymn)
 
-        dst_xmx += 0.05 * (dst_xmx - dst_xmn)
-        dst_ymx += 0.05 * (dst_ymx - dst_ymn)
+        dst_xmn -= 0.01 * xcs_dif
+        dst_ymn -= 0.01 * ycs_dif
+
+        dst_xmx += 0.01 * xcs_dif
+        dst_ymx += 0.01 * ycs_dif
     #==========================================================================
 
     src_xmn = src_xcs_ogl[0, 0]
     src_ymx = src_ycs_ogl[0, 0]
 
-    src_cel_hgt = src_xcs_ogl[0, 1] - src_xmn
-    src_cel_wdh = src_ymx - src_ycs_ogl[1, 0]
+    src_cel_wdh = src_xcs_ogl[0, 1] - src_xmn
+    src_cel_hgt = src_ymx - src_ycs_ogl[1, 0]
     #==========================================================================
 
     # Upper left.

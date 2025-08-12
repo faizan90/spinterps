@@ -18,4 +18,5 @@ from .interpmthds import (
     ExternalDriftKriging_MD,
     fill_theo_vg_vals,
     copy_2d_arr_at_idxs,
-    get_nd_dists)
+    get_nd_dists,
+    cmpt_wgtd_dist)
