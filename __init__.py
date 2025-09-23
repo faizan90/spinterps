@@ -45,4 +45,6 @@ from .crds import CrdsReProjNC
 
 from .rsmp import ResampleRasToRas, ResampleRasToRasClss, ResampleNCFToRas
 
+from .stitch import sth_rts, sth_ncs, sth_pts
+
 from .misc import get_theo_vg_vals, show_formatted_elapsed_time, ret_mp_idxs

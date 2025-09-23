@@ -31,10 +31,14 @@ class ResampleRasToRasClss(ResampleRasToRas):
         self._get_wtd_arr_ras = None
         return
 
-    def resample(self):
+    def resample(self, etr_cos):
 
         assert self._inp_set_flg
         assert self._otp_set_flg
+
+        if etr_cos is not None:
+            assert hasattr(etr_cos, '__iter__')
+            assert len(etr_cos) == len(set(etr_cos))
 
         src_crd_obj = self._get_crd_obj_ras(self._src_pth)
 
@@ -47,8 +51,8 @@ class ResampleRasToRasClss(ResampleRasToRas):
 
         dst_crd_obj = self._get_crd_obj_ras(self._dst_pth)
 
-        dst_xcs = dst_crd_obj.get_x_coordinates()
-        dst_ycs = dst_crd_obj.get_y_coordinates()
+        dst_xcs = dst_crd_obj.get_x_coordinates().astype(np.float64)
+        dst_ycs = dst_crd_obj.get_y_coordinates().astype(np.float64)
 
         dst_crd_obj = None
 
@@ -207,7 +211,29 @@ class ResampleRasToRasClss(ResampleRasToRas):
 
         if self._vb: print('Finding source unique values...')
 
-        src_uqs = [str(vle) for vle in np.unique(src_arr)]
+        src_uqs = [vle for vle in np.unique(src_arr)]
+
+        if etr_cos is not None:
+
+            if self._vb:
+                print('Source unique values from source array:')
+                print(src_uqs)
+
+            etr_cos = [src_arr.dtype.type(cod) for cod in etr_cos]
+            for etr_cod in etr_cos:
+
+                if etr_cod in src_uqs: continue
+
+                src_uqs.append(etr_cod)
+
+            src_uqs = np.sort(src_uqs)
+
+            if self._vb:
+                print('Source unique values after unionization:')
+                print(src_uqs)
+
+        src_uqs = [str(vle) for vle in src_uqs]
+
         src_unq_dct = {src_uqs[i]: i for i in range(len(src_uqs))}
 
         # Meta data for Raster.

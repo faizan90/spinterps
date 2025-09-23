@@ -181,8 +181,8 @@ class ResampleNCFToRas(ResampleRasToRas):
         # NOTE: Assuming coordinates are center when 1D and corner when 2D!
         src_crd_obj = self._get_crd_obj_ncf(self._src_pth)
 
-        src_xcs = src_crd_obj.get_x_coordinates()
-        src_ycs = src_crd_obj.get_y_coordinates()
+        src_xcs = src_crd_obj.get_x_coordinates().astype(np.float64)
+        src_ycs = src_crd_obj.get_y_coordinates().astype(np.float64)
 
         src_crd_obj = None
 
@@ -227,7 +227,7 @@ class ResampleNCFToRas(ResampleRasToRas):
         else:
             raise NotImplementedError(src_xcs.ndim)
 
-        self._vrf_ncf(
+        src_xcs, src_ycs = self._vrf_ncf(
             self._src_pth, self._src_vrs, self._src_tlb, src_xcs, src_ycs)
 
         src_xcs, src_ycs = self._get_crd_msh(src_xcs, src_ycs)
@@ -846,6 +846,58 @@ class ResampleNCFToRas(ResampleRasToRas):
 
                 elif xcs.ndim == 2:
 
+                    if ncf_hdl[var].shape[1:] == xcs.shape:
+
+                        xcs_ext = np.full(
+                            (xcs.shape[0] + 1, xcs.shape[1] + 1),
+                            np.nan,
+                            dtype=np.float64)
+
+                        ycs_ext = np.full(
+                            (ycs.shape[0] + 1, ycs.shape[1] + 1),
+                            np.nan,
+                            dtype=np.float64)
+
+                        xcs_ext[:-1,:-2] = (
+                            xcs[:,:-1] - (0.5 * (xcs[:, 1:] - xcs[:,:-1])))
+
+                        xcs_ext[:-1, -2:] = (
+                            xcs[:, -2:] +
+                            (0.5 * (xcs[:, -2:] - xcs[:, -3:-1])))
+
+                        xcs_ext[-1,:-2] = (
+                            xcs[-1,:-1] - (0.5 * (xcs[-1, 1:] - xcs[-1,:-1])))
+
+                        xcs_ext[-1, -2:] = (
+                            xcs[-1, -2:] +
+                            (0.5 * (xcs[-1, -2:] - xcs[-1, -3:-1])))
+
+                        assert (xcs_ext[:, 1:] >= xcs_ext[:,:-1]).all()
+
+                        ycs_ext[:-2,:-1] = (
+                            ycs[:-1,:] + (0.5 * (ycs[:-1,:] - ycs[1:,:])))
+
+                        ycs_ext[-2:,:-1] = (
+                            ycs[-2:,:] -
+                            (0.5 * (ycs[-3:-1,:] - ycs[-2:,:])))
+
+                        ycs_ext[:-2, -1] = (
+                            ycs[:-1, -1] +
+                            (0.5 * (ycs[:-1, -1] - ycs[1:, -1])))
+
+                        ycs_ext[-2:, -1] = (
+                            ycs[ -2:, -1] -
+                            (0.5 * (ycs[-3:-1, -1] - ycs[-2:, -1])))
+
+                        assert (ycs_ext[:-1,:] >= ycs_ext[+1:,:]).all()
+
+                        xcs, ycs = xcs_ext, ycs_ext
+
+                    elif (ncf_hdl[var].shape[1:] ==
+                          (xcs.shape[0] - 1, xcs.shape[1] - 1)):
+
+                        pass
+
                     assert (xcs.shape[0], xcs.shape[1]) == (
                         ncf_hdl[var].shape[1] + 1,
                         ncf_hdl[var].shape[2] + 1), (
@@ -859,7 +911,7 @@ class ResampleNCFToRas(ResampleRasToRas):
                 else:
                     raise NotImplementedError(xcs.ndim)
 
-        return
+        return xcs, ycs
 
     def _get_crd_obj_ncf(self, inp_pth):
 

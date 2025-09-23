@@ -75,7 +75,7 @@ class CrdsReProjNC:
 
             assert src_xs.ndim == src_ys.ndim, (
                 'X ({src_xs.ndim}) and Y ({src_ys.ndim}) coordinates should '
-                'have the same nuber of dimensions!')
+                'have the same number of dimensions!')
 
             create_new_dims_flag = False
 

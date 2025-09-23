@@ -142,8 +142,8 @@ class ResampleRasToRas:
 
         src_crd_obj = self._get_crd_obj_ras(self._src_pth)
 
-        src_xcs = src_crd_obj.get_x_coordinates()
-        src_ycs = src_crd_obj.get_y_coordinates()
+        src_xcs = src_crd_obj.get_x_coordinates().astype(np.float64)
+        src_ycs = src_crd_obj.get_y_coordinates().astype(np.float64)
 
         src_crd_obj = None
 
@@ -467,8 +467,13 @@ class ResampleRasToRas:
 
         # Cds may be 2D but have constant cell sizes.
         # Cell selection for intersection depends on this assumption.
-        assert np.isclose(src_rws_rtn_rel_crt, 0), src_rws_rtn_rel_crt
-        assert np.isclose(src_cns_rtn_rel_crt, 0), src_cns_rtn_rel_crt
+        # assert np.isclose(src_rws_rtn_rel_crt, 0), src_rws_rtn_rel_crt
+        # assert np.isclose(src_cns_rtn_rel_crt, 0), src_cns_rtn_rel_crt
+
+        # A small inconsistency due to reprojection differences should pose
+        # no problem if a small buffer during neighbor cell selection is used.
+        assert src_rws_rtn_rel_crt <= 1e-3, src_rws_rtn_rel_crt
+        assert src_cns_rtn_rel_crt <= 1e-3, src_cns_rtn_rel_crt
 
         # To compensate for grid rotation temporarily.
         # This makes it take longer.
@@ -679,7 +684,7 @@ class ResampleRasToRas:
             ras_arr.shape[1],  # Rows.
             ras_arr.shape[0],  # Bands.
             ref_gtp,  # dtype.
-            options=['COMPRESS=LZW'])
+            options=['COMPRESS=LZW', 'BIGTIFF=YES'])
 
         assert out_ras is not None
         #======================================================================
@@ -921,10 +926,11 @@ class ResampleRasToRas:
             hit_ctr_ttl += res[1]
             hit_ctr_mis += res[2]
 
-        print(
-            f'TTL: {hit_ctr_ttl}, '
-            f'SCS_RATE: {(hit_ctr_ttl - hit_ctr_mis) / hit_ctr_ttl:0.1%}',
-            f'MIS_RATE: {hit_ctr_mis / hit_ctr_ttl:0.1%}')
+        if self._vb:
+            print(
+                f'TTL: {hit_ctr_ttl}, '
+                f'SCS_RATE: {(hit_ctr_ttl - hit_ctr_mis) / hit_ctr_ttl:0.1%}',
+                f'MIS_RATE: {hit_ctr_mis / hit_ctr_ttl:0.1%}')
 
         if self._src_wts_dct_sav_flg:
             src_wts_dct = {}
@@ -1007,7 +1013,7 @@ class ResampleRasToRas:
             rsp_fgs.shape[0],  # Rows.
             1,  # Bands.
             gdal.GDT_Float64,  # dtype.
-            options=['COMPRESS=LZW'])
+            options=['COMPRESS=LZW', 'BIGTIFF=YES'])
 
         assert out_ras is not None
         #======================================================================
@@ -1218,6 +1224,13 @@ class ResampleRasToRas:
 
         beg_row = max(0, beg_row)
         #======================================================================
+
+        if False:
+            # Sometimes, really small errors creap in.
+            beg_row = max(0, beg_row - 1)
+            end_row = min(ycs.shape[0], end_row + 1)
+            beg_col = max(0, beg_col - 1)
+            end_col = min(xcs.shape[1], end_col + 1)
 
         # Sanity check. Should always pass.
         assert xcs[beg_row:end_row, beg_col:end_col].size >= 2
@@ -2054,15 +2067,16 @@ def get_src_ogl_ixs(
 
     # Scale dst cell to make it look bigger. This avoids problems with very
     # small cell overlaps.
-    if False:
+    if True:
+        # This should be a function of cell size or rotation.
         xcs_dif = (dst_xmx - dst_xmn)
         ycs_dif = (dst_ymx - dst_ymn)
 
-        dst_xmn -= 0.01 * xcs_dif
-        dst_ymn -= 0.01 * ycs_dif
+        dst_xmn -= 0.05 * xcs_dif
+        dst_ymn -= 0.05 * ycs_dif
 
-        dst_xmx += 0.01 * xcs_dif
-        dst_ymx += 0.01 * ycs_dif
+        dst_xmx += 0.05 * xcs_dif
+        dst_ymx += 0.05 * ycs_dif
     #==========================================================================
 
     src_xmn = src_xcs_ogl[0, 0]

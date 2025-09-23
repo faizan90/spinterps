@@ -24,20 +24,20 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'U:\fradnc')
+    main_dir = Path(r'O:\mHM\flux_data\ca_temporal_means\2000_2004\ensemble_mean')
     os.chdir(main_dir)
 
-    path_to_ncs = main_dir.glob('2023.nc')
+    path_to_ncs = main_dir.glob('ensmean_generated_discharge.nc')
 
     src_crs = 'EPSG:4326'
-    dst_crs = 'EPSG:32632'
+    dst_crs = 'EPSG:31468'
     src_x_lab = 'lon'
     src_y_lab = 'lat'
-    dst_x_lab = 'x_utm32n'
-    dst_y_lab = 'y_utm32n'
-    dim_x_lab = 'dim_lon'  # 'longitude'  # 'dimx'
-    dim_y_lab = 'dim_lat'  # 'latitude'  # 'dimy'
-    data_var = 'RW'
+    dst_x_lab = 'x_31468'
+    dst_y_lab = 'y_31468'
+    dim_x_lab = 'lon_dim'  # 'longitude'  # 'dimx'
+    dim_y_lab = 'lat_dim'  # 'latitude'  # 'dimy'
+    data_var = 'Qgen'
 
     verbose = True
     #==========================================================================
