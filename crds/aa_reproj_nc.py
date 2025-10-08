@@ -200,4 +200,7 @@ class CrdsReProjNC:
             dst_x_nc[:] = dst_xs
             dst_y_nc[:] = dst_ys
 
+            dst_x_nc.crs = str(dst_crs)
+            dst_y_nc.crs = str(dst_crs)
+
         return

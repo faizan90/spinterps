@@ -443,9 +443,11 @@ class GeomAndCrdsItsctIdxs:
 
         if self._crds_tfmr is not None:
             if self._crds_ndims == 1:
-                print(
-                    'INFO: Converting coordinates to 2D due to '
-                    'transformation!')
+
+                if self._vb:
+                    print(
+                        'INFO: Converting coordinates to 2D due to '
+                        'transformation!')
 
                 x_crds, y_crds = np.meshgrid(x_crds, y_crds)
 
