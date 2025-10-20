@@ -25,12 +25,11 @@ DEBUG_FLAG = False
 
 def main():
 
-    main_dir = Path(r'P:\HERA\river_discharge')
-    # main_dir = Path(r'P:\DEBY_ISAR\sfra\a_snip')
-    # main_dir = Path(r'P:\DEBY_ISAR\sfra\c_rescld')
+    # main_dir = Path(r'O:\mHM\flux_data\da_rsmpl_grid\deby\ensemble_mean')
+    main_dir = Path(r'P:\Downloads\aa_era_snp_nc\da_rsmpl_grid\test\test')
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'dis.HERA_v2_2013.nc')
+    in_nc_path = Path(r'era_2006_2023.nc')
     # in_nc_path = Path(r'tas_1hr_HOSTRADA-v1-0_BE_gn_2001030100-2001033123.nc')
     # in_nc_path = Path(r'RW_2007_2023.nc')
     # in_nc_path = Path(r'SIDdm_1983_2024.nc')
@@ -38,17 +37,17 @@ def main():
     nme_sfx = ''
 
     # var_label = 'tavg'  # 'pptn'  # 'petn'  # 'tx'  #'EDK'  # 'NNB'  # 'tas'  # 'RR'  # 'petn'  # 'pr'  # 'tasmin'  #
-    var_label = 'dis'  # 'ws'  # 'RW'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'IDW_000'
+    var_label = 'sd'  # 'ws'  # 'RW'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'IDW_000'
 
-    x_label = 'lon'  # 'x'  # 'longitude'  # 'X'  #
-    y_label = 'lat'  # 'y'  # 'latitude'  # 'Y'  #
-    # x_label = 'X1D'  # 'X2D'  # 'x_utm32n'  #
-    # y_label = 'Y1D'  # 'Y2D'  # 'y_utm32n'  #
+    # x_label = 'longitude'  # 'lon'  # 'x'  # 'X'  #
+    # y_label = 'latitude'  # 'lat'  # 'y'  # 'Y'  #
+    x_label = 'X1D'  # 'X2D'  # 'x_utm32n'  #
+    y_label = 'Y1D'  # 'Y2D'  # 'y_utm32n'  #
 
     time_label = 'time'
 
     # cbar_label = 'Precipitation [mm]'
-    # cbar_label = 'Snow depth [mm]'
+    cbar_label = 'Snow depth [mm]'
     # cbar_label = 'Snow melt [mm]'
     # cbar_label = 'PET [mm]'
     # cbar_label = 'Temperature [°C]'
@@ -57,7 +56,8 @@ def main():
     # cbar_label = 'Wind speed [m/s]'
     # cbar_label = 'Radiation [W/m$^2$]'
     # cbar_label = 'Humidity [%]'
-    cbar_label = 'Discharge [m$^3$/s]'
+    # cbar_label = 'Discharge [m$^3$/s]'
+    # cbar_label = 'Discharge [mm]'
 
     # cbar_label = 'Estimation variance'
 
@@ -65,22 +65,22 @@ def main():
 
     dpi = 150
 
-    # var_min_val = None
-    # var_max_val = None
+    var_min_val = None
+    var_max_val = None
 
-    var_min_val = 0
-    var_max_val = 2000
+    # var_min_val = 0
+    # var_max_val = 30
 
     # var_llm = None
-    var_ulm = None
+    # var_ulm = None
 
     var_llm = 0.0
-    # var_ulm = 100
+    var_ulm = 10000
 
-    # x_llim = None
-    # x_ulim = None
-    # y_llim = None
-    # y_ulim = None
+    x_llim = None
+    x_ulim = None
+    y_llim = None
+    y_ulim = None
 
     # x_llim = 480000
     # x_ulim = 870000
@@ -94,10 +94,10 @@ def main():
     # y_llim = 48.7856507425182286
 
     # Neckar.
-    x_llim = 8.00
-    y_ulim = 48.0
-    x_ulim = 10.5
-    y_llim = 49.5
+    # x_llim = 8.00
+    # y_ulim = 48.0
+    # x_ulim = 10.5
+    # y_llim = 49.5
 
     show_title_flag = True
     # show_title_flag = False
@@ -109,7 +109,7 @@ def main():
     nan_val = None
 
     beg_time, end_time = pd.to_datetime(
-        ['2013-05-01', '2013-06-01'],
+        ['2010-01-01', '2010-02-07'],
         format='%Y-%m-%d')
 
     # beg_time, end_time = pd.to_datetime(
@@ -121,12 +121,12 @@ def main():
     #     format='%Y%m%dT%H%M%S')
 
     # in_cat_file = Path(r'P:\DEBY_ISAR\dem\v2_500m\dem_ansys__daily\watersheds_10km_bfr.shp')
-    # in_cat_file = Path(r'P:\DEBY\bayern_epsg32632.shp')
-    # in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg32632.shp')
+    # in_cat_file = Path(r'P:\DEBY\bayern_epsg4326.shp')
+    in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg32632.shp')
     # in_cat_file = Path(r'P:\DEBY_ISAR\dem\v2_500m\dem_ansys__daily\watersheds.shp')
     # in_cat_file = Path(r'P:\DEBY_ISAR\inputs\catchment_epsg_3034.shp')
 
-    in_cat_file = None
+    # in_cat_file = None
 
     in_crds_file = None
     # in_crds_file = Path(r'../ppt_1D_gkd_dwd_crds.csv')
