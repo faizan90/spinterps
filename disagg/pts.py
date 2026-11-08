@@ -8,12 +8,13 @@ Created on 08.07.2026
 
 import sys
 import traceback as tb
+from timeit import default_timer as dt
 from multiprocessing import Pool as MPPool
 
 import numpy as np
 import pandas as pd
 
-from ..mpg import wait_for_pool_init
+from ..mpg import wait_for_pool_init, SHMARY2, fre_shm_ars
 
 REF_XCL = 'X'
 REF_YCL = 'Y'
@@ -52,7 +53,7 @@ class PointToPointDisAgg:
 
         self._vb = verbose
 
-        self._mpg_ncs = 1  # pol_sze
+        self._mpg_ncs = pol_sze
         return
 
     def set_ref(self, ref_dfe_tss, ref_dfe_cds, ref_tfq):
@@ -110,7 +111,7 @@ class PointToPointDisAgg:
 
         if self._vb: print('Calculating distances....')
 
-        self._dtc_max = 20e3
+        self._dtc_max = 50e3
 
         dtc_mtx = get_dtc_mtx(
             self._ref_dfe_cds[REF_XCL].values,
@@ -124,62 +125,69 @@ class PointToPointDisAgg:
         dts_dfs['dtc'][:] = dtc_mtx
 
         # dtc_mtx = None
-
-        dtc_dtn = []
-        # for ref_lbl in ref_dst_dfe_dts.index:
-        #
-        #     (ref_xcd,
-        #      ref_ycd) = self._ref_dfe_cds.loc[ref_lbl, [REF_XCL, REF_YCL]]
-        #
-        #     ref_tss = self._ref_dfe_tss.loc[:, ref_lbl].copy()
-        #
-        #     for dst_lbl in ref_dst_dfe_dts.columns:
-        #
-        #         if 'dtc' in slt_sts:
-        #
-        #             (dst_xcd,
-        #              dst_ycd) = self._dst_dfe_cds.loc[
-        #                  dst_lbl, [DST_XCL, DST_YCL]]
-        #
-        #             dtc_dtc = self._get_dtc(ref_xcd, ref_ycd, dst_xcd, dst_ycd)
-        #
-        #             dts_dfs['dtc'].loc[ref_lbl, dst_lbl] = dtc_dtc
-        #
-        #         if 'pcr' in slt_sts:
-        #
-        #             dst_tss = self._dst_dfe_tss.loc[:, dst_lbl].copy()
-        #
-        #             dtc_pcr = self._get_pcr(ref_tss, dst_tss)
-        #
-        #             dts_dfs['pcr'].loc[ref_lbl, dst_lbl] = dtc_pcr
-        #
-        #         if 'scr' in slt_sts:
-        #
-        #             dst_tss = self._dst_dfe_tss.loc[:, dst_lbl].copy()
-        #
-        #             dtc_scr = self._get_scr(ref_tss, dst_tss)
-        #
-        #             dts_dfs['scr'].loc[ref_lbl, dst_lbl] = dtc_scr
-        #
-        #     if False:
-        #         print(ref_lbl)
-        #         # print(1. - dts_dfs['scr'].loc[ref_lbl,:].min())
-        #         print(dts_dfs['dtc'].loc[ref_lbl,:].min())
-        #         print('\n')
-
-            # dtc_dtn.append(1. - dts_dfs['scr'].loc[ref_lbl,:].min())
+        #======================================================================
 
         if False:
-            dtc_dtn = np.array(dtc_dtn)
-            dtc_dtn.sort()
-            dtn_pbs = np.arange(1., dtc_dtn.size + 1.0) / (1.0 + dtc_dtn.size)
 
-            import matplotlib.pyplot as plt
-            plt.plot(dtc_dtn, dtn_pbs)
-            plt.grid()
-            plt.gca().set_axisbelow(True)
-            plt.xlim(0.5, 1)
-            plt.show()
+            dtc_dtn = []
+            for ref_lbl in ref_dst_dfe_dts.index:
+
+                (ref_xcd,
+                 ref_ycd) = self._ref_dfe_cds.loc[ref_lbl, [REF_XCL, REF_YCL]]
+
+                if ('pcr' in slt_sts) or ('scr' in slt_sts):
+                    ref_tss = self._ref_dfe_tss.loc[:, ref_lbl].copy()
+
+                for dst_lbl in ref_dst_dfe_dts.columns:
+
+                    if 'dtc' in slt_sts:
+
+                        (dst_xcd,
+                         dst_ycd) = self._dst_dfe_cds.loc[
+                             dst_lbl, [DST_XCL, DST_YCL]]
+
+                        dtc_dtc = self._get_dtc(
+                            ref_xcd, ref_ycd, dst_xcd, dst_ycd)
+
+                        dts_dfs['dtc'].loc[ref_lbl, dst_lbl] = dtc_dtc
+
+                    if 'pcr' in slt_sts:
+
+                        dst_tss = self._dst_dfe_tss.loc[:, dst_lbl].copy()
+
+                        dtc_pcr = self._get_pcr(ref_tss, dst_tss)
+
+                        dts_dfs['pcr'].loc[ref_lbl, dst_lbl] = dtc_pcr
+
+                    if 'scr' in slt_sts:
+
+                        dst_tss = self._dst_dfe_tss.loc[:, dst_lbl].copy()
+
+                        dtc_scr = self._get_scr(ref_tss, dst_tss)
+
+                        dts_dfs['scr'].loc[ref_lbl, dst_lbl] = dtc_scr
+
+                if False:
+                    print(ref_lbl)
+                    # print(1. - dts_dfs['scr'].loc[ref_lbl,:].min())
+                    print(dts_dfs['dtc'].loc[ref_lbl,:].min())
+                    print('\n')
+
+                # dtc_dtn.append(1. - dts_dfs['scr'].loc[ref_lbl,:].min())
+
+            if False:
+                dtc_dtn = np.array(dtc_dtn)
+                dtc_dtn.sort()
+                dtn_pbs = np.arange(
+                    1., dtc_dtn.size + 1.0) / (1.0 + dtc_dtn.size)
+
+                import matplotlib.pyplot as plt
+                plt.plot(dtc_dtn, dtn_pbs)
+                plt.grid()
+                plt.gca().set_axisbelow(True)
+                plt.xlim(0.5, 1)
+                plt.show()
+        #======================================================================
 
         assert all([np.isfinite(dts_dfs[key].values).all() for key in slt_sts])
 
@@ -219,6 +227,16 @@ class PointToPointDisAgg:
         ott_dfe_cds.update(self._dst_dfe_cds)
 
         assert np.isfinite(ott_dfe_cds.values).all()
+
+        ref_tss = SHMARY2.frm_npy_ary(self._ref_dfe_tss.values)
+        ref_ixs = self._ref_dfe_tss.index
+        ref_cls = self._ref_dfe_tss.columns
+
+        dst_tss = SHMARY2.frm_npy_ary(self._dst_dfe_tss.values)
+        dst_ixs = self._dst_dfe_tss.index
+        dst_cls = self._dst_dfe_tss.columns
+
+        ref_dst_dts = SHMARY2.frm_npy_ary(ref_dst_dfe_dts.values)
         #======================================================================
 
         if self._vb: print('Disaggregating....')
@@ -230,15 +248,29 @@ class PointToPointDisAgg:
 
             ref_lbl_srs_tss = self._ref_dfe_tss.loc[:, ott_lbl]
 
-            ref_dst_lbl_srs_dts = ref_dst_dfe_dts.loc[ott_lbl,:]
+            assert ref_lbl_srs_tss.sum() >= 0.0
 
-            dsg_ags.append((
-                self._vb,
-                ott_lbl,
-                self._dst_tfq,
-                ref_lbl_srs_tss,
-                self._dst_dfe_tss,
-                ref_dst_lbl_srs_dts))
+            # ref_dst_lbl_srs_dts = ref_dst_dfe_dts.loc[ott_lbl,:]
+
+            dsg_ags_sgl = DSGAGS()
+            dsg_ags_sgl.vb = self._vb
+            dsg_ags_sgl.ott_lbl = ott_lbl
+            dsg_ags_sgl.dst_tfq = self._dst_tfq
+
+            # dsg_ags_sgl.ref_srs_tss = ref_lbl_srs_tss
+
+            dsg_ags_sgl.ref_tss = ref_tss
+            dsg_ags_sgl.ref_ixs = ref_ixs
+            dsg_ags_sgl.ref_cls = ref_cls
+
+            dsg_ags_sgl.dst_tss = dst_tss
+            dsg_ags_sgl.dst_ixs = dst_ixs
+            dsg_ags_sgl.dst_cls = dst_cls
+
+            # dsg_ags_sgl.ref_dst_srs_dts = ref_dst_lbl_srs_dts
+            dsg_ags_sgl.ref_dst_dts = ref_dst_dts
+
+            dsg_ags.append(dsg_ags_sgl)
         #======================================================================
 
         if len(dsg_ags):
@@ -263,6 +295,11 @@ class PointToPointDisAgg:
                 ress = map(_dsg_sgl, dsg_ags)
 
             ress = list(ress)
+            #==================================================================
+
+            #==================================================================
+            for dsg_ags_sgl in dsg_ags: fre_shm_ars(dsg_ags_sgl)
+            dsg_ags = None
             #==================================================================
 
             for res in ress:
@@ -448,7 +485,41 @@ def _dsg_sgl(ags):
 
 def _dsg_sgl_org(ags):
 
-    vb, ott_lbl, dst_tfq, ref_srs_tss, dst_dfe_tss, ref_dst_srs_dts = ags
+    tmr_bgn = dt()
+
+    vb = ags.vb
+    ott_lbl = ags.ott_lbl
+    dst_tfq = ags.dst_tfq
+
+    # ref_srs_tss = ags.ref_srs_tss
+
+    ref_tss_ful = ags.ref_tss
+    ref_ixs_ful = ags.ref_ixs
+    ref_cls_ful = ags.ref_cls
+
+    dst_tss_ful = ags.dst_tss
+    dst_ixs_ful = ags.dst_ixs
+    dst_cls_ful = ags.dst_cls
+
+    # ref_dst_srs_dts = ags.ref_dst_srs_dts
+    ref_dst_dts = ags.ref_dst_dts
+
+    ref_srs_tss = pd.Series(
+        index=ref_ixs_ful,
+        data=ref_tss_ful[:, ref_cls_ful.get_loc(ott_lbl)],
+        name=ott_lbl)
+
+    ref_dst_srs_dts = pd.Series(
+        index=dst_cls_ful,
+        data=ref_dst_dts[ref_cls_ful.get_loc(ott_lbl)],
+        name=ott_lbl)
+
+    # dtc_thd = 20e3
+    #
+    # cos_nbr_ixs = ref_dst_srs_dts.values <= dtc_thd
+    #
+    # dst_tss_ful = dst_tss_ful[:, cos_nbr_ixs]
+    # dst_cls_ful = dst_cls_ful[cos_nbr_ixs]
 
     if vb: print('Started:', ott_lbl)
 
@@ -457,31 +528,38 @@ def _dsg_sgl_org(ags):
     dst_sms = 0.0
     ref_tke_ixs = []
 
-    ott_srs = pd.Series(index=dst_dfe_tss.index)
+    tps_ctr = 0
+
+    ott_srs = pd.Series(index=dst_ixs_ful, dtype=np.float32)
     ott_srs.name = ref_srs_tss.name
     for t in range(1, ref_srs_tss.shape[0]):
 
         if False and vb and (not (t % 10000)): print('Timestep:', t)
 
+        # Select ref.
         ref_idx_bgn = ref_srs_tss.index[t - 1]
         ref_idx_end = ref_srs_tss.index[t - 0]
 
         ref_sum = ref_srs_tss.loc[ref_idx_end]
         if np.isnan(ref_sum): continue
 
+        assert ref_sum >= 0.0, (
+            t, ref_idx_end, ref_sum)
+
         if False:
             print('\t', ref_sum, ref_idx_bgn, ref_idx_end)
-        #==================================================================
+        #======================================================================
+
+        # Select dst ixs.
+        ref_scs = (ref_idx_end - ref_idx_bgn).total_seconds()
 
         dst_ixs_fgs = (
-            (dst_dfe_tss.index > ref_idx_bgn) &
-            (dst_dfe_tss.index <= ref_idx_end))
+            (dst_ixs_ful > ref_idx_bgn) &
+            (dst_ixs_ful <= ref_idx_end))
 
         if not dst_ixs_fgs.any(): continue
 
-        dst_ixs = dst_dfe_tss.index[dst_ixs_fgs]
-
-        ref_scs = (ref_idx_end - ref_idx_bgn).total_seconds()
+        dst_ixs = dst_ixs_ful[dst_ixs_fgs]
 
         dst_scs = (
             dst_ixs[-1] - dst_ixs[+0] + dst_tfq).total_seconds()
@@ -489,7 +567,7 @@ def _dsg_sgl_org(ags):
         assert (dst_scs <= ref_scs) | np.isclose(ref_scs, dst_scs)
 
         if not np.isclose(ref_scs, dst_scs): continue
-        #==================================================================
+        #======================================================================
 
         ref_tke_ixs.append(ref_idx_end)
 
@@ -497,37 +575,43 @@ def _dsg_sgl_org(ags):
         if np.isclose(ref_sum, 0.0):
             ott_srs.loc[dst_ixs] = 0.0
             continue
-        #==================================================================
+        #======================================================================
 
-        dst_dfe_tss_tsp = dst_dfe_tss.loc[dst_ixs_fgs].copy()
-        dst_dfe_tss_tsp.dropna(axis=1, how='any', inplace=True)
+        # Select dst columns.
+        dst_dfe_tss_tsp = pd.DataFrame(
+            index=dst_ixs,
+            columns=dst_cls_ful,
+            data=dst_tss_ful[dst_ixs_fgs])
+
+        dst_dfe_tss_tsp = dst_dfe_tss_tsp.dropna(axis=1, how='any')
 
         vld_ixs = (dst_dfe_tss_tsp.sum(axis=0).values > 0)
 
         if vld_ixs.any(): dst_dfe_tss_tsp = dst_dfe_tss_tsp.loc[:, vld_ixs]
 
-        if not dst_dfe_tss_tsp.size: continue
-
         ref_dst_srs_dts_tsp = ref_dst_srs_dts.loc[
             dst_dfe_tss_tsp.columns].copy()
-        #==================================================================
+        #======================================================================
 
-        # Look for a nebor with a value larger than 0.
+        # Look for a nebor in dst with sum larger than 0.
         nst_flg = False
-        for nst_idx in np.argsort(ref_dst_srs_dts_tsp.values):
 
-            nst_lbl = ref_dst_srs_dts_tsp.index[nst_idx]
+        if vld_ixs.any():
 
-            dst_tss = dst_dfe_tss_tsp.loc[:, nst_lbl].values.copy()
+            for nst_idx in np.argsort(ref_dst_srs_dts_tsp.values):
 
-            assert np.isfinite(dst_tss).all()
+                nst_lbl = ref_dst_srs_dts_tsp.index[nst_idx]
 
-            dst_sum = dst_tss.sum()
+                dst_tss = dst_dfe_tss_tsp.loc[:, nst_lbl].values.copy()
 
-            if np.isclose(dst_sum, 0.0): continue
+                assert np.isfinite(dst_tss).all()
 
-            nst_flg = True
-            break
+                dst_sum = dst_tss.sum()
+
+                if np.isclose(dst_sum, 0.0): continue
+
+                nst_flg = True
+                break
 
         if nst_flg:
 
@@ -542,14 +626,15 @@ def _dsg_sgl_org(ags):
 
         else:
             # If no nebor than distribute uniformly.
-            dst_wts = dst_tss.copy()
-            dst_wts[:] = 1. / dst_wts.size
+            dst_wts = np.full(dst_ixs.size, 1. / dst_ixs.size)
 
         dsg_vls = dst_wts * ref_sum
 
-        ott_srs.loc[dst_dfe_tss_tsp.index] = dsg_vls
-        #==================================================================
-    #======================================================================
+        ott_srs.loc[dst_dfe_tss_tsp.index] = dsg_vls.astype(np.float32)
+
+        tps_ctr += 1
+        #======================================================================
+    #==========================================================================
 
     if False:
         print(
@@ -563,8 +648,35 @@ def _dsg_sgl_org(ags):
             set(nbs),
             )
 
-    assert ((ott_srs.sum() <= ref_srs_tss.sum()) or
-            np.isclose(ott_srs.sum(), ref_srs_tss.sum()))
+    ott_sum = np.nansum(ott_srs)
+    ref_sum = np.nansum(ref_srs_tss)
 
-    if vb: print('Finished:', ott_lbl)
+    assert ott_sum >= 0, (
+        'ott_sum:', ott_sum)
+
+    assert ref_sum >= 0, (
+        'ref_sum:', ref_sum)
+
+    assert ((ott_sum <= ref_sum) or np.isclose(ott_sum, ref_sum)), (
+        ott_sum, ref_sum)
+
+    tmr_end = dt()
+
+    if vb:
+        print(
+            'Finished:',
+            ott_lbl,
+            ott_srs.shape[0],
+            tps_ctr,
+            round(ott_sum, 2),
+            round(ref_sum, 2),
+            f'{tmr_end - tmr_bgn:0.2f} secs.')
+
     return ott_srs
+
+
+class DSGAGS:
+
+    def __init__(self):
+
+        return
