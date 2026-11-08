@@ -43,10 +43,12 @@ from .vgclus import ClusteredVariograms
 
 from .crds import CrdsReProjNC
 
+from .disagg import PointToPointDisAgg
+
 from .rsmp import ResampleRasToRas, ResampleRasToRasClss, ResampleNCFToRas
 from .rsmp import rsp_ncf_tme
 
-from .stitch import sth_rts, sth_ncs, sth_pts
+from .stitch import sth_rts, sth_ncs, get_ncf_vbs, sth_pts
 
 from .concat import cct_ncs
 

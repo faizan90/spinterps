@@ -163,7 +163,7 @@ def merge_ncs_time(
                         raise NotImplementedError(nc_hdl[x_coords_lab].ndim)
 
                     time_nc = out_nc_hdl.createVariable(
-                        time_lab, 'i8', dimensions=t_dim_lab)
+                        time_lab, 'd', dimensions=t_dim_lab)
 
                     data_ncs_dict = {}
                     for var_lab in var_labs:
@@ -267,7 +267,9 @@ def merge_ncs_time(
                             units=out_nc_time_units,
                             calendar=out_nc_time_calendar)
 
-                    time_vals = time_axis[:].data.astype(out_nc_time_idx.dtype)
+                    else:
+                        time_vals = time_axis[:].data.astype(
+                            out_nc_time_idx.dtype)
 
                 # Error when calendars don't match normally.
                 assert np.in1d(time_vals, out_nc_time_idx).all()

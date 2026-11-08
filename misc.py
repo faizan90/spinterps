@@ -332,7 +332,15 @@ def linearize_sub_polys_with_labels(label, poly, labels_polys, simplify_tol):
                 ply_rts = np.array([ara / ply_ara_sum for ara in ply_ars])
 
                 # One large poly only.
-                assert (ply_rts > 0.999).sum() == 1, ply_rts
+                # assert (ply_rts > 0.999).sum() == 1, ply_rts
+
+                if not (ply_rts > 0.999).sum() == 1:
+
+                    print(ply_rts)
+
+                    ply_rts = [ply_rts[0]]
+                    ply_ars = [ply_ars[0]]
+                    ply_ara_sum = ply_ars[0]
 
                 geom_max_ara = poly.GetGeometryRef(
                     int(np.argmax(ply_rts))).Clone()

@@ -56,9 +56,6 @@ def sth_ncs(ipt_ncs_phs_lbs, otp_ncf_pth, otp_dpe, cpn_lvl):
 
     out_ncf_hdl = nc.Dataset(otp_ncf_pth, 'w')
 
-    assert out_ncf_hdl is not None
-    #==========================================================================
-
     out_ncf_hdl.createDimension(ncs_vbs[kk].xlbl, otp_ary.shape[2])
 
     xcs_ncf_vbe = out_ncf_hdl.createVariable(

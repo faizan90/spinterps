@@ -26,20 +26,20 @@ def main():
     # paths_to_rass = [Path(f'{year}.nc') for year in range(2006, 2022 + 1)]
 
     # paths_to_rass = main_dir.glob('chirps-*.nc')
-    paths_to_rass = [
-        # Path(r'spinterps\pet_1D_1km_20240827/kriging.nc'),
-        # Path(r'spinterps\ppt_1D_1km_20240827/kriging.nc'),
-        # Path(r'spinterps\tg_1D_1km_20240827/kriging.nc'),
-        # Path(r'spinterps\tn_1D_1km_20240827/kriging.nc'),
-        # Path(r'spinterps\tx_1D_1km_20240827/kriging.nc'),
-        # Path(r'spinterps\tem_1h_1km_20240827/kriging.nc'),
-        Path(r'spinterps\ppt_1h_1km_20240827/kriging.nc'),
-        ]
+    # paths_to_rass = [
+    #     # Path(r'spinterps\pet_1D_1km_20240827/kriging.nc'),
+    #     # Path(r'spinterps\ppt_1D_1km_20240827/kriging.nc'),
+    #     # Path(r'spinterps\tg_1D_1km_20240827/kriging.nc'),
+    #     # Path(r'spinterps\tn_1D_1km_20240827/kriging.nc'),
+    #     # Path(r'spinterps\tx_1D_1km_20240827/kriging.nc'),
+    #     # Path(r'spinterps\tem_1h_1km_20240827/kriging.nc'),
+    #     Path(r'spinterps\ppt_1h_1km_20240827/kriging.nc'),
+    #     ]
+    #
+    # input_ras_type = 'nc'
 
-    input_ras_type = 'nc'
-
-    # paths_to_rass = [Path(r'uebk25by20230116_utm32n.tif')]
-    # input_ras_type = 'gtiff'
+    paths_to_rass = [Path(r'uebk25by20230116_utm32n.tif')]
+    input_ras_type = 'gtiff'
 
     nc_x_crds_label = 'X'
     nc_y_crds_label = 'Y'

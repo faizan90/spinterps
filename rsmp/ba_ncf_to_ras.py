@@ -598,7 +598,7 @@ class ResampleNCFToRas(ResampleRasToRas):
 
         ncf_tcs = ncf_hdl.createVariable(
             self._ncf_var_tlb,
-            'i8',
+            'd',
             dimensions=(self._ncf_dim_tlb,))
 
         ncf_xcs_1dn[:] = xcs_1dn

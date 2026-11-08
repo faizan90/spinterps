@@ -7,5 +7,5 @@ Created on 02.09.2025
 '''
 
 from .rtr import sth_rts
-from .ncf import sth_ncs
+from .ncf import sth_ncs, get_ncf_vbs
 from .pnt import sth_pts

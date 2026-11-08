@@ -408,7 +408,7 @@ def main():
         y_coords_nc[:] = krige_y_coords
 
         time_nc = out_nc.createVariable(
-            time_dim_lab, 'i8', dimensions=time_dim_lab)
+            time_dim_lab, 'd', dimensions=time_dim_lab)
 
         time_nc[:] = nc.date2num(
             fin_date_range.to_pydatetime(),

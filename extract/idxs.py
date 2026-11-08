@@ -627,7 +627,7 @@ class GeomAndCrdsItsctIdxs:
 
         else:
             raise NotImplementedError(
-                f'Mean cell size nor implmented for given number of '
+                f'Mean cell size nor implemented for given number of '
                 f'dimensions ({self._crds_ndims})!')
 
         if self._vb:

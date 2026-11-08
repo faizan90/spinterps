@@ -294,7 +294,7 @@ if __name__ == '__main__':
     assert all_stns.shape[0]
 
     in_data_df = in_data_df.loc[:, all_stns]
-    in_stns_coords_df = in_stns_coords_df.loc[all_stns, :]
+    in_stns_coords_df = in_stns_coords_df.loc[all_stns,:]
 
     #==========================================================================
     # Get stations that are around/in the bounds_shp only
@@ -339,7 +339,7 @@ if __name__ == '__main__':
 
     fin_stns = np.unique(fin_stns)
     in_data_df = in_data_df.loc[:, fin_stns]
-    in_stns_coords_df = in_stns_coords_df.loc[fin_stns, :]
+    in_stns_coords_df = in_stns_coords_df.loc[fin_stns,:]
 
     #==========================================================================
     # Read the DEM
@@ -564,7 +564,7 @@ if __name__ == '__main__':
         y_coords_nc[:] = krige_y_coords
 
         time_nc = out_nc.createVariable(
-            time_dim_lab, 'i8', dimensions=time_dim_lab)
+            time_dim_lab, 'd', dimensions=time_dim_lab)
 
         time_nc[:] = nc.date2num(
             fin_date_range.to_pydatetime(),

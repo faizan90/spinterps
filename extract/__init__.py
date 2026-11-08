@@ -4,6 +4,8 @@ Created on May 27, 2019
 @author: Faizan-Uni
 '''
 
+from pathlib import Path
+
 from .poly import ExtractPolygons
 from .point import ExtractPoints
 from .nc import ExtractNetCDFCoords, ExtractNetCDFValues
@@ -239,7 +241,21 @@ class Extract:
                 nc_vals_cls = ExtractNetCDFValues(verbose=self._vb)
 
                 nc_vals_cls.set_input(path_to_nc, variable_label, time_label)
-                nc_vals_cls.set_output(path_to_output)
+
+                if path_to_output is not None:
+
+                    ott_pth = Path(path_to_output)
+
+                else:
+                    ott_pth = None
+
+                if ((ott_pth is not None) and
+                    (ott_pth.suffix not in ('.nc', '.h5'))):
+
+                    ott_pth = ott_pth.with_stem(
+                        ott_pth.stem + "__" + variable_label)
+
+                nc_vals_cls.set_output(ott_pth)
 
                 if nc_vals_cls._out_fmt in ('h5', 'raw', 'csv', 'pkl'):
                     nc_vals_cls.extract_values(
@@ -253,7 +269,7 @@ class Extract:
                     raise ValueError(
                         f'Unknown output format: {nc_vals_cls._out_fmt}!')
 
-                if path_to_output is None:
+                if ott_pth is None:
                     ress[variable_label] = nc_vals_cls.get_values()
 
                 else:

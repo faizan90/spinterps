@@ -330,7 +330,7 @@ class SpInterpPrepare(SIBD, KDT):
         y_coords_nc[:] = self._nc_y_crds
 
         time_nc = nc_hdl.createVariable(
-            self._nc_tlab, 'i8', dimensions=dim_t_lab)
+            self._nc_tlab, 'd', dimensions=dim_t_lab)
 
         if self._index_type == 'date':
 
@@ -340,10 +340,15 @@ class SpInterpPrepare(SIBD, KDT):
                 calendar=self._nc_tcldr)
 
             # Using frequencies like 10min or 2days needs this.
-            aht_idx = self._tfreq.find(next(filter(str.isalpha, self._tfreq)))
+            # Using it later, I am not sure that this needs to be the case.
+            # Using a double type in the time variable takes care of
+            # non hour or day resolution problem.
+            if False:
+                aht_idx = self._tfreq.find(
+                    next(filter(str.isalpha, self._tfreq)))
 
-            if aht_idx > 0:
-                dat_tim_nms //= int(self._tfreq[:aht_idx])
+                if aht_idx > 0:
+                    dat_tim_nms //= int(self._tfreq[:aht_idx])
 
             time_nc[:] = dat_tim_nms
 

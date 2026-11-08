@@ -25,31 +25,29 @@ DEBUG_FLAG = False
 
 def main():
 
-    # main_dir = Path(r'O:\mHM\flux_data\da_rsmpl_grid\deby\ensemble_mean')
-    main_dir = Path(r'P:\Downloads\aa_era_snp_nc\da_rsmpl_grid\test\test')
+    main_dir = Path(r'P:\Papers\2026_d__bias_crctn_time_modl_prms_data\ba_snip_ncdf')
     os.chdir(main_dir)
 
-    in_nc_path = Path(r'era_2006_2023.nc')
-    # in_nc_path = Path(r'tas_1hr_HOSTRADA-v1-0_BE_gn_2001030100-2001033123.nc')
-    # in_nc_path = Path(r'RW_2007_2023.nc')
-    # in_nc_path = Path(r'SIDdm_1983_2024.nc')
+    in_nc_path = Path(r'NCAR_ds010.0.18990101.20220131_daily_data__europe.nc')
 
     nme_sfx = ''
 
-    # var_label = 'tavg'  # 'pptn'  # 'petn'  # 'tx'  #'EDK'  # 'NNB'  # 'tas'  # 'RR'  # 'petn'  # 'pr'  # 'tasmin'  #
-    var_label = 'sd'  # 'ws'  # 'RW'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'IDW_000'
+    # var_label = 'NNB'  # 'tavg'  # 'pptn'  # 'petn'  # 'tx'  #'EDK'  # 'tas'  # 'RR'  # 'petn'  # 'pr'  # 'tasmin'  #
+    # var_label = 'tp'  # 'ws'  # 'RW'  # 'OK__CTD'  # 'OK__DIF'  # 'OK'  # 'EST_VARS_OK'  # 'IDW_000'
+    var_label = 'slp'  # 'evabs'  # 'total_precipitation'  # 'transpiration'  #
 
-    # x_label = 'longitude'  # 'lon'  # 'x'  # 'X'  #
-    # y_label = 'latitude'  # 'lat'  # 'y'  # 'Y'  #
-    x_label = 'X1D'  # 'X2D'  # 'x_utm32n'  #
-    y_label = 'Y1D'  # 'Y2D'  # 'y_utm32n'  #
+    x_label = 'lon'  # 'longitude'  # 'X'  # 'x'  #
+    y_label = 'lat'  # 'latitude'  # 'Y'  # 'y'  #
+    # x_label = 'X1D'  # 'X2D'  # 'x_utm32n'  #
+    # y_label = 'Y1D'  # 'Y2D'  # 'y_utm32n'  #
 
-    time_label = 'time'
+    time_label = 'time'  # 'valid_time'
 
     # cbar_label = 'Precipitation [mm]'
-    cbar_label = 'Snow depth [mm]'
+    # cbar_label = 'Snow depth [mm]'
     # cbar_label = 'Snow melt [mm]'
     # cbar_label = 'PET [mm]'
+    # cbar_label = 'AET [mm]'
     # cbar_label = 'Temperature [°C]'
     # cbar_label = 'Vapor pressure [hPa]'
     # cbar_label = 'Radiation [-]'  # [j/m$^2$]'
@@ -58,6 +56,9 @@ def main():
     # cbar_label = 'Humidity [%]'
     # cbar_label = 'Discharge [m$^3$/s]'
     # cbar_label = 'Discharge [mm]'
+    # cbar_label = 'LRR [mm]'
+    # cbar_label = 'URR [mm]'
+    cbar_label = 'SLP [-]'
 
     # cbar_label = 'Estimation variance'
 
@@ -69,13 +70,13 @@ def main():
     var_max_val = None
 
     # var_min_val = 0
-    # var_max_val = 30
+    # var_max_val = 5
 
-    # var_llm = None
-    # var_ulm = None
+    var_llm = None
+    var_ulm = None
 
-    var_llm = 0.0
-    var_ulm = 10000
+    # var_llm = 0.0
+    # var_ulm = 10000
 
     x_llim = None
     x_ulim = None
@@ -99,6 +100,12 @@ def main():
     # x_ulim = 10.5
     # y_llim = 49.5
 
+    # Germany.
+    # x_llim = 5.00
+    # y_ulim = 47.0
+    # x_ulim = 16.
+    # y_llim = 55.
+
     show_title_flag = True
     # show_title_flag = False
 
@@ -108,13 +115,13 @@ def main():
     # nan_val = 9999
     nan_val = None
 
-    beg_time, end_time = pd.to_datetime(
-        ['2010-01-01', '2010-02-07'],
-        format='%Y-%m-%d')
-
     # beg_time, end_time = pd.to_datetime(
-    #     ['2023-01-02 12:00:00', '2023-01-30 12:00:00'],
-    #     format='%Y-%m-%d %H:%M:%S')
+    #     ['2020-06-01', '2020-06-30'],
+    #     format='%Y-%m-%d')
+
+    beg_time, end_time = pd.to_datetime(
+        ['2009-07-03 12:00:00', '2009-07-05 12:00:00'],
+        format='%Y-%m-%d %H:%M:%S')
 
     # beg_time, end_time = pd.to_datetime(
     #     ['20190520T070000', '20190521T070000'],
@@ -122,9 +129,11 @@ def main():
 
     # in_cat_file = Path(r'P:\DEBY_ISAR\dem\v2_500m\dem_ansys__daily\watersheds_10km_bfr.shp')
     # in_cat_file = Path(r'P:\DEBY\bayern_epsg4326.shp')
-    in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg32632.shp')
+    # in_cat_file = Path(r'P:\TUM\projects\altoetting\vector\bayern_epsg32632.shp')
     # in_cat_file = Path(r'P:\DEBY_ISAR\dem\v2_500m\dem_ansys__daily\watersheds.shp')
     # in_cat_file = Path(r'P:\DEBY_ISAR\inputs\catchment_epsg_3034.shp')
+    in_cat_file = Path(r'P:\Synchronize\GIS\GIS_Data_of_Countries\DEU_adm0.shp')
+    # in_cat_file = Path(r'P:\DEBY\domain_1km.shp')
 
     # in_cat_file = None
 
@@ -142,6 +151,11 @@ def main():
         x_crds = nc_hdl[x_label][...].data
         y_crds = nc_hdl[y_label][...].data
 
+        if False:  # For NCAR lons that span between 0 and 360.
+            ixs = x_crds > 180
+
+            x_crds[ixs] = x_crds[ixs] - 360
+
         times = nc.num2date(
             nc_hdl[time_label][:].data,
             units=nc_hdl[time_label].units,
@@ -155,7 +169,15 @@ def main():
         take_idxs_end = times.get_loc(end_time) + 1
 
         times = times[take_idxs_beg:take_idxs_end]
-        data = nc_hdl[var_label][take_idxs_beg:take_idxs_end].data
+
+        if True:
+            data = nc_hdl[var_label][take_idxs_beg:take_idxs_end].data  # * (1000.)  # (60 * 60 * 24 * 1000)
+
+        else:
+            # For Karans T_XGB files!
+            data = nc_hdl[var_label][:,:, take_idxs_beg:take_idxs_end].data
+            data = data[:,:, 0]
+            data = data[None,:,:]
 
         if nan_val is not None:
             data[data == nan_val] = np.nan

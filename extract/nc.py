@@ -760,9 +760,9 @@ class ExtractNetCDFValues:
                         # NOTE: In case of invalid numerical values, use raw
                         #       output format and post process it outside.
 
-                        nan_idxs = np.isnan(steps_data)
+                        if ignr_nan_flag:
 
-                        if (not ignr_nan_flag) and nan_idxs.any():
+                            nan_idxs = np.isnan(steps_data)
 
                             iis = extrtd_data.index[mmy_bgn_idx:mmy_end_idx]
 

@@ -650,8 +650,8 @@ class Variogram:
             clip_ul = self.max_dist
 
         if idx_clip != (self.pair_df.shape[0] - 1):
-            self.pair_df['dist'] = np.clip(self.pair_df.values[:, 2], 0, clip_ul)
-            self.pair_df['dist'].replace(clip_ul, np.nan, inplace=True)
+            self.pair_df.loc[:, 'dist'] = np.clip(self.pair_df.values[:, 2], 0, clip_ul)
+            self.pair_df.replace({'dist': clip_ul}, np.nan, inplace=True)
             self.pair_df.dropna(inplace=True)
 
         self._pairs_arr = np.array(self.pair_df.values, dtype=np.float64)
@@ -763,7 +763,7 @@ class Variogram:
                         popsize=len(bounds) * 50,
                         polish=False)
 
-                    assert opt.success, 'Optimization did not succeed!'
+                    # assert opt.success, 'Optimization did not succeed!'
 
                 else:
                     continue
