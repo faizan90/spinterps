@@ -248,16 +248,12 @@ class PointToPointDisAgg:
 
             ref_lbl_srs_tss = self._ref_dfe_tss.loc[:, ott_lbl]
 
-            assert ref_lbl_srs_tss.sum() >= 0.0
-
-            # ref_dst_lbl_srs_dts = ref_dst_dfe_dts.loc[ott_lbl,:]
+            assert ref_lbl_srs_tss.min() >= 0.0
 
             dsg_ags_sgl = DSGAGS()
             dsg_ags_sgl.vb = self._vb
             dsg_ags_sgl.ott_lbl = ott_lbl
             dsg_ags_sgl.dst_tfq = self._dst_tfq
-
-            # dsg_ags_sgl.ref_srs_tss = ref_lbl_srs_tss
 
             dsg_ags_sgl.ref_tss = ref_tss
             dsg_ags_sgl.ref_ixs = ref_ixs
@@ -267,7 +263,6 @@ class PointToPointDisAgg:
             dsg_ags_sgl.dst_ixs = dst_ixs
             dsg_ags_sgl.dst_cls = dst_cls
 
-            # dsg_ags_sgl.ref_dst_srs_dts = ref_dst_lbl_srs_dts
             dsg_ags_sgl.ref_dst_dts = ref_dst_dts
 
             dsg_ags.append(dsg_ags_sgl)
@@ -302,11 +297,15 @@ class PointToPointDisAgg:
             dsg_ags = None
             #==================================================================
 
+            if self._vb: print('Updating output DataFrame...')
+
             for res in ress:
 
                 if res is None: continue
 
-                ott_dfe_tss.update(res)
+                ott_lbl, ott_tss = res
+
+                ott_dfe_tss[ott_lbl] = ott_tss
 
             ress = None
             #==================================================================
@@ -320,6 +319,8 @@ class PointToPointDisAgg:
                 mpg_pol = None
             #==================================================================
         #======================================================================
+
+        if self._vb: print('Writing to disk...')
 
         self._ott_dfe_tss = ott_dfe_tss
         self._ott_dfe_cds = ott_dfe_cds
@@ -491,8 +492,6 @@ def _dsg_sgl_org(ags):
     ott_lbl = ags.ott_lbl
     dst_tfq = ags.dst_tfq
 
-    # ref_srs_tss = ags.ref_srs_tss
-
     ref_tss_ful = ags.ref_tss
     ref_ixs_ful = ags.ref_ixs
     ref_cls_ful = ags.ref_cls
@@ -501,7 +500,6 @@ def _dsg_sgl_org(ags):
     dst_ixs_ful = ags.dst_ixs
     dst_cls_ful = ags.dst_cls
 
-    # ref_dst_srs_dts = ags.ref_dst_srs_dts
     ref_dst_dts = ags.ref_dst_dts
 
     ref_srs_tss = pd.Series(
@@ -531,122 +529,142 @@ def _dsg_sgl_org(ags):
     tps_ctr = 0
 
     ott_srs = pd.Series(index=dst_ixs_ful, dtype=np.float32)
-    ott_srs.name = ref_srs_tss.name
-    for t in range(1, ref_srs_tss.shape[0]):
+    ott_srs.name = ott_lbl
 
-        if False and vb and (not (t % 10000)): print('Timestep:', t)
+    ott_dne_fgs = np.zeros(ref_ixs_ful.size, dtype=bool)
 
-        # Select ref.
-        ref_idx_bgn = ref_srs_tss.index[t - 1]
-        ref_idx_end = ref_srs_tss.index[t - 0]
+    # Hopefully, time res is smaller than a month.
+    lop_vbs_ful = get_lop_vbs_mhs(ref_ixs_ful)
 
-        ref_sum = ref_srs_tss.loc[ref_idx_end]
-        if np.isnan(ref_sum): continue
+    for lop_vbs in lop_vbs_ful:
 
-        assert ref_sum >= 0.0, (
-            t, ref_idx_end, ref_sum)
+        lop_lbl, lop_idx_min, lop_idx_max = lop_vbs
 
-        if False:
-            print('\t', ref_sum, ref_idx_bgn, ref_idx_end)
+        dst_tke_fgs = (
+            (dst_ixs_ful >= ref_ixs_ful[lop_idx_min]) &
+            (dst_ixs_ful <= ref_ixs_ful[lop_idx_max]))
+
+        if not dst_tke_fgs.any(): continue
+
+        dst_tke_tss = dst_tss_ful[dst_tke_fgs,:]
+        dst_tke_ixs = dst_ixs_ful[dst_tke_fgs]
+
+        if False and vb: print(lop_lbl)
         #======================================================================
 
-        # Select dst ixs.
-        ref_scs = (ref_idx_end - ref_idx_bgn).total_seconds()
+        for t in range(lop_idx_min, lop_idx_max + 1, 1):
 
-        dst_ixs_fgs = (
-            (dst_ixs_ful > ref_idx_bgn) &
-            (dst_ixs_ful <= ref_idx_end))
+            if ott_dne_fgs[t]: continue
 
-        if not dst_ixs_fgs.any(): continue
+            if False and vb and (not (t % 10000)): print('Timestep:', t)
 
-        dst_ixs = dst_ixs_ful[dst_ixs_fgs]
+            # Select ref.
+            ref_idx_bgn = ref_srs_tss.index[t - 1]
+            ref_idx_end = ref_srs_tss.index[t - 0]
 
-        dst_scs = (
-            dst_ixs[-1] - dst_ixs[+0] + dst_tfq).total_seconds()
+            ref_sum = ref_srs_tss.loc[ref_idx_end]
+            if np.isnan(ref_sum):
+                ott_dne_fgs[t] = True
+                continue
 
-        assert (dst_scs <= ref_scs) | np.isclose(ref_scs, dst_scs)
+            assert ref_sum >= 0.0, (
+                t, ref_idx_end, ref_sum)
 
-        if not np.isclose(ref_scs, dst_scs): continue
-        #======================================================================
+            if False:
+                print('\t', ref_sum, ref_idx_bgn, ref_idx_end)
+            #==================================================================
 
-        ref_tke_ixs.append(ref_idx_end)
+            # Select dst ixs.
+            ref_scs = (ref_idx_end - ref_idx_bgn).total_seconds()
 
-        # If sum of ref is zero then till here.
-        if np.isclose(ref_sum, 0.0):
-            ott_srs.loc[dst_ixs] = 0.0
-            continue
-        #======================================================================
+            dst_ixs_fgs = (
+                (dst_tke_ixs > ref_idx_bgn) &
+                (dst_tke_ixs <= ref_idx_end))
 
-        # Select dst columns.
-        dst_dfe_tss_tsp = pd.DataFrame(
-            index=dst_ixs,
-            columns=dst_cls_ful,
-            data=dst_tss_ful[dst_ixs_fgs])
+            if not dst_ixs_fgs.any():
+                ott_dne_fgs[t] = True
+                continue
 
-        dst_dfe_tss_tsp = dst_dfe_tss_tsp.dropna(axis=1, how='any')
+            dst_ixs = dst_tke_ixs[dst_ixs_fgs]
 
-        vld_ixs = (dst_dfe_tss_tsp.sum(axis=0).values > 0)
+            dst_scs = (
+                dst_ixs[-1] - dst_ixs[+0] + dst_tfq).total_seconds()
 
-        if vld_ixs.any(): dst_dfe_tss_tsp = dst_dfe_tss_tsp.loc[:, vld_ixs]
+            assert (dst_scs <= ref_scs) | np.isclose(ref_scs, dst_scs)
 
-        ref_dst_srs_dts_tsp = ref_dst_srs_dts.loc[
-            dst_dfe_tss_tsp.columns].copy()
-        #======================================================================
+            if not np.isclose(ref_scs, dst_scs):
+                ott_dne_fgs[t] = True
+                continue
+            #==================================================================
 
-        # Look for a nebor in dst with sum larger than 0.
-        nst_flg = False
+            ref_tke_ixs.append(ref_idx_end)
 
-        if vld_ixs.any():
+            # If sum of ref is zero then till here.
+            if np.isclose(ref_sum, 0.0):
+                ott_srs.loc[dst_ixs] = 0.0
+                ott_dne_fgs[t] = True
+                continue
+            #==================================================================
 
-            for nst_idx in np.argsort(ref_dst_srs_dts_tsp.values):
+            # Select dst columns.
+            dst_dfe_tss_tsp = pd.DataFrame(
+                index=dst_ixs,
+                columns=dst_cls_ful,
+                data=dst_tke_tss[dst_ixs_fgs])
 
-                nst_lbl = ref_dst_srs_dts_tsp.index[nst_idx]
+            dst_dfe_tss_tsp = dst_dfe_tss_tsp.dropna(axis=1, how='any')
 
-                dst_tss = dst_dfe_tss_tsp.loc[:, nst_lbl].values.copy()
+            vld_ixs = (dst_dfe_tss_tsp.sum(axis=0).values > 0)
 
-                assert np.isfinite(dst_tss).all()
+            if vld_ixs.any(): dst_dfe_tss_tsp = dst_dfe_tss_tsp.loc[:, vld_ixs]
 
-                dst_sum = dst_tss.sum()
+            ref_dst_srs_dts_tsp = ref_dst_srs_dts.loc[
+                dst_dfe_tss_tsp.columns].copy()
+            #==================================================================
 
-                if np.isclose(dst_sum, 0.0): continue
+            # Look for a nebor in dst with sum larger than 0.
+            nst_flg = False
 
-                nst_flg = True
-                break
+            if vld_ixs.any():
 
-        if nst_flg:
+                for nst_idx in np.argsort(ref_dst_srs_dts_tsp.values):
 
-            assert dst_sum > 0
+                    nst_lbl = ref_dst_srs_dts_tsp.index[nst_idx]
 
-            if nst_lbl not in nbs: nbs.append(nst_lbl)
+                    dst_tss = dst_dfe_tss_tsp.loc[:, nst_lbl].values.copy()
 
-            dst_sms += dst_sum
-            ref_sms += ref_sum
+                    assert np.isfinite(dst_tss).all()
 
-            dst_wts = dst_tss / dst_sum
+                    dst_sum = dst_tss.sum()
 
-        else:
-            # If no nebor than distribute uniformly.
-            dst_wts = np.full(dst_ixs.size, 1. / dst_ixs.size)
+                    if np.isclose(dst_sum, 0.0): continue
 
-        dsg_vls = dst_wts * ref_sum
+                    nst_flg = True
+                    break
 
-        ott_srs.loc[dst_dfe_tss_tsp.index] = dsg_vls.astype(np.float32)
+            if nst_flg:
 
-        tps_ctr += 1
-        #======================================================================
+                assert dst_sum > 0
+
+                if nst_lbl not in nbs: nbs.append(nst_lbl)
+
+                dst_sms += dst_sum
+                ref_sms += ref_sum
+
+                dst_wts = dst_tss / dst_sum
+
+            else:
+                # If no nebor than distribute uniformly.
+                dst_wts = np.full(dst_ixs.size, 1. / dst_ixs.size)
+
+            dsg_vls = dst_wts * ref_sum
+
+            ott_srs.loc[dst_dfe_tss_tsp.index] = dsg_vls.astype(np.float32)
+
+            tps_ctr += 1
+            ott_dne_fgs[t] = True
+            #==================================================================
     #==========================================================================
-
-    if False:
-        print(
-            # '\t',
-            ref_srs_tss.name,
-            round(ott_srs.sum(), 1),
-            round(ref_srs_tss.loc[ref_tke_ixs].sum(), 1),
-            round(ref_srs_tss.sum(), 1),
-            round(ref_sms, 1),
-            round(dst_sms, 1),
-            set(nbs),
-            )
 
     ott_sum = np.nansum(ott_srs)
     ref_sum = np.nansum(ref_srs_tss)
@@ -672,7 +690,57 @@ def _dsg_sgl_org(ags):
             round(ref_sum, 2),
             f'{tmr_end - tmr_bgn:0.2f} secs.')
 
-    return ott_srs
+    ott_tss = np.array(ott_srs.values)
+    return ott_lbl, ott_tss
+
+
+def get_lop_vbs_yer(ref_ixs_ful):
+
+    yrs = np.unique(ref_ixs_ful.year)
+
+    vbs = []
+    for yer in yrs:
+
+        ref_yer_fgs = ref_ixs_ful.year == yer
+
+        if not ref_yer_fgs.any(): continue
+
+        lop_tke_ixs = np.where(ref_yer_fgs)[0]
+
+        lop_idx_min = max(0, lop_tke_ixs[+0] - 1)
+        lop_idx_max = min(ref_ixs_ful.size - 1, lop_tke_ixs[-1] + 1)
+
+        vbs.append(((yer,), lop_idx_min, lop_idx_max))
+
+    assert len(vbs)
+    return vbs
+
+
+def get_lop_vbs_mhs(ref_ixs_ful):
+
+    yrs = np.unique(ref_ixs_ful.year)
+    mhs = np.unique(ref_ixs_ful.month)
+
+    vbs = []
+    for yer in yrs:
+
+        ref_yer_fgs = ref_ixs_ful.year == yer
+
+        for mth in mhs:
+
+            ref_mth_fgs = ref_yer_fgs & (ref_ixs_ful.month == mth)
+
+            if not ref_mth_fgs.any(): continue
+
+            lop_tke_ixs = np.where(ref_mth_fgs)[0]
+
+            lop_idx_min = max(0, lop_tke_ixs[+0] - 1)
+            lop_idx_max = min(ref_ixs_ful.size - 1, lop_tke_ixs[-1] + 1)
+
+            vbs.append(((yer, mth), lop_idx_min, lop_idx_max))
+
+    assert len(vbs)
+    return vbs
 
 
 class DSGAGS:
